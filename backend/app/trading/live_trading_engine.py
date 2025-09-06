@@ -14,6 +14,7 @@ from app.trading.alpaca_client import AlpacaClient
 from app.trading.risk_manager import RiskManager
 from app.trading.order_manager import OrderManager
 from app.trading.position_optimizer import PositionOptimizer
+from app.ai.trading_agents import AIAgentCoordinator
 from app.core.config import settings
 from app.core.exceptions import TradingError
 
@@ -25,17 +26,30 @@ class LiveTradingEngine:
     Main live trading engine that coordinates all components
     """
     
-    def __init__(self, user_id: int, symbols: List[str]):
+    def __init__(self, user_id: int, symbols: List[str], enable_ai: bool = True):
         self.user_id = user_id
         self.symbols = symbols
         self.is_running = False
         self.paper_trading = True  # Always start with paper trading
+        self.enable_ai = enable_ai
         
         # Initialize components
         self.alpaca_client = AlpacaClient(paper=True)
         self.risk_manager = RiskManager(user_id=user_id)
         self.order_manager = OrderManager(self.alpaca_client, self.risk_manager)
         self.position_optimizer = PositionOptimizer()
+        
+        # Initialize AI agents if enabled
+        if self.enable_ai:
+            try:
+                self.ai_coordinator = AIAgentCoordinator()
+                logger.info("AI agents initialized successfully")
+            except Exception as e:
+                logger.error("Failed to initialize AI agents", error=str(e))
+                self.ai_coordinator = None
+                self.enable_ai = False
+        else:
+            self.ai_coordinator = None
         
         # Trading parameters
         self.signal_check_interval = 300  # 5 minutes
@@ -131,46 +145,96 @@ class LiveTradingEngine:
         cash: float,
         current_positions: List[Dict]
     ):
-        """Analyze a symbol and execute trades if signals are strong"""
+        """Analyze a symbol and execute trades using AI-enhanced analysis"""
         try:
             if price_data is None or len(price_data) < 50:
                 logger.warning("Insufficient data for analysis", symbol=symbol)
                 return
             
-            # Run Markov analysis
-            signal_data = self._calculate_markov_signals(price_data, symbol)
-            
-            if signal_data['confidence'] < 0.7:  # High confidence threshold
-                logger.info("Low confidence signal, skipping", symbol=symbol, confidence=signal_data['confidence'])
-                return
-            
             current_price = price_data['Close'].iloc[-1]
-            signal = signal_data['signal']
-            confidence = signal_data['confidence']
             
             # Check if we already have a position
             existing_position = next(
                 (pos for pos in current_positions if pos['symbol'] == symbol), None
             )
             
-            # Calculate volatility and ATR for risk management
+            # Calculate technical indicators
+            technical_indicators = self._calculate_technical_indicators(price_data)
             atr = await self.alpaca_client.calculate_atr(symbol)
             volatility = price_data['Close'].pct_change().rolling(20).std().iloc[-1] * np.sqrt(252)
             
-            if signal == 'BUY' and not existing_position:
+            # Prepare market data for AI analysis
+            market_data = {
+                'current_price': current_price,
+                'volume': price_data['Volume'].iloc[-1] if 'Volume' in price_data.columns else 0,
+                'high_52w': price_data['High'].rolling(252).max().iloc[-1] if len(price_data) >= 252 else price_data['High'].max(),
+                'low_52w': price_data['Low'].rolling(252).min().iloc[-1] if len(price_data) >= 252 else price_data['Low'].min(),
+                'volatility': volatility
+            }
+            
+            # Run traditional Markov analysis
+            markov_analysis = self._calculate_markov_signals(price_data, symbol)
+            
+            # Use AI-enhanced analysis if available
+            if self.enable_ai and self.ai_coordinator:
+                try:
+                    ai_analysis = await self.ai_coordinator.comprehensive_analysis(
+                        symbol=symbol,
+                        market_data=market_data,
+                        technical_indicators=technical_indicators,
+                        account_info={'equity': account_value, 'cash': cash},
+                        current_positions=[{'symbol': p['symbol'], 'qty': p['qty'], 'market_value': p.get('market_value', 0)} for p in current_positions],
+                        markov_analysis=markov_analysis
+                    )
+                    
+                    # Use AI recommendation
+                    final_signal = ai_analysis.get('final_recommendation', 'HOLD')
+                    ai_confidence = ai_analysis.get('strategy_signal', {}).get('confidence', 0.0)
+                    
+                    # Require high confidence for AI signals
+                    if ai_confidence < 0.6:
+                        logger.info("Low AI confidence, using fallback", symbol=symbol, ai_confidence=ai_confidence)
+                        final_signal = markov_analysis['signal']
+                        confidence = markov_analysis['confidence']
+                    else:
+                        confidence = ai_confidence
+                        
+                    logger.info("AI analysis completed", symbol=symbol, 
+                              ai_signal=final_signal, ai_confidence=ai_confidence,
+                              markov_signal=markov_analysis['signal'], markov_confidence=markov_analysis['confidence'])
+                    
+                except Exception as e:
+                    logger.error("AI analysis failed, using Markov fallback", symbol=symbol, error=str(e))
+                    final_signal = markov_analysis['signal']
+                    confidence = markov_analysis['confidence']
+            else:
+                # Fallback to traditional Markov analysis
+                final_signal = markov_analysis['signal']
+                confidence = markov_analysis['confidence']
+            
+            # Apply confidence threshold
+            if confidence < 0.6:  # Lowered threshold slightly for AI-enhanced system
+                logger.info("Low confidence signal, skipping", symbol=symbol, confidence=confidence)
+                return
+            
+            # Execute trades based on final signal
+            if final_signal == 'BUY' and not existing_position:
                 await self._execute_buy_signal(
                     symbol, current_price, confidence, account_value, cash, volatility, atr
                 )
-            elif signal == 'SELL' and existing_position:
+            elif final_signal == 'SELL' and existing_position:
                 await self._execute_sell_signal(
                     symbol, current_price, existing_position, confidence
                 )
             
-            # Store last signal for tracking
+            # Store enhanced signal data for tracking
             self.last_signals[symbol] = {
-                'signal': signal,
+                'signal': final_signal,
                 'confidence': confidence,
                 'price': current_price,
+                'markov_signal': markov_analysis['signal'],
+                'markov_confidence': markov_analysis['confidence'],
+                'ai_enhanced': self.enable_ai and self.ai_coordinator is not None,
                 'timestamp': datetime.now()
             }
             
@@ -306,6 +370,68 @@ class LiveTradingEngine:
             
         except Exception as e:
             logger.error("Error executing sell signal", symbol=symbol, error=str(e))
+    
+    def _calculate_technical_indicators(self, price_data: pd.DataFrame) -> Dict[str, float]:
+        """Calculate technical indicators for AI analysis"""
+        try:
+            price_series = price_data['Close']
+            
+            # RSI calculation
+            gains = price_series.diff().clip(lower=0)
+            losses = (-1 * price_series.diff()).clip(lower=0)
+            avg_gains = gains.rolling(14).mean()
+            avg_losses = losses.rolling(14).mean()
+            rs = avg_gains / avg_losses
+            rsi = 100 - (100 / (1 + rs)).iloc[-1]
+            
+            # Moving averages
+            ma20 = price_series.rolling(20).mean().iloc[-1]
+            ma50 = price_series.rolling(50).mean().iloc[-1]
+            
+            # MACD
+            exp12 = price_series.ewm(span=12).mean()
+            exp26 = price_series.ewm(span=26).mean()
+            macd = (exp12 - exp26).iloc[-1]
+            
+            # ATR (simplified)
+            high_low = price_data['High'] - price_data['Low']
+            high_close = (price_data['High'] - price_data['Close'].shift()).abs()
+            low_close = (price_data['Low'] - price_data['Close'].shift()).abs()
+            ranges = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+            atr = ranges.rolling(14).mean().iloc[-1]
+            
+            # Bollinger Bands
+            sma20 = price_series.rolling(20).mean()
+            std20 = price_series.rolling(20).std()
+            bb_upper = (sma20 + 2 * std20).iloc[-1]
+            bb_lower = (sma20 - 2 * std20).iloc[-1]
+            
+            return {
+                'rsi': rsi if not pd.isna(rsi) else 50.0,
+                'ma20': ma20 if not pd.isna(ma20) else price_series.iloc[-1],
+                'ma50': ma50 if not pd.isna(ma50) else price_series.iloc[-1],
+                'macd': macd if not pd.isna(macd) else 0.0,
+                'atr': atr if not pd.isna(atr) else 0.02 * price_series.iloc[-1],
+                'bollinger_bands': {
+                    'upper': bb_upper if not pd.isna(bb_upper) else price_series.iloc[-1] * 1.02,
+                    'lower': bb_lower if not pd.isna(bb_lower) else price_series.iloc[-1] * 0.98
+                }
+            }
+            
+        except Exception as e:
+            logger.error("Error calculating technical indicators", error=str(e))
+            current_price = price_data['Close'].iloc[-1]
+            return {
+                'rsi': 50.0,
+                'ma20': current_price,
+                'ma50': current_price,
+                'macd': 0.0,
+                'atr': 0.02 * current_price,
+                'bollinger_bands': {
+                    'upper': current_price * 1.02,
+                    'lower': current_price * 0.98
+                }
+            }
     
     def _calculate_markov_signals(self, price_data: pd.DataFrame, symbol: str) -> Dict:
         """Calculate Markov trading signals from price data"""

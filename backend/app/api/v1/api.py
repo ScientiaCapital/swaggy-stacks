@@ -3,7 +3,7 @@ API v1 router configuration
 """
 
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, trading, analysis, portfolio, market_data
+from app.api.v1.endpoints import auth, trading, analysis, portfolio, market_data, ai_trading
 
 api_router = APIRouter()
 
@@ -13,3 +13,4 @@ api_router.include_router(trading.router, prefix="/trading", tags=["trading"])
 api_router.include_router(analysis.router, prefix="/analysis", tags=["analysis"])
 api_router.include_router(portfolio.router, prefix="/portfolio", tags=["portfolio"])
 api_router.include_router(market_data.router, prefix="/market-data", tags=["market-data"])
+api_router.include_router(ai_trading.router, prefix="/ai", tags=["ai-trading"])
