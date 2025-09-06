@@ -97,20 +97,32 @@ class AlpacaClient:
         time_in_force: str = "gtc",
         limit_price: Optional[float] = None,
         stop_price: Optional[float] = None,
+        trail_price: Optional[float] = None,
+        trail_percent: Optional[float] = None,
         client_order_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Execute a trading order"""
         try:
-            order = self.api.submit_order(
-                symbol=symbol,
-                qty=qty,
-                side=side,
-                type=order_type,
-                time_in_force=time_in_force,
-                limit_price=limit_price,
-                stop_price=stop_price,
-                client_order_id=client_order_id
-            )
+            order_params = {
+                'symbol': symbol,
+                'qty': qty,
+                'side': side,
+                'type': order_type,
+                'time_in_force': time_in_force,
+                'client_order_id': client_order_id
+            }
+            
+            # Add price parameters if provided
+            if limit_price is not None:
+                order_params['limit_price'] = limit_price
+            if stop_price is not None:
+                order_params['stop_price'] = stop_price
+            if trail_price is not None:
+                order_params['trail_price'] = trail_price
+            if trail_percent is not None:
+                order_params['trail_percent'] = trail_percent
+            
+            order = self.api.submit_order(**order_params)
             
             logger.info(
                 "Order submitted",
@@ -284,3 +296,151 @@ class AlpacaClient:
         except APIError as e:
             logger.error("Failed to get latest trades", error=str(e), symbols=symbols)
             raise MarketDataError(f"Failed to get latest trades: {e}")
+    
+    async def submit_bracket_order(
+        self,
+        symbol: str,
+        qty: float,
+        side: str,
+        limit_price: Optional[float] = None,
+        stop_loss_price: Optional[float] = None,
+        take_profit_price: Optional[float] = None,
+        time_in_force: str = "gtc"
+    ) -> Dict[str, Any]:
+        """
+        Submit a bracket order (main + stop loss + take profit)
+        """
+        try:
+            # Prepare bracket order parameters
+            order_class = "bracket"
+            
+            # Main order parameters
+            order_params = {
+                'symbol': symbol,
+                'qty': qty,
+                'side': side,
+                'type': 'market' if not limit_price else 'limit',
+                'time_in_force': time_in_force,
+                'order_class': order_class
+            }
+            
+            if limit_price:
+                order_params['limit_price'] = limit_price
+            
+            # Stop loss leg
+            if stop_loss_price:
+                order_params['stop_loss'] = {
+                    'stop_price': stop_loss_price,
+                    'limit_price': stop_loss_price  # Stop limit order
+                }
+            
+            # Take profit leg
+            if take_profit_price:
+                order_params['take_profit'] = {
+                    'limit_price': take_profit_price
+                }
+            
+            # Submit bracket order
+            order = self.api.submit_order(**order_params)
+            
+            logger.info(
+                "Bracket order submitted",
+                symbol=symbol,
+                qty=qty,
+                side=side,
+                limit_price=limit_price,
+                stop_loss=stop_loss_price,
+                take_profit=take_profit_price,
+                order_id=order.id
+            )
+            
+            return {
+                "id": order.id,
+                "symbol": order.symbol,
+                "qty": float(order.qty),
+                "side": order.side,
+                "type": order.type,
+                "order_class": order.order_class,
+                "status": order.status,
+                "submitted_at": order.submitted_at,
+                "limit_price": float(order.limit_price) if order.limit_price else None,
+                "stop_loss_price": stop_loss_price,
+                "take_profit_price": take_profit_price,
+                "legs": getattr(order, 'legs', [])  # Child orders
+            }
+            
+        except APIError as e:
+            logger.error("Failed to submit bracket order", error=str(e), symbol=symbol)
+            raise TradingError(f"Failed to submit bracket order: {e}")
+    
+    async def get_portfolio_history(
+        self,
+        period: str = "1M",  # 1D, 7D, 1M, 3M, 6M, 1Y, 2Y, 5Y
+        timeframe: str = "1D"  # 1Min, 5Min, 15Min, 1H, 1D
+    ) -> Dict[str, Any]:
+        """Get portfolio performance history"""
+        try:
+            history = self.api.get_portfolio_history(
+                period=period,
+                timeframe=timeframe,
+                extended_hours=False
+            )
+            
+            return {
+                "timestamp": history.timestamp,
+                "equity": [float(val) for val in history.equity],
+                "profit_loss": [float(val) for val in history.profit_loss],
+                "profit_loss_pct": [float(val) for val in history.profit_loss_pct],
+                "base_value": float(history.base_value),
+                "timeframe": history.timeframe
+            }
+            
+        except APIError as e:
+            logger.error("Failed to get portfolio history", error=str(e))
+            raise TradingError(f"Failed to get portfolio history: {e}")
+    
+    async def calculate_atr(self, symbol: str, period: int = 14) -> Optional[float]:
+        """
+        Calculate Average True Range (ATR) for volatility-based stops
+        """
+        try:
+            # Get recent daily bars
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=period * 2)  # Extra buffer
+            
+            bars = self.data_api.get_bars(
+                symbol,
+                '1Day',
+                start=start_date.isoformat(),
+                end=end_date.isoformat(),
+                limit=period + 10
+            )
+            
+            if len(bars) < period:
+                logger.warning("Insufficient data for ATR calculation", symbol=symbol)
+                return None
+            
+            # Calculate True Range for each period
+            true_ranges = []
+            for i in range(1, len(bars)):
+                current = bars[i]
+                previous = bars[i-1]
+                
+                high_low = current.h - current.l
+                high_close = abs(current.h - previous.c)
+                low_close = abs(current.l - previous.c)
+                
+                true_range = max(high_low, high_close, low_close)
+                true_ranges.append(true_range)
+            
+            # Calculate ATR (simple moving average of True Range)
+            if len(true_ranges) >= period:
+                atr = sum(true_ranges[-period:]) / period
+                logger.info("ATR calculated", symbol=symbol, atr=atr, period=period)
+                return atr
+            
+            return None
+            
+        except Exception as e:
+            logger.error("Failed to calculate ATR", error=str(e), symbol=symbol)
+            return None

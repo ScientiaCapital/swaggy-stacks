@@ -95,7 +95,9 @@ class RiskManager:
         price: float,
         account_value: float,
         volatility: Optional[float] = None,
-        confidence: Optional[float] = None
+        confidence: Optional[float] = None,
+        stop_loss_price: Optional[float] = None,
+        use_optimizer: bool = True
     ) -> float:
         """
         Calculate optimal position size based on risk parameters
@@ -106,11 +108,53 @@ class RiskManager:
             account_value: Total account value
             volatility: Stock volatility (optional)
             confidence: Strategy confidence (optional)
+            stop_loss_price: Stop loss price for risk calculation
+            use_optimizer: Whether to use advanced position optimizer
         
         Returns:
             float: Recommended position size in dollars
         """
         try:
+            if use_optimizer and stop_loss_price:
+                # Use advanced position optimizer if available
+                try:
+                    from app.trading.position_optimizer import PositionOptimizer
+                    
+                    optimizer = PositionOptimizer(initial_capital=account_value)
+                    
+                    # Get historical performance (simplified)
+                    historical_performance = {
+                        'win_rate': 0.6,  # From backtest results
+                        'avg_win': 0.08,
+                        'avg_loss': 0.04
+                    }
+                    
+                    position_size, details = optimizer.calculate_optimal_position_size(
+                        symbol=symbol,
+                        current_price=price,
+                        account_value=account_value,
+                        signal_confidence=confidence or 0.7,
+                        stop_loss_price=stop_loss_price,
+                        symbol_volatility=volatility,
+                        historical_performance=historical_performance
+                    )
+                    
+                    logger.info(
+                        "Advanced position sizing used",
+                        symbol=symbol,
+                        position_size=position_size,
+                        kelly_fraction=details.get('kelly_fraction'),
+                        position_heat=details.get('position_heat')
+                    )
+                    
+                    return position_size
+                    
+                except ImportError:
+                    logger.warning("Position optimizer not available, using basic sizing")
+                except Exception as e:
+                    logger.error("Error with position optimizer", error=str(e))
+            
+            # Fallback to basic position sizing
             # Base position size (2% of account value)
             base_size = account_value * 0.02
             
@@ -126,6 +170,13 @@ class RiskManager:
                 confidence_adjustment = 0.5 + (confidence * 0.5)  # 0.5x to 1.0x multiplier
                 base_size *= confidence_adjustment
             
+            # Apply stop-loss based risk sizing if available
+            if stop_loss_price:
+                risk_per_share = abs(price - stop_loss_price)
+                max_risk_amount = account_value * self.max_single_stock_exposure * 0.2  # 20% of max exposure as risk
+                risk_based_size = max_risk_amount / (risk_per_share / price) if risk_per_share > 0 else base_size
+                base_size = min(base_size, risk_based_size)
+            
             # Ensure position size doesn't exceed limits
             max_size = min(
                 self.max_position_size,
@@ -139,12 +190,13 @@ class RiskManager:
             final_position_size = shares * price
             
             logger.info(
-                "Position size calculated",
+                "Basic position size calculated",
                 symbol=symbol,
                 price=price,
                 base_size=base_size,
                 final_size=final_position_size,
-                shares=shares
+                shares=shares,
+                method="basic"
             )
             
             return final_position_size
