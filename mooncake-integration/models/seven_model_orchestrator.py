@@ -21,8 +21,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 from mooncake_integration.core.mooncake_client import MooncakeTradingClient, CacheStrategy, MooncakeConfig
-from mooncake_integration.enhanced_models.mooncake_enhanced_dqn import MooncakeEnhancedDQNBrain
-from mooncake_integration.enhanced_models.mooncake_meta_orchestrator import MooncakeMetaOrchestrator
+from mooncake_integration.models.mooncake_dqn import MooncakeDQNBrain
+from mooncake_integration.models.mooncake_meta_orchestrator import MooncakeMetaOrchestrator
 
 class ModelSpecialization(Enum):
     """Specialized roles for each of the seven models"""

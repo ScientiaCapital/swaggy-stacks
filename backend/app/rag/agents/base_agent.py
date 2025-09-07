@@ -452,7 +452,7 @@ async def create_trading_agent(agent_type: str, **kwargs) -> BaseTradingAgent:
     """Factory function to create specific trading agents"""
 
     # Import consolidated strategy agent
-    from app.rag.agents.consolidated_strategy_agent import ConsolidatedStrategyAgent
+    from app.rag.agents.strategy_agent import StrategyAgent
 
     # Create agent with specified strategy
     valid_strategies = ["markov", "elliott_wave", "fibonacci", "wyckoff"]
@@ -461,7 +461,7 @@ async def create_trading_agent(agent_type: str, **kwargs) -> BaseTradingAgent:
             f"Unknown agent type: {agent_type}. Valid types: {valid_strategies}"
         )
 
-    agent = ConsolidatedStrategyAgent(strategies=[agent_type], **kwargs)
+    agent = StrategyAgent(strategies=[agent_type], **kwargs)
 
     await agent.initialize()
     return agent

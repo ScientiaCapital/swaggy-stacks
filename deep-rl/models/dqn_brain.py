@@ -11,7 +11,7 @@ import random
 from collections import deque
 from typing import Tuple, Optional, Dict, Any
 
-class EnhancedDQNBrain(nn.Module):
+class DQNBrain(nn.Module):
     """
     Enhanced DQN with LSTM for temporal patterns and dueling architecture
     
@@ -438,3 +438,7 @@ if __name__ == "__main__":
     print(f"Batch actions shape: {batch['actions'].shape}")
     
     print("Enhanced DQN Brain test completed successfully!")
+
+
+# Backward compatibility alias
+EnhancedDQNBrain = DQNBrain

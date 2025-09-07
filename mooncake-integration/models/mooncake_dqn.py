@@ -18,10 +18,10 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
-from deep_rl.models.enhanced_dqn_brain import EnhancedDQNBrain
+from deep_rl.models.dqn_brain import DQNBrain
 from mooncake_integration.core.mooncake_client import MooncakeTradingClient, CacheStrategy, MooncakeConfig
 
-class MooncakeEnhancedDQNBrain(EnhancedDQNBrain):
+class MooncakeDQNBrain(DQNBrain):
     """
     Enhanced DQN Brain with Mooncake KVCache integration
     Achieves 82% latency reduction and 525% throughput improvement
@@ -547,6 +547,10 @@ async def test_mooncake_enhanced_dqn():
     await model.optimize_for_market_conditions(0.8)  # High volatility
     
     await model.close()
+
+# Backward compatibility alias
+MooncakeEnhancedDQNBrain = MooncakeDQNBrain
+
 
 if __name__ == "__main__":
     asyncio.run(test_mooncake_enhanced_dqn())

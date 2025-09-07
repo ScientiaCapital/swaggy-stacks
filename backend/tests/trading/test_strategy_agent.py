@@ -8,8 +8,8 @@ import pandas as pd
 from datetime import datetime, timedelta
 from unittest.mock import Mock, AsyncMock, patch
 
-from app.rag.agents.consolidated_strategy_agent import (
-    ConsolidatedStrategyAgent,
+from app.rag.agents.strategy_agent import (
+    StrategyAgent,
     MarkovStrategy,
     WyckoffStrategy,
     FibonacciStrategy
@@ -300,13 +300,13 @@ class TestFibonacciStrategy:
             assert signal['action'] in ['sell', 'hold']
 
 
-class TestConsolidatedStrategyAgent:
-    """Test suite for ConsolidatedStrategyAgent"""
+class TestStrategyAgent:
+    """Test suite for StrategyAgent"""
     
     @pytest.fixture
     async def consolidated_agent(self, mock_market_research_service):
         """Create consolidated strategy agent"""
-        agent = ConsolidatedStrategyAgent(
+        agent = StrategyAgent(
             strategies=['markov', 'wyckoff', 'fibonacci'],
             use_market_research=False  # Disable for unit tests
         )
@@ -338,7 +338,7 @@ class TestConsolidatedStrategyAgent:
     
     async def test_market_research_integration(self, mock_market_research_service):
         """Test market research integration in consolidated agent"""
-        agent = ConsolidatedStrategyAgent(
+        agent = StrategyAgent(
             strategies=['markov'],
             use_market_research=True
         )
@@ -388,7 +388,7 @@ class TestConsolidatedStrategyAgent:
     async def test_strategy_plugin_loading(self):
         """Test dynamic loading of strategy plugins"""
         # Test loading subset of strategies
-        agent = ConsolidatedStrategyAgent(strategies=['markov', 'wyckoff'])
+        agent = StrategyAgent(strategies=['markov', 'wyckoff'])
         
         assert len(agent.strategies) == 2
         assert 'markov' in agent.strategies

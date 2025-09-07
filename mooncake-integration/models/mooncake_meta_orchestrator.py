@@ -20,7 +20,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
 
 from deep_rl.training.meta_orchestrator import MetaRLTradingOrchestrator
 from mooncake_integration.core.mooncake_client import MooncakeTradingClient, CacheStrategy, MooncakeConfig
-from mooncake_integration.enhanced_models.mooncake_enhanced_dqn import MooncakeEnhancedDQNBrain
+from mooncake_integration.models.mooncake_dqn import MooncakeDQNBrain
 
 class MooncakeMetaOrchestrator(MetaRLTradingOrchestrator):
     """

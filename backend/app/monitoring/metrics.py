@@ -144,6 +144,155 @@ class PrometheusMetrics:
             ['symbol'],
             registry=self.registry
         )
+
+        # CUSTOM TRADING STRATEGY PERFORMANCE METRICS - Task 1.1
+        
+        # Strategy Performance Metrics
+        self.strategy_win_loss_ratio = Gauge(
+            'trading_strategy_win_loss_ratio',
+            'Win/loss ratio for trading strategies',
+            ['strategy_name', 'symbol', 'timeframe'],
+            registry=self.registry
+        )
+        
+        self.strategy_average_profit_loss = Gauge(
+            'trading_strategy_avg_profit_loss_usd',
+            'Average profit/loss per trade in USD',
+            ['strategy_name', 'symbol', 'trade_type'],
+            registry=self.registry
+        )
+        
+        self.strategy_total_trades = Counter(
+            'trading_strategy_total_trades',
+            'Total trades executed by strategy',
+            ['strategy_name', 'symbol', 'outcome'],
+            registry=self.registry
+        )
+        
+        self.strategy_success_rate = Gauge(
+            'trading_strategy_success_rate',
+            'Strategy success rate (0-1)',
+            ['strategy_name', 'symbol'],
+            registry=self.registry
+        )
+        
+        self.strategy_drawdown_current = Gauge(
+            'trading_strategy_drawdown_current_pct',
+            'Current drawdown percentage for strategy',
+            ['strategy_name'],
+            registry=self.registry
+        )
+        
+        self.strategy_drawdown_max = Gauge(
+            'trading_strategy_drawdown_max_pct',
+            'Maximum drawdown percentage for strategy',
+            ['strategy_name'],
+            registry=self.registry
+        )
+        
+        # Trade Execution Success/Failure Counters
+        self.trade_execution_total = Counter(
+            'trading_execution_total',
+            'Total trade execution attempts',
+            ['symbol', 'side', 'order_type', 'status'],
+            registry=self.registry
+        )
+        
+        self.trade_execution_failures = Counter(
+            'trading_execution_failures_total',
+            'Total trade execution failures',
+            ['symbol', 'side', 'failure_reason', 'error_type'],
+            registry=self.registry
+        )
+        
+        self.trade_execution_success_rate = Gauge(
+            'trading_execution_success_rate',
+            'Trade execution success rate (0-1)',
+            ['symbol', 'order_type'],
+            registry=self.registry
+        )
+        
+        # Portfolio Exposure and Risk Metrics Gauges
+        self.portfolio_exposure_total = Gauge(
+            'trading_portfolio_exposure_total_usd',
+            'Total portfolio exposure in USD',
+            registry=self.registry
+        )
+        
+        self.portfolio_exposure_by_sector = Gauge(
+            'trading_portfolio_exposure_by_sector_usd',
+            'Portfolio exposure by sector in USD',
+            ['sector'],
+            registry=self.registry
+        )
+        
+        self.portfolio_concentration_risk = Gauge(
+            'trading_portfolio_concentration_risk',
+            'Portfolio concentration risk score (0-1)',
+            registry=self.registry
+        )
+        
+        self.portfolio_var_daily = Gauge(
+            'trading_portfolio_var_daily_usd',
+            'Daily Value at Risk in USD',
+            ['confidence_level'],
+            registry=self.registry
+        )
+        
+        self.portfolio_beta = Gauge(
+            'trading_portfolio_beta',
+            'Portfolio beta relative to market',
+            ['benchmark'],
+            registry=self.registry
+        )
+        
+        self.position_size_risk = Gauge(
+            'trading_position_size_risk_pct',
+            'Position size as percentage of portfolio',
+            ['symbol'],
+            registry=self.registry
+        )
+        
+        # Latency Metrics for Critical Trading Operations
+        self.trade_execution_latency = Histogram(
+            'trading_execution_latency_seconds',
+            'Trade execution latency in seconds',
+            ['operation_type', 'symbol', 'broker'],
+            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
+            registry=self.registry
+        )
+        
+        self.market_data_latency = Histogram(
+            'trading_market_data_latency_seconds',
+            'Market data retrieval latency in seconds',
+            ['data_type', 'symbol', 'source'],
+            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0],
+            registry=self.registry
+        )
+        
+        self.strategy_analysis_latency = Histogram(
+            'trading_strategy_analysis_latency_seconds',
+            'Strategy analysis computation latency in seconds',
+            ['strategy_name', 'analysis_type', 'symbol'],
+            buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0],
+            registry=self.registry
+        )
+        
+        self.order_book_latency = Histogram(
+            'trading_order_book_latency_seconds',
+            'Order book update latency in seconds',
+            ['symbol', 'exchange'],
+            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5],
+            registry=self.registry
+        )
+        
+        self.risk_check_latency = Histogram(
+            'trading_risk_check_latency_seconds',
+            'Risk management check latency in seconds',
+            ['check_type', 'symbol'],
+            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0],
+            registry=self.registry
+        )
         
         # Database Metrics
         self.db_connection_pool_size = Gauge(

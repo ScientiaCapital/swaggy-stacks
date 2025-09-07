@@ -3,8 +3,8 @@ Markov Trading Agent - Compatibility Wrapper
 This file maintains backwards compatibility while using the consolidated strategy system
 """
 
-from app.rag.agents.consolidated_strategy_agent import (
-    ConsolidatedStrategyAgent,
+from app.rag.agents.strategy_agent import (
+    StrategyAgent,
     create_markov_agent,
 )
 
@@ -19,7 +19,7 @@ def MarkovTradingAgent(**kwargs):
 
 
 # For direct class access
-MarkovAgent = ConsolidatedStrategyAgent
+MarkovAgent = StrategyAgent
 
 # Export for backwards compatibility
 __all__ = ["MarkovTradingAgent", "MarkovAgent"]

@@ -14,7 +14,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 import structlog
 
 from app.core.config import get_settings
-from app.rag.agents.consolidated_strategy_agent import ConsolidatedStrategyAgent
+from app.rag.agents.strategy_agent import StrategyAgent
 from app.trading.alpaca_client import AlpacaClient
 from app.core.cache import get_market_cache
 
@@ -243,7 +243,7 @@ class TradingDashboardWebSocket:
     
     def __init__(self):
         self.connection_manager = ConnectionManager()
-        self.trading_agent: Optional[ConsolidatedStrategyAgent] = None
+        self.trading_agent: Optional[StrategyAgent] = None
         self.alpaca_client: Optional[AlpacaClient] = None
         self.market_cache = get_market_cache()
         self.running = False
@@ -267,7 +267,7 @@ class TradingDashboardWebSocket:
         """Initialize trading components"""
         try:
             # Initialize trading agent
-            self.trading_agent = ConsolidatedStrategyAgent(
+            self.trading_agent = StrategyAgent(
                 use_market_research=True,
                 use_ai_advisor=True
             )

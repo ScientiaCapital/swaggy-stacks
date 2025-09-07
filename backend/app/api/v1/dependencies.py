@@ -23,15 +23,15 @@ from app.trading.trading_manager import TradingManager, get_trading_manager
 logger = structlog.get_logger()
 
 # Conditional import for ML features
-ConsolidatedStrategyAgent = None
+StrategyAgent = None
 if settings.ML_FEATURES_ENABLED:
     try:
-        from app.rag.agents.consolidated_strategy_agent import ConsolidatedStrategyAgent
-        logger.info("ML features enabled - ConsolidatedStrategyAgent available")
+        from app.rag.agents.strategy_agent import StrategyAgent
+        logger.info("ML features enabled - StrategyAgent available")
     except ImportError as e:
-        logger.warning(f"ML features enabled but ConsolidatedStrategyAgent unavailable: {e}")
+        logger.warning(f"ML features enabled but StrategyAgent unavailable: {e}")
 else:
-    logger.info("ML features disabled - ConsolidatedStrategyAgent not available")
+    logger.info("ML features disabled - StrategyAgent not available")
 
 # Security
 security = HTTPBearer(auto_error=False)
@@ -123,11 +123,11 @@ async def get_initialized_trading_manager(
 async def get_strategy_agent(
     strategies: Optional[List[str]] = Query(None, description="Strategies to use"),
     consensus_method: str = Query("weighted_average", description="Consensus method"),
-) -> Optional[ConsolidatedStrategyAgent]:
+) -> Optional[StrategyAgent]:
     """Get configured strategy agent (returns None if ML features disabled)"""
     # Check if ML features are enabled and agent is available
-    if ConsolidatedStrategyAgent is None:
-        logger.info("ConsolidatedStrategyAgent not available - ML features disabled or import failed")
+    if StrategyAgent is None:
+        logger.info("StrategyAgent not available - ML features disabled or import failed")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="AI strategy features are not available. Set ML_FEATURES_ENABLED=true and ensure ML dependencies are installed.",
@@ -138,7 +138,7 @@ async def get_strategy_agent(
         default_strategies = ["markov", "wyckoff", "fibonacci"]
         strategies_to_use = strategies or default_strategies
 
-        agent = ConsolidatedStrategyAgent(
+        agent = StrategyAgent(
             strategies=strategies_to_use, consensus_method=consensus_method
         )
 
