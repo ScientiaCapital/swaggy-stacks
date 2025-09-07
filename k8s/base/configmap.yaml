@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: swaggy-stacks-config
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: config
+data:
+  # Backend configuration
+  ENVIRONMENT: "production"
+  DEBUG: "false"
+  
+  # Database configuration
+  POSTGRES_DB: "swaggy_stacks"
+  POSTGRES_HOST: "postgresql-service"
+  POSTGRES_PORT: "5432"
+  
+  # Redis configuration
+  REDIS_URL: "redis://redis-service:6379/0"
+  CACHE_TTL: "3600"
+  
+  # Alpaca Trading API configuration
+  ALPACA_BASE_URL: "https://paper-api.alpaca.markets"
+  ALPACA_PAPER_TRADING: "true"
+  
+  # Application settings
+  CORS_ORIGINS: '["http://localhost:3000","https://swaggy-stacks.com"]'
+  API_V1_STR: "/api/v1"
+  PROJECT_NAME: "Swaggy Stacks"
+  
+  # AI/ML configuration
+  USE_AI_ADVISOR: "true"
+  USE_MARKET_RESEARCH: "true"
+  ANALYSIS_COMPLEXITY: "INTERMEDIATE"
+  
+  # WebSocket configuration
+  WS_HEARTBEAT_INTERVAL: "30"
+  WS_MAX_CONNECTIONS: "1000"
+  
+  # Monitoring
+  ENABLE_METRICS: "true"
+  METRICS_PORT: "8080"
+  LOG_LEVEL: "INFO"
+  STRUCTURED_LOGGING: "true"
+  
+  # Trading system settings
+  MAX_POSITION_SIZE: "0.1"
+  DAILY_LOSS_LIMIT: "0.05"
+  RISK_MANAGEMENT_ENABLED: "true"

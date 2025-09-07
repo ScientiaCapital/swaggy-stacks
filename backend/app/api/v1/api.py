@@ -14,6 +14,7 @@ from app.api.v1.endpoints import (
     monitoring,
     portfolio,
     trading,
+    websocket,
 )
 
 api_router = APIRouter()
@@ -30,3 +31,4 @@ api_router.include_router(
 api_router.include_router(ai_trading.router, prefix="/ai", tags=["ai-trading"])
 api_router.include_router(github.router, prefix="/github", tags=["github", "ci-cd"])
 api_router.include_router(monitoring.router, prefix="/monitoring", tags=["monitoring", "observability"])
+api_router.include_router(websocket.router, tags=["websocket", "real-time"])

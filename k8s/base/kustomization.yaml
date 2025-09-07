@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: swaggy-stacks-base
+  
+resources:
+- namespace.yaml
+- configmap.yaml
+- secrets.yaml
+- backend-deployment.yaml
+- frontend-deployment.yaml
+- database-deployment.yaml
+- ingress.yaml
+- monitoring.yaml
+
+commonLabels:
+  app.kubernetes.io/name: swaggy-stacks
+  app.kubernetes.io/managed-by: kustomize
+
+images:
+- name: swaggy-stacks/backend
+  newTag: latest
+- name: swaggy-stacks/frontend
+  newTag: latest

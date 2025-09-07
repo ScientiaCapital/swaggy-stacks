@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import structlog
 
 from app.analysis.consolidated_markov_system import EnhancedMarkovSystem
+from app.core.cache import get_market_cache
 from app.core.exceptions import MCPConnectionError, MCPError
 from app.core.logging import get_logger, log_execution_time
 from app.mcp.orchestrator import MCPOrchestrator, MCPServerType, get_mcp_orchestrator
@@ -90,15 +91,23 @@ class MarketResearchService:
     Provides comprehensive market intelligence using Tavily and Sequential Thinking MCP servers
     """
 
-    def __init__(self):
+    def __init__(self, use_enhanced_cache: bool = True):
         self._orchestrator: Optional[MCPOrchestrator] = None
         self._markov_system: Optional[EnhancedMarkovSystem] = None
         self._trading_manager: Optional[TradingManager] = None
         self._initialized = False
+        self.use_enhanced_cache = use_enhanced_cache
 
-        # Analysis cache
-        self._sentiment_cache: Dict[str, MarketSentiment] = {}
-        self._analysis_cache: Dict[str, ComplexAnalysisResult] = {}
+        # Enhanced caching or fallback to traditional
+        if use_enhanced_cache:
+            self._market_cache = get_market_cache()
+            logger.info("MarketResearchService using enhanced cache (TTL + Redis)")
+        else:
+            # Traditional in-memory cache
+            self._sentiment_cache: Dict[str, MarketSentiment] = {}
+            self._analysis_cache: Dict[str, ComplexAnalysisResult] = {}
+            logger.info("MarketResearchService using traditional in-memory cache")
+        
         self._cache_duration = timedelta(minutes=15)  # Cache for 15 minutes
 
         logger.info("MarketResearchService initialized")
@@ -789,20 +798,56 @@ class MarketResearchService:
             "confidence_multiplier": round(confidence, 2),
         }
 
+    async def _get_from_cache(self, key: str, cache_type: str = "general"):
+        """Get item from appropriate cache"""
+        if self.use_enhanced_cache:
+            return await self._market_cache.get(f"{cache_type}:{key}")
+        else:
+            if cache_type == "sentiment":
+                return self._sentiment_cache.get(key)
+            else:
+                return self._analysis_cache.get(key)
+
+    async def _set_in_cache(self, key: str, value: Any, cache_type: str = "general"):
+        """Set item in appropriate cache"""
+        if self.use_enhanced_cache:
+            await self._market_cache.set(f"{cache_type}:{key}", value)
+        else:
+            if cache_type == "sentiment":
+                self._sentiment_cache[key] = value
+            else:
+                self._analysis_cache[key] = value
+
     async def clear_cache(self):
         """Clear analysis cache"""
-        self._sentiment_cache.clear()
-        self._analysis_cache.clear()
-        logger.info("Market research cache cleared")
+        if self.use_enhanced_cache:
+            cleared_count = await self._market_cache.clear()
+            logger.info(f"Enhanced market research cache cleared: {cleared_count} items")
+        else:
+            sentiment_count = len(self._sentiment_cache)
+            analysis_count = len(self._analysis_cache)
+            self._sentiment_cache.clear()
+            self._analysis_cache.clear()
+            logger.info(f"Traditional market research cache cleared: {sentiment_count + analysis_count} items")
 
     async def get_cache_stats(self) -> Dict[str, Any]:
         """Get cache statistics"""
-        return {
-            "sentiment_cache_size": len(self._sentiment_cache),
-            "analysis_cache_size": len(self._analysis_cache),
-            "cache_duration_minutes": self._cache_duration.total_seconds() / 60,
-            "initialized": self._initialized,
-        }
+        if self.use_enhanced_cache:
+            cache_health = await self._market_cache.health_check()
+            return {
+                "cache_type": "enhanced_ttl_redis",
+                "cache_health": cache_health,
+                "cache_duration_minutes": self._cache_duration.total_seconds() / 60,
+                "initialized": self._initialized,
+            }
+        else:
+            return {
+                "cache_type": "traditional_memory",
+                "sentiment_cache_size": len(self._sentiment_cache),
+                "analysis_cache_size": len(self._analysis_cache),
+                "cache_duration_minutes": self._cache_duration.total_seconds() / 60,
+                "initialized": self._initialized,
+            }
 
 
 # ============================================================================

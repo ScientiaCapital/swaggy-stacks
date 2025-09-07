@@ -31,6 +31,8 @@ class MCPServerType(Enum):
     SEQUENTIAL_THINKING = "sequential_thinking"
     GITHUB = "github"
     SHRIMP_TASK_MANAGER = "shrimp_task_manager"
+    OPENAI_GPT = "openai_gpt"
+    ANTHROPIC_CLAUDE = "anthropic_claude"
 
 
 @dataclass
@@ -215,6 +217,34 @@ class MCPOrchestrator:
             env={},
             timeout=45,
             max_retries=2,
+        )
+
+        # OpenAI GPT
+        self._server_configs[MCPServerType.OPENAI_GPT] = MCPServerConfig(
+            server_type=MCPServerType.OPENAI_GPT,
+            name="OpenAI GPT",
+            command="mcp-openai",
+            args=["gpt-4"],
+            env={
+                "OPENAI_API_KEY": getattr(settings, "OPENAI_API_KEY", ""),
+            },
+            timeout=60,
+            max_retries=3,
+            enabled=bool(getattr(settings, "OPENAI_API_KEY", "")),
+        )
+
+        # Anthropic Claude
+        self._server_configs[MCPServerType.ANTHROPIC_CLAUDE] = MCPServerConfig(
+            server_type=MCPServerType.ANTHROPIC_CLAUDE,
+            name="Anthropic Claude",
+            command="mcp-anthropic",
+            args=["claude-3-5-sonnet-20241022"],
+            env={
+                "ANTHROPIC_API_KEY": getattr(settings, "ANTHROPIC_API_KEY", ""),
+            },
+            timeout=60,
+            max_retries=3,
+            enabled=bool(getattr(settings, "ANTHROPIC_API_KEY", "")),
         )
 
         # Initialize status for all servers
@@ -470,6 +500,16 @@ class MCPOrchestrator:
         return await self._call_server(
             MCPServerType.SHRIMP_TASK_MANAGER, method, **kwargs
         )
+
+    @log_execution_time()
+    async def call_openai_gpt(self, method: str, **kwargs) -> Any:
+        """Call OpenAI GPT MCP server"""
+        return await self._call_server(MCPServerType.OPENAI_GPT, method, **kwargs)
+
+    @log_execution_time()
+    async def call_anthropic_claude(self, method: str, **kwargs) -> Any:
+        """Call Anthropic Claude MCP server"""
+        return await self._call_server(MCPServerType.ANTHROPIC_CLAUDE, method, **kwargs)
 
     async def _call_server(
         self, server_type: MCPServerType, method: str, **kwargs

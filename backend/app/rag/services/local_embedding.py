@@ -17,6 +17,8 @@ import torch
 from cachetools import TTLCache
 from sentence_transformers import SentenceTransformer
 
+from app.core.cache import get_embedding_cache, EnhancedTTLCache
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,12 +46,14 @@ class LocalEmbeddingService:
         cache_ttl: int = 3600,
         use_mps: bool = True,
         batch_size: int = 8,  # Small batch size for 8GB RAM
+        use_enhanced_cache: bool = True,
     ):
         self.model_name = model_name
         self.target_dim = 1536  # SuperBPE compatibility
         self.cache_size = cache_size
         self.cache_ttl = cache_ttl
         self.batch_size = batch_size
+        self.use_enhanced_cache = use_enhanced_cache
 
         # Detect M1 GPU availability
         self.device = self._get_optimal_device(use_mps)
@@ -59,8 +63,13 @@ class LocalEmbeddingService:
         self.actual_dim = None
         self.model_version = "local-superbpe-v1.0"
 
-        # Caching for performance
-        self.embedding_cache = TTLCache(maxsize=cache_size, ttl=cache_ttl)
+        # Enhanced two-tier caching or fallback to TTLCache
+        if use_enhanced_cache:
+            self.embedding_cache = get_embedding_cache()
+            logger.info("Using enhanced two-tier cache (TTL + Redis)")
+        else:
+            self.embedding_cache = TTLCache(maxsize=cache_size, ttl=cache_ttl)
+            logger.info("Using traditional TTL cache")
 
         # Thread pool for CPU fallback
         self.executor = ThreadPoolExecutor(max_workers=2)
@@ -143,8 +152,17 @@ class LocalEmbeddingService:
         # Check cache first
         for i, text in enumerate(texts):
             cache_key = self._get_cache_key(text)
-            if cache_key in self.embedding_cache:
-                cached_embedding = self.embedding_cache[cache_key]
+            cached_embedding = None
+            
+            if self.use_enhanced_cache:
+                # Use async enhanced cache
+                cached_embedding = await self.embedding_cache.get(cache_key)
+            else:
+                # Use traditional TTLCache
+                if cache_key in self.embedding_cache:
+                    cached_embedding = self.embedding_cache[cache_key]
+            
+            if cached_embedding is not None:
                 results.append(
                     EmbeddingResult(
                         text=text,
@@ -169,7 +187,14 @@ class LocalEmbeddingService:
             # Fill in the results and cache them
             for i, result in enumerate(uncached_results):
                 cache_key = self._get_cache_key(result.text)
-                self.embedding_cache[cache_key] = result.embedding
+                
+                if self.use_enhanced_cache:
+                    # Use async enhanced cache
+                    await self.embedding_cache.set(cache_key, result.embedding)
+                else:
+                    # Use traditional TTLCache
+                    self.embedding_cache[cache_key] = result.embedding
+                
                 results[uncached_indices[i]] = result
 
         # Update stats
@@ -334,6 +359,24 @@ class LocalEmbeddingService:
 
             self.stats["memory_usage_mb"] = memory_usage
 
+            # Get cache health information
+            cache_info = {}
+            if self.use_enhanced_cache:
+                # Enhanced cache health check
+                cache_health = await self.embedding_cache.health_check()
+                cache_info = {
+                    "type": "enhanced_ttl_redis",
+                    "health": cache_health
+                }
+            else:
+                # Traditional cache info
+                cache_info = {
+                    "type": "ttl_cache",
+                    "size": len(self.embedding_cache),
+                    "maxsize": self.cache_size,
+                    "ttl": self.cache_ttl
+                }
+
             return {
                 "status": "healthy",
                 "model_name": self.model_name,
@@ -341,7 +384,7 @@ class LocalEmbeddingService:
                 "device": self.device,
                 "target_dimensions": self.target_dim,
                 "actual_dimensions": self.actual_dim,
-                "cache_size": len(self.embedding_cache),
+                "cache_info": cache_info,
                 "stats": self.stats.copy(),
                 "test_embedding_shape": (
                     test_result.embedding.shape if test_result else None
@@ -358,10 +401,16 @@ class LocalEmbeddingService:
                 "device": self.device,
             }
 
-    def clear_cache(self) -> int:
+    async def clear_cache(self) -> int:
         """Clear embedding cache and return number of items cleared"""
-        cleared_count = len(self.embedding_cache)
-        self.embedding_cache.clear()
+        if self.use_enhanced_cache:
+            # Enhanced cache clear
+            cleared_count = await self.embedding_cache.clear()
+        else:
+            # Traditional cache clear
+            cleared_count = len(self.embedding_cache)
+            self.embedding_cache.clear()
+        
         logger.info(f"Cleared {cleared_count} items from embedding cache")
         return cleared_count
 

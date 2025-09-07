@@ -24,6 +24,7 @@ from app.services.market_research import (
     MarketResearchService,
     get_market_research_service,
 )
+from app.ai.trading_advisor import AITradingAdvisor, AIAnalysisType
 
 logger = logging.getLogger(__name__)
 
@@ -466,6 +467,23 @@ class ConsolidatedStrategyAgent(BaseTradingAgent):
             "analysis_complexity", AnalysisComplexity.INTERMEDIATE
         )
 
+        # Initialize AI trading advisor
+        self.ai_advisor: Optional[AITradingAdvisor] = None
+        self.use_ai_advisor = kwargs.get("use_ai_advisor", True)
+        self.ai_analysis_types = kwargs.get("ai_analysis_types", [
+            AIAnalysisType.MARKET_SENTIMENT,
+            AIAnalysisType.TECHNICAL_ANALYSIS,
+            AIAnalysisType.RISK_ASSESSMENT
+        ])
+
+        if self.use_ai_advisor:
+            try:
+                self.ai_advisor = AITradingAdvisor()
+                logger.info("AITradingAdvisor initialized successfully")
+            except Exception as e:
+                logger.warning(f"Failed to initialize AITradingAdvisor: {e}")
+                self.use_ai_advisor = False
+
         # Default to all strategies if none specified
         strategies_to_load = strategies or list(self.AVAILABLE_STRATEGIES.keys())
 
@@ -480,7 +498,9 @@ class ConsolidatedStrategyAgent(BaseTradingAgent):
         self.consensus_method = kwargs.get("consensus_method", "weighted_average")
 
         logger.info(
-            f"ConsolidatedStrategyAgent initialized with {len(self.strategies)} strategies and market research {'enabled' if self.use_market_research else 'disabled'}"
+            f"ConsolidatedStrategyAgent initialized with {len(self.strategies)} strategies, "
+            f"market research {'enabled' if self.use_market_research else 'disabled'}, "
+            f"and AI advisor {'enabled' if self.use_ai_advisor else 'disabled'}"
         )
 
     async def _create_tools(self) -> List[Tool]:
@@ -499,7 +519,7 @@ class ConsolidatedStrategyAgent(BaseTradingAgent):
 
     async def analyze_market(self, market_data: Dict[str, Any]) -> TradingSignal:
         """
-        Multi-strategy market analysis with consensus building and market research integration
+        Multi-strategy market analysis with consensus building, market research, and AI advisor integration
         """
         try:
             symbol = market_data.get("symbol", "UNKNOWN")
@@ -542,6 +562,42 @@ class ConsolidatedStrategyAgent(BaseTradingAgent):
                         f"Market research analysis failed for {symbol}", error=str(e)
                     )
 
+            # Run AI advisor analysis if enabled
+            ai_analysis_results = {}
+            if self.use_ai_advisor and self.ai_advisor:
+                try:
+                    # Perform multiple AI analyses in parallel for different analysis types
+                    ai_tasks = []
+                    for analysis_type in self.ai_analysis_types:
+                        task = self.ai_advisor.analyze_market(
+                            symbol=symbol,
+                            market_data=market_data,
+                            analysis_type=analysis_type,
+                            context=f"Strategy context: {', '.join(self.strategies.keys())}"
+                        )
+                        ai_tasks.append((analysis_type, task))
+                    
+                    # Wait for all AI analyses to complete
+                    for analysis_type, task in ai_tasks:
+                        try:
+                            result = await task
+                            ai_analysis_results[analysis_type.value] = result
+                            logger.info(
+                                f"AI analysis completed for {symbol}",
+                                analysis_type=analysis_type.value,
+                                confidence=result.confidence,
+                                recommendation=result.recommendation
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                f"AI analysis failed for {symbol}",
+                                analysis_type=analysis_type.value,
+                                error=str(e)
+                            )
+
+                except Exception as e:
+                    logger.warning(f"AI advisor analysis failed for {symbol}", error=str(e))
+
             # Run all strategy analyses
             strategy_results = {}
             strategy_signals = {}
@@ -576,7 +632,17 @@ class ConsolidatedStrategyAgent(BaseTradingAgent):
                     confidence=market_research_signal["confidence"],
                 )
 
-            # Build consensus including market research
+            # Integrate AI advisor signals with strategy signals
+            if ai_analysis_results:
+                ai_signal = self._convert_ai_analysis_to_signal(ai_analysis_results)
+                strategy_signals["ai_advisor"] = ai_signal
+                logger.info(
+                    f"Added AI advisor signal to consensus",
+                    action=ai_signal["action"],
+                    confidence=ai_signal["confidence"],
+                )
+
+            # Build consensus including all signals (strategies, market research, AI advisor)
             consensus = self._build_consensus(strategy_signals)
 
             # Find similar patterns using combined features
@@ -584,7 +650,7 @@ class ConsolidatedStrategyAgent(BaseTradingAgent):
             similar_patterns = await self.find_similar_patterns(features)
             pattern_context = await self.get_pattern_context(features)
 
-            # Create final signal
+            # Create final signal with enhanced metadata
             final_signal = TradingSignal(
                 agent_type=self.agent_name,
                 strategy_name=self.strategy_type,
@@ -596,9 +662,15 @@ class ConsolidatedStrategyAgent(BaseTradingAgent):
                 metadata={
                     "strategy_results": strategy_results,
                     "strategy_signals": strategy_signals,
+                    "ai_analysis_results": ai_analysis_results,
                     "consensus_method": self.consensus_method,
                     "similar_patterns_count": len(similar_patterns),
                     "pattern_context_available": bool(pattern_context),
+                    "analysis_sources": {
+                        "strategies": list(self.strategies.keys()),
+                        "market_research": self.use_market_research,
+                        "ai_advisor": self.use_ai_advisor and bool(ai_analysis_results),
+                    },
                 },
             )
 
@@ -715,6 +787,103 @@ class ConsolidatedStrategyAgent(BaseTradingAgent):
                 "source": "market_research",
                 "reasoning": "Market research conversion failed",
                 "metadata": {"error": str(e)},
+            }
+
+    def _convert_ai_analysis_to_signal(
+        self, ai_analysis_results: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Convert AI advisor analysis results to strategy signal format"""
+        try:
+            if not ai_analysis_results:
+                return {
+                    "action": "hold",
+                    "confidence": 0.0,
+                    "signal_strength": 0.0,
+                    "source": "ai_advisor",
+                    "reasoning": "No AI analysis results available",
+                    "metadata": {"analysis_count": 0},
+                }
+
+            # Aggregate results from multiple AI analysis types
+            total_confidence = 0.0
+            weighted_sentiment = 0.0
+            analysis_count = 0
+            reasoning_parts = []
+            
+            for analysis_type, result in ai_analysis_results.items():
+                if hasattr(result, 'confidence') and hasattr(result, 'recommendation'):
+                    confidence = float(result.confidence)
+                    total_confidence += confidence
+                    analysis_count += 1
+                    
+                    # Convert recommendation to sentiment score
+                    recommendation = result.recommendation.lower()
+                    if "buy" in recommendation or "bullish" in recommendation:
+                        sentiment_score = 0.7
+                    elif "sell" in recommendation or "bearish" in recommendation:
+                        sentiment_score = -0.7
+                    elif "strong buy" in recommendation:
+                        sentiment_score = 0.9
+                    elif "strong sell" in recommendation:
+                        sentiment_score = -0.9
+                    else:  # hold, neutral, etc.
+                        sentiment_score = 0.0
+                    
+                    # Weight sentiment by confidence
+                    weighted_sentiment += sentiment_score * confidence
+                    
+                    # Add to reasoning
+                    reasoning_parts.append(
+                        f"{analysis_type}: {result.recommendation} ({confidence:.1%} confidence)"
+                    )
+
+            if analysis_count == 0:
+                return {
+                    "action": "hold",
+                    "confidence": 0.0,
+                    "signal_strength": 0.0,
+                    "source": "ai_advisor",
+                    "reasoning": "No valid AI analysis results",
+                    "metadata": {"analysis_count": 0},
+                }
+
+            # Calculate final metrics
+            avg_confidence = total_confidence / analysis_count
+            avg_sentiment = weighted_sentiment / total_confidence if total_confidence > 0 else 0.0
+            signal_strength = abs(avg_sentiment) * avg_confidence
+            
+            # Determine action based on weighted sentiment
+            if avg_sentiment > 0.1:
+                action = "buy"
+            elif avg_sentiment < -0.1:
+                action = "sell" 
+            else:
+                action = "hold"
+
+            return {
+                "action": action,
+                "confidence": avg_confidence,
+                "signal_strength": signal_strength,
+                "sentiment_score": avg_sentiment,
+                "source": "ai_advisor",
+                "reasoning": f"AI advisor consensus: {action} signal. " + " | ".join(reasoning_parts),
+                "metadata": {
+                    "analysis_count": analysis_count,
+                    "analysis_types": list(ai_analysis_results.keys()),
+                    "weighted_sentiment": avg_sentiment,
+                    "avg_confidence": avg_confidence,
+                },
+            }
+
+        except Exception as e:
+            logger.warning(f"Error converting AI analysis to signal: {e}")
+            return {
+                "action": "hold",
+                "confidence": 0.0,
+                "signal_strength": 0.0,
+                "source": "ai_advisor",
+                "reasoning": f"AI analysis conversion failed: {str(e)}",
+                "metadata": {"error": str(e), "analysis_count": len(ai_analysis_results)},
             }
 
     def _build_consensus(self, strategy_signals: Dict[str, Dict]) -> Dict[str, Any]:

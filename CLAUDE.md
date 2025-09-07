@@ -120,3 +120,7 @@ Required environment variables in `.env`:
 - Background tasks (market data updates, analysis) run via Celery workers
 - API follows RESTful conventions with comprehensive OpenAPI documentation
 - Frontend uses TypeScript with strict type checking enabled
+
+## Task Master AI Instructions
+**Import Task Master's development workflow commands and guidelines, treat as if import is in the main CLAUDE.md file.**
+@./.taskmaster/CLAUDE.md

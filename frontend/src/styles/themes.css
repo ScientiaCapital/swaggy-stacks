@@ -1,0 +1,280 @@
+/**
+ * Comprehensive theme system with dark/light mode support
+ * Extended color palette for trading dashboard
+ */
+
+@tailwind base;
+@tailwind components; 
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light theme colors */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+
+    --radius: 0.5rem;
+
+    /* Trading-specific colors - Light theme */
+    --profit: 142 76% 36%;           /* Green for profits */
+    --loss: 0 84% 60%;               /* Red for losses */
+    --warning: 38 92% 50%;           /* Amber for warnings */
+    --info: 199 89% 48%;             /* Blue for info */
+    
+    --chart-primary: 199 89% 48%;    /* Primary chart color */
+    --chart-secondary: 142 76% 36%;  /* Secondary chart color */
+    --chart-tertiary: 268 83% 58%;   /* Tertiary chart color */
+    --chart-quaternary: 38 92% 50%;  /* Quaternary chart color */
+    
+    --trading-buy: 142 76% 36%;      /* Buy signal color */
+    --trading-sell: 0 84% 60%;       /* Sell signal color */
+    --trading-hold: 215 16% 47%;     /* Hold signal color */
+    
+    --market-up: 142 76% 36%;        /* Market up color */
+    --market-down: 0 84% 60%;        /* Market down color */
+    --market-neutral: 215 16% 47%;   /* Market neutral color */
+    
+    --portfolio-positive: 142 76% 36%;  /* Portfolio gains */
+    --portfolio-negative: 0 84% 60%;    /* Portfolio losses */
+    --portfolio-neutral: 215 16% 47%;   /* Portfolio neutral */
+  }
+
+  .dark {
+    /* Dark theme colors */
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+
+    /* Trading-specific colors - Dark theme */
+    --profit: 142 70% 45%;           /* Brighter green for dark mode */
+    --loss: 0 72% 55%;               /* Adjusted red for dark mode */
+    --warning: 38 95% 55%;           /* Brighter amber for dark mode */
+    --info: 199 95% 55%;             /* Brighter blue for dark mode */
+    
+    --chart-primary: 199 95% 55%;    /* Primary chart color */
+    --chart-secondary: 142 70% 45%;  /* Secondary chart color */
+    --chart-tertiary: 268 85% 65%;   /* Tertiary chart color */
+    --chart-quaternary: 38 95% 55%;  /* Quaternary chart color */
+    
+    --trading-buy: 142 70% 45%;      /* Buy signal color */
+    --trading-sell: 0 72% 55%;       /* Sell signal color */
+    --trading-hold: 215 20% 65%;     /* Hold signal color */
+    
+    --market-up: 142 70% 45%;        /* Market up color */
+    --market-down: 0 72% 55%;        /* Market down color */
+    --market-neutral: 215 20% 65%;   /* Market neutral color */
+    
+    --portfolio-positive: 142 70% 45%;  /* Portfolio gains */
+    --portfolio-negative: 0 72% 55%;    /* Portfolio losses */
+    --portfolio-neutral: 215 20% 65%;   /* Portfolio neutral */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  
+  /* Smooth transitions for theme changes */
+  * {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-duration: 200ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@layer components {
+  /* Trading Dashboard Components */
+  .trading-card {
+    @apply bg-card text-card-foreground border border-border rounded-lg p-6 shadow-sm;
+  }
+  
+  .profit-text {
+    @apply text-green-600 dark:text-green-400;
+    color: hsl(var(--profit));
+  }
+  
+  .loss-text {
+    @apply text-red-600 dark:text-red-400;
+    color: hsl(var(--loss));
+  }
+  
+  .market-up {
+    @apply text-green-600 dark:text-green-400;
+    color: hsl(var(--market-up));
+  }
+  
+  .market-down {
+    @apply text-red-600 dark:text-red-400;
+    color: hsl(var(--market-down));
+  }
+  
+  .market-neutral {
+    @apply text-gray-600 dark:text-gray-400;
+    color: hsl(var(--market-neutral));
+  }
+  
+  /* Trading Signal Badges */
+  .signal-buy {
+    @apply bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800;
+  }
+  
+  .signal-sell {
+    @apply bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800;
+  }
+  
+  .signal-hold {
+    @apply bg-gray-100 dark:bg-gray-900/20 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-800;
+  }
+  
+  /* Portfolio Status */
+  .portfolio-positive {
+    @apply text-green-600 dark:text-green-400;
+    color: hsl(var(--portfolio-positive));
+  }
+  
+  .portfolio-negative {
+    @apply text-red-600 dark:text-red-400;
+    color: hsl(var(--portfolio-negative));
+  }
+  
+  .portfolio-neutral {
+    @apply text-gray-600 dark:text-gray-400;
+    color: hsl(var(--portfolio-neutral));
+  }
+  
+  /* Chart containers */
+  .chart-container {
+    @apply bg-card border border-border rounded-lg p-4;
+  }
+  
+  /* Dashboard grid */
+  .dashboard-grid {
+    @apply grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+  
+  /* Status indicators */
+  .status-healthy {
+    @apply bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300;
+  }
+  
+  .status-warning {
+    @apply bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300;
+  }
+  
+  .status-error {
+    @apply bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300;
+  }
+  
+  /* Animated elements */
+  .pulse-profit {
+    @apply animate-pulse;
+    color: hsl(var(--profit));
+  }
+  
+  .pulse-loss {
+    @apply animate-pulse;
+    color: hsl(var(--loss));
+  }
+  
+  /* WebSocket connection status */
+  .ws-connected {
+    @apply text-green-500 dark:text-green-400;
+  }
+  
+  .ws-disconnected {
+    @apply text-red-500 dark:text-red-400;
+  }
+  
+  .ws-connecting {
+    @apply text-yellow-500 dark:text-yellow-400 animate-pulse;
+  }
+}
+
+/* Custom scrollbars for dark mode */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-muted;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground;
+  }
+  
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}

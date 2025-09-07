@@ -51,9 +51,47 @@ module.exports = {
           foreground: "hsl(var(--card-foreground))",
         },
         // Trading specific colors
-        profit: "hsl(142, 76%, 36%)",
-        loss: "hsl(0, 84%, 60%)",
-        neutral: "hsl(var(--muted-foreground))",
+        profit: {
+          DEFAULT: "hsl(var(--profit))",
+          foreground: "hsl(var(--background))",
+        },
+        loss: {
+          DEFAULT: "hsl(var(--loss))",
+          foreground: "hsl(var(--background))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--background))",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          foreground: "hsl(var(--background))",
+        },
+        // Chart colors
+        chart: {
+          primary: "hsl(var(--chart-primary))",
+          secondary: "hsl(var(--chart-secondary))",
+          tertiary: "hsl(var(--chart-tertiary))",
+          quaternary: "hsl(var(--chart-quaternary))",
+        },
+        // Trading signals
+        trading: {
+          buy: "hsl(var(--trading-buy))",
+          sell: "hsl(var(--trading-sell))",
+          hold: "hsl(var(--trading-hold))",
+        },
+        // Market indicators
+        market: {
+          up: "hsl(var(--market-up))",
+          down: "hsl(var(--market-down))",
+          neutral: "hsl(var(--market-neutral))",
+        },
+        // Portfolio status
+        portfolio: {
+          positive: "hsl(var(--portfolio-positive))",
+          negative: "hsl(var(--portfolio-negative))",
+          neutral: "hsl(var(--portfolio-neutral))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
