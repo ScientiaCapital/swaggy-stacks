@@ -107,13 +107,6 @@ swaggy-stacks/
 
 **Features**: Real-time updates, dynamic filtering, cross-dashboard navigation, PDF exports
 
-### 🤖 AI Agent Dream Team
-**4 Specialized AI Agents** working together like the Avengers:
-
-- **🎯 TaskMaster-AI** - Strategic planning and complexity analysis
-- **🦐 Shrimp Task Manager** - Tactical execution and verification  
-- **🧠 Serena** - Intelligent codebase navigation and memory management
-- **💾 MCP Memory** - Knowledge graph that never forgets
 
 ### 🎲 Advanced Trading Features
 - **Enhanced Markov Analysis** - Multi-state regime detection with volatility analysis
