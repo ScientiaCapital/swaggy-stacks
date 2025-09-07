@@ -97,6 +97,15 @@ class Settings(BaseSettings):
         case_sensitive = True
         env_file = ".env"
 
+    # Email Notification Settings
+    EMAIL_HOST: str = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+    EMAIL_PORT: int = int(os.getenv("EMAIL_PORT", "587"))
+    EMAIL_USERNAME: str = os.getenv("EMAIL_USERNAME", "")
+    EMAIL_PASSWORD: str = os.getenv("EMAIL_PASSWORD", "")
+    EMAIL_FROM: str = os.getenv("EMAIL_FROM", "alerts@swaggy-stacks.com")
+    EMAIL_USE_TLS: bool = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
+    ALERT_EMAIL_TO: str = os.getenv("ALERT_EMAIL_TO", "tkipper@gmail.com")
+
 
 # Global settings instance
 settings = Settings()
