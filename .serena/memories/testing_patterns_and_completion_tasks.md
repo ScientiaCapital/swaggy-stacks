@@ -1,36 +1,38 @@
 # Testing Patterns and Task Completion Workflow
 
-## Existing Testing Infrastructure
+## Current Testing Infrastructure
 
-### Root-Level Integration Tests
-The project has comprehensive integration tests at the root level:
+### Organized Test Structure
+All tests are now properly organized in `backend/tests/`:
 
-#### Core Trading System Tests
+#### Integration Tests (`backend/tests/integration/`)
 - **`test_trading_simple.py`**: Core Alpaca integration and trading functionality
-  - Alpaca API connection testing
-  - Kelly Criterion position sizing validation
-  - Markov signal generation and validation
-  - Risk management system testing
-
 - **`test_ai_system.py`**: AI and Ollama integration testing
-  - Ollama health checks and model availability
-  - Market analysis functionality
-  - Memory usage monitoring
-  - Comprehensive AI system validation
-
 - **`test_markov_mvp.py`**: Markov analysis system validation
-  - Trading signal generation testing
-  - Market data processing validation
-  - Technical indicator calculations
-
 - **`test_live_trading_system.py`**: Complete system integration
-  - End-to-end trading workflow testing
-  - Quick signal generation validation
-  - System health monitoring
+- **`test_health_endpoints.py`**: Health check endpoint testing
+- **`test_github_endpoints.py`**: GitHub integration testing
 
-### Testing Patterns and Standards
+#### Unit Tests (`backend/tests/unit/`)
+- **`test_account_info.py`**: Account information utilities
+- **`test_free_data_sources.py`**: Free data source integrations
+- **`test_friday_prices.py`**: Price data validation
+- **`test_exceptions.py`**: Custom exception handling
+- **`test_mcp_orchestrator.py`**: MCP orchestration testing
+- **`test_github_automation.py`**: GitHub automation testing
 
-#### Async Test Patterns
+#### Specialized Tests
+- **`backend/tests/api/`**: API endpoint testing
+- **`backend/tests/mcp/`**: MCP integration testing
+- **`backend/tests/trading/`**: Trading system component testing
+
+### Root Level Utilities
+- **`backtest_markov.py`**: Backtesting framework for Markov strategies
+- **`setup_ollama_models.py`**: Ollama model configuration utility
+
+## Testing Patterns and Standards
+
+### Async Test Patterns
 ```python
 @pytest.mark.asyncio
 async def test_trading_manager_initialization():
@@ -49,38 +51,10 @@ async def test_strategy_agent_consensus():
     assert signal.confidence >= 0.0 and signal.confidence <= 1.0
 ```
 
-#### Test Data and Fixtures
-```python
-# conftest.py patterns for shared fixtures
-@pytest.fixture
-async def test_trading_manager():
-    """Provide isolated TradingManager for testing"""
-    # Setup test manager with mock configurations
-    yield manager
-    # Cleanup
-
-@pytest.fixture
-def sample_market_data():
-    """Provide consistent test market data"""
-    return {
-        'symbol': 'AAPL',
-        'price': 150.00,
-        'volume': 1000000,
-        'timestamp': datetime.now()
-    }
-```
-
-#### Mock Integration Patterns
-```python
-# Alpaca API mocking for safe testing
-@patch('app.trading.alpaca_client.TradingClient')
-async def test_order_execution_without_real_trades(mock_client):
-    """Test order execution with mocked Alpaca client"""
-    mock_client.submit_order.return_value = MockOrderResponse()
-    
-    result = await trading_manager.execute_order(test_order)
-    assert result.status == 'submitted'
-```
+### Configuration Files
+- **`backend/tests/conftest.py`**: Shared fixtures and test configuration
+- **`backend/tests/pytest.ini`**: Pytest configuration
+- **`backend/tests/run_tests.py`**: Custom test runner
 
 ## Task Completion Workflow
 
@@ -105,15 +79,16 @@ npm run type-check
 #### 2. Run Relevant Tests
 ```bash
 # Run specific tests related to your changes
-pytest tests/test_your_module.py -v
+pytest backend/tests/unit/ -v                    # Unit tests
+pytest backend/tests/integration/ -v             # Integration tests
+pytest backend/tests/trading/ -v                 # Trading system tests
 
-# Run integration tests
-python test_trading_simple.py      # If trading changes
+# Run integration tests at root level
 python test_ai_system.py          # If AI/analysis changes  
-python test_markov_mvp.py          # If Markov system changes
+python backtest_markov.py          # If Markov system changes
 
 # Full test suite (before major commits)
-pytest tests/ -v --cov=app
+cd backend && pytest tests/ -v --cov=app
 ```
 
 #### 3. System Health Validation
@@ -127,67 +102,28 @@ curl http://localhost:3000
 docker-compose logs backend | grep ERROR
 ```
 
-#### 4. Documentation Updates (If Required)
-- Update docstrings for new/modified functions
-- Update type hints and method signatures
-- Update memory files if architectural changes made
-- Update CLAUDE.md if new commands or patterns introduced
+### Current Integration Directories
 
-#### 5. Git Workflow
-```bash
-# Standard commit workflow
-git add .
-git commit -m "feat: description of changes"
+#### Active Integration Projects
+- **`deep-rl/`**: Deep Reinforcement Learning components
+  - RL training pipeline and enhanced DQN models
+  - Trading dashboard and validation framework
+  - Meta orchestrator for multi-agent coordination
 
-# For significant changes
-git push
-gh pr create --title "Feature: Description" --body "Detailed description"
-```
+- **`mooncake-integration/`**: KV-cache architecture integration
+  - Mooncake client and security implementations
+  - Enhanced models and seven-model orchestrator
+  - Performance monitoring and revenue models
 
-## Testing Strategy by Component
+- **`finrl-integration/`**: FinRL framework integration
+  - Structured for backtesting, live trading, environments
+  - Agent implementations and utilities
+  - Meta orchestrator and monitoring capabilities
 
-### Trading System Testing
-- **Unit Tests**: Individual strategy algorithms, risk calculations
-- **Integration Tests**: Alpaca API integration, database operations
-- **End-to-End**: Complete trading workflows from signal to execution
-
-### API Endpoint Testing  
-- **Request/Response Validation**: Pydantic model validation
-- **Authentication**: User authentication and authorization
-- **Error Handling**: Proper HTTP status codes and error responses
-
-### Database Testing
-- **Model Validation**: SQLAlchemy model constraints and relationships
-- **Migration Testing**: Database schema changes
-- **Data Integrity**: Referential integrity and constraints
-
-### Frontend Testing
-- **Component Testing**: Individual React component functionality
-- **Integration Testing**: API integration and data flow
-- **E2E Testing**: Complete user workflows
-
-## Continuous Integration Alignment
-
-### GitHub Actions Integration
-The project uses `.github/workflows/ci.yml` with:
-- **Backend Tests**: pytest with coverage reporting
-- **Frontend Tests**: Jest/React Testing Library
-- **Code Quality**: Linting and type checking
-- **Security Scanning**: Vulnerability assessment
-- **Docker Building**: Container build validation
-
-### Local Development Alignment
-Match CI/CD requirements locally:
-```bash
-# Run the same checks as CI
-pytest tests/ -v --cov=app --cov-report=xml
-npm test -- --coverage --watchAll=false
-black --check app/
-isort --check-only app/
-flake8 app/
-mypy app/
-npm run lint && npm run type-check
-```
+- **`api-monetization/`**: API billing and monetization system
+  - Client SDK and billing service
+  - Admin interfaces and webhook handling
+  - Deployment configurations
 
 ## Performance and Load Testing
 
@@ -201,8 +137,9 @@ npm run lint && npm run type-check
 - **Database Query Performance**: Monitor slow queries
 - **Caching Effectiveness**: Redis cache hit rates
 
-### Integration Testing Best Practices
+## Test Organization Best Practices
 - **Isolated Testing**: Each test should be independent
 - **Test Data Management**: Use fixtures and factories for consistent data
 - **Mock External Services**: Avoid dependencies on external APIs during testing
 - **Cleanup**: Ensure tests clean up after themselves
+- **Proper Location**: Integration tests test workflows, unit tests test components
