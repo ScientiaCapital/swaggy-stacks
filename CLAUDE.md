@@ -121,6 +121,169 @@ Required environment variables in `.env`:
 - API follows RESTful conventions with comprehensive OpenAPI documentation
 - Frontend uses TypeScript with strict type checking enabled
 
+## Integrated MCP Workflow for Enhanced Development 🚀
+
+**SwaggyStacks** now features a comprehensive AI-powered development ecosystem with four integrated MCP (Model Context Protocol) systems working together:
+
+### 🎯 **TaskMaster-AI** - Strategic Project Management
+- **Purpose**: High-level task planning, PRD parsing, and complexity analysis
+- **Best For**: Breaking down features into tasks, analyzing project complexity
+- **Key Commands**: `parse_prd`, `analyze_project_complexity`, `expand_task`, `get_tasks`
+- **API Configuration**: Anthropic Claude models (configured with API key)
+
+### 🦐 **Shrimp Task Manager** - Tactical Task Execution  
+- **Purpose**: Granular task breakdown, dependency management, step-by-step execution
+- **Best For**: Converting high-level tasks into executable subtasks with clear verification
+- **Key Commands**: `plan_task`, `analyze_task`, `split_tasks`, `execute_task`, `verify_task`
+- **Specialties**: Code implementation guidance, task verification, dependency tracking
+
+### 🧠 **Serena** - Intelligent Codebase Navigation
+- **Purpose**: Semantic code search, symbol-based editing, memory management
+- **Best For**: Understanding existing code, making precise edits, architectural insights
+- **Key Commands**: `find_symbol`, `get_symbols_overview`, `replace_symbol_body`, `search_for_pattern`
+- **Memory System**: Project insights, patterns, and architectural decisions
+
+### 💾 **MCP Memory** - Knowledge Graph Management
+- **Purpose**: Entity-relationship tracking, cross-project insights, knowledge persistence
+- **Best For**: Tracking project relationships, maintaining context across sessions
+- **Key Commands**: `create_entities`, `add_observations`, `search_nodes`, `read_graph`
+
+---
+
+## 🔄 **Integrated Development Workflow**
+
+### **Phase 1: Strategic Planning** 
+```bash
+# TaskMaster-AI: Parse requirements and create strategic tasks
+mcp__taskmaster-ai__parse_prd
+mcp__taskmaster-ai__analyze_project_complexity --research
+mcp__taskmaster-ai__expand_all --research
+
+# Review high-level tasks
+mcp__taskmaster-ai__get_tasks --withSubtasks
+```
+
+### **Phase 2: Tactical Breakdown**
+```bash
+# Shrimp: Convert strategic tasks into executable subtasks
+mcp__shrimp-task-manager__plan_task
+mcp__shrimp-task-manager__analyze_task  
+mcp__shrimp-task-manager__split_tasks
+
+# Review detailed implementation plan
+mcp__shrimp-task-manager__list_tasks --status=all
+```
+
+### **Phase 3: Code Implementation**
+```bash
+# Serena: Navigate and understand existing codebase
+mcp__serena__get_symbols_overview
+mcp__serena__find_symbol --include_body=true
+mcp__serena__search_for_pattern
+
+# Shrimp: Execute tasks with step-by-step guidance
+mcp__shrimp-task-manager__execute_task
+mcp__shrimp-task-manager__verify_task
+
+# Serena: Make precise code changes
+mcp__serena__replace_symbol_body
+mcp__serena__insert_after_symbol
+```
+
+### **Phase 4: Knowledge Capture**
+```bash
+# Serena: Document architectural insights
+mcp__serena__write_memory
+
+# MCP Memory: Track project entities and relationships
+mcp__memory__create_entities
+mcp__memory__add_observations
+
+# TaskMaster-AI: Update task progress
+mcp__taskmaster-ai__set_task_status --status=done
+```
+
+---
+
+## 🎯 **Best Practices for Team Development**
+
+### **Morning Standup Workflow**
+1. **TaskMaster-AI**: `get_tasks --status=pending` - Review today's strategic objectives
+2. **Shrimp**: `list_tasks --status=pending` - Check tactical implementation tasks  
+3. **Serena**: `list_memories` - Review recent architectural insights
+4. **Start with**: `mcp__shrimp-task-manager__execute_task` for immediate guidance
+
+### **Feature Development Cycle**
+1. **Planning**: TaskMaster-AI parses requirements → generates strategic tasks
+2. **Analysis**: Shrimp breaks down tasks → creates implementation plan
+3. **Research**: Serena explores codebase → provides architectural context  
+4. **Implementation**: Shrimp guides execution → Serena makes precise edits
+5. **Documentation**: Serena captures insights → Memory tracks relationships
+
+### **Code Review & Quality Assurance**
+1. **Shrimp**: `verify_task` - Comprehensive task completion verification
+2. **Serena**: `find_referencing_symbols` - Impact analysis of changes
+3. **TaskMaster-AI**: `complexity_report` - Assess overall project health
+4. **Memory**: `search_nodes` - Check for related architectural decisions
+
+---
+
+## 🛠 **Development Commands Integration**
+
+### **TaskMaster-AI Configuration**
+- **Configured**: ✅ Anthropic API key, Claude-3.5-Sonnet model
+- **Ready**: Strategic planning, PRD parsing, complexity analysis
+- **Location**: `.taskmaster/tasks/tasks.json` - Strategic task database
+
+### **Advanced Features Available**
+- **Research Mode**: Both TaskMaster-AI and Shrimp support research-backed analysis
+- **Memory Integration**: Serena and MCP Memory provide persistent knowledge
+- **Dependency Tracking**: Smart task dependencies across both systems
+- **Verification System**: Comprehensive task completion validation
+
+### **Team Coordination Commands**
+```bash
+# Quick status across all systems
+mcp__taskmaster-ai__next_task          # Get next strategic task
+mcp__shrimp-task-manager__list_tasks   # See tactical breakdown
+mcp__serena__list_memories             # Review architectural insights
+mcp__memory__read_graph                # Check knowledge graph
+
+# Deep work session
+mcp__shrimp-task-manager__execute_task # Get detailed implementation guidance
+# Follow the step-by-step instructions provided
+mcp__serena__find_symbol               # Navigate to specific code
+mcp__serena__replace_symbol_body       # Make precise changes
+mcp__shrimp-task-manager__verify_task  # Verify completion (80+ score)
+```
+
+---
+
+## 📋 **Ready for Tomorrow's Development**
+
+### ✅ **Systems Configured & Ready**
+- **TaskMaster-AI**: 8 strategic tasks planned from PRD analysis
+- **Shrimp Task Manager**: Clean slate, ready for task breakdown  
+- **Serena MCP**: 4 current project memories, codebase indexed
+- **MCP Memory**: 69 entities (cleaned), knowledge graph optimized
+
+### 🎯 **Recommended Tomorrow Workflow**
+1. **Start**: `mcp__taskmaster-ai__next_task` - Get the next strategic objective
+2. **Plan**: `mcp__shrimp-task-manager__plan_task` - Break it down tactically
+3. **Execute**: `mcp__shrimp-task-manager__execute_task` - Get step-by-step guidance
+4. **Code**: Use Serena for precise navigation and edits
+5. **Verify**: `mcp__shrimp-task-manager__verify_task` - Ensure quality (80+ score)
+6. **Document**: Capture insights in Serena memories for the team
+
+### 🚀 **Advanced Mode Active**
+All systems are configured for **advanced mode integration**:
+- Cross-system task references and dependencies
+- Shared context and memory between tools
+- Research-backed task analysis and planning
+- Comprehensive verification and quality assurance
+
+**The team is ready to deliver high-quality, architected solutions with full AI assistance! 💪**
+
 ## Task Master AI Instructions
 **Import Task Master's development workflow commands and guidelines, treat as if import is in the main CLAUDE.md file.**
 @./.taskmaster/CLAUDE.md
