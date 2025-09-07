@@ -12,7 +12,7 @@ from fastapi import Depends, Header, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.analysis.consolidated_markov_system import EnhancedMarkovSystem
+from app.analysis.markov_system import MarkovSystem
 from app.core.auth import create_jwt_exception, verify_token
 from app.core.config import settings
 from app.core.database import get_db
@@ -153,10 +153,10 @@ async def get_strategy_agent(
         )
 
 
-async def get_markov_system() -> EnhancedMarkovSystem:
+async def get_markov_system() -> MarkovSystem:
     """Get Markov analysis system"""
     try:
-        return EnhancedMarkovSystem(
+        return MarkovSystem(
             lookback_period=getattr(settings, "MARKOV_LOOKBACK_PERIOD", 100),
             n_states=getattr(settings, "MARKOV_N_STATES", 5),
         )

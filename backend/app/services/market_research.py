@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import structlog
 
-from app.analysis.consolidated_markov_system import EnhancedMarkovSystem
+from app.analysis.markov_system import MarkovSystem
 from app.core.cache import get_market_cache
 from app.core.exceptions import MCPConnectionError, MCPError
 from app.core.logging import get_logger, log_execution_time
@@ -93,7 +93,7 @@ class MarketResearchService:
 
     def __init__(self, use_enhanced_cache: bool = True):
         self._orchestrator: Optional[MCPOrchestrator] = None
-        self._markov_system: Optional[EnhancedMarkovSystem] = None
+        self._markov_system: Optional[MarkovSystem] = None
         self._trading_manager: Optional[TradingManager] = None
         self._initialized = False
         self.use_enhanced_cache = use_enhanced_cache
@@ -122,7 +122,7 @@ class MarketResearchService:
             self._orchestrator = await get_mcp_orchestrator()
 
             # Initialize Markov system for technical analysis
-            self._markov_system = EnhancedMarkovSystem()
+            self._markov_system = MarkovSystem()
 
             # Get trading manager for integration
             self._trading_manager = TradingManager()

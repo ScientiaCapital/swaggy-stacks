@@ -473,7 +473,7 @@ class TradingDashboardWebSocket:
             logger.error("Failed to update portfolio", error=str(e))
     
     async def _update_system_health(self):
-        """Update system health status with enhanced Prometheus metrics integration"""
+        """Update system health status with Prometheus metrics integration"""
         try:
             # Import MetricsCollector for comprehensive metric collection
             from app.monitoring.metrics import MetricsCollector

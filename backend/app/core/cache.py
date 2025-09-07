@@ -90,7 +90,7 @@ class CacheMetrics:
         return self.l2_hits / self.total_requests * 100
 
 
-class EnhancedTTLCache:
+class TTLCache:
     """
     Two-tier cache system extending TTLCache functionality with Redis backend.
     L1: In-memory TTLCache for hot data
@@ -139,7 +139,7 @@ class EnhancedTTLCache:
         self._warming_lock = asyncio.Lock()
         
         logger.info(
-            "EnhancedTTLCache initialized",
+            "TTLCache initialized",
             l1_maxsize=l1_maxsize,
             l1_ttl=l1_ttl,
             l2_ttl=l2_ttl,
@@ -403,15 +403,15 @@ class EnhancedTTLCache:
 
 
 # Global cache instances
-_embedding_cache: Optional[EnhancedTTLCache] = None
-_market_cache: Optional[EnhancedTTLCache] = None
+_embedding_cache: Optional[TTLCache] = None
+_market_cache: Optional[TTLCache] = None
 
 
-def get_embedding_cache() -> EnhancedTTLCache:
+def get_embedding_cache() -> TTLCache:
     """Get or create embedding cache instance"""
     global _embedding_cache
     if _embedding_cache is None:
-        _embedding_cache = EnhancedTTLCache(
+        _embedding_cache = TTLCache(
             l1_maxsize=10000,
             l1_ttl=3600,
             l2_ttl=7200,
@@ -422,11 +422,11 @@ def get_embedding_cache() -> EnhancedTTLCache:
     return _embedding_cache
 
 
-def get_market_cache() -> EnhancedTTLCache:
+def get_market_cache() -> TTLCache:
     """Get or create market research cache instance"""
     global _market_cache
     if _market_cache is None:
-        _market_cache = EnhancedTTLCache(
+        _market_cache = TTLCache(
             l1_maxsize=5000,
             l1_ttl=900,  # 15 minutes
             l2_ttl=1800,  # 30 minutes
@@ -448,3 +448,7 @@ async def cache_context():
             await _embedding_cache.close()
         if _market_cache:
             await _market_cache.close()
+
+
+# Backward compatibility alias
+EnhancedTTLCache = TTLCache

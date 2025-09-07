@@ -6,14 +6,14 @@ import pytest
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from app.analysis.enhanced_markov_system import EnhancedMarkovSystem
+from app.analysis.markov_system import MarkovSystem
 from app.analysis.fibonacci_analysis import FibonacciAnalyzer
 from app.analysis.wyckoff_analysis import WyckoffAnalyzer
 
 
 def test_markov_analysis_with_data():
     """Test Markov analysis with sample data"""
-    markov = EnhancedMarkovSystem()
+    markov = MarkovSystem()
     
     # Create sample price data
     dates = pd.date_range(start='2024-01-01', periods=100, freq='D')
@@ -74,7 +74,7 @@ def test_wyckoff_phase_detection():
 
 def test_analysis_integration():
     """Test that different analysis methods can work together"""
-    markov = EnhancedMarkovSystem()
+    markov = MarkovSystem()
     fib = FibonacciAnalyzer()
     wyckoff = WyckoffAnalyzer()
     

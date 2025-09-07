@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import structlog
 
-from app.analysis.consolidated_markov_system import EnhancedMarkovSystem
+from app.analysis.markov_system import MarkovSystem
 from app.core.config import settings
 from app.core.exceptions import RiskManagementError, TradingError
 from app.trading.alpaca_client import AlpacaClient
@@ -99,7 +99,7 @@ class TradingManager:
                 )
 
                 # Initialize Markov system
-                self._markov_system = EnhancedMarkovSystem()
+                self._markov_system = MarkovSystem()
 
                 # Update state
                 await self._update_positions()
@@ -143,7 +143,7 @@ class TradingManager:
         return self._order_manager
 
     @property
-    def markov_system(self) -> EnhancedMarkovSystem:
+    def markov_system(self) -> MarkovSystem:
         """Get Markov analysis system"""
         if not self._markov_system:
             raise TradingError(

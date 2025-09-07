@@ -29,7 +29,7 @@ from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String
 from sqlalchemy.orm import Session
 
 # Analysis imports
-from app.analysis.consolidated_markov_system import EnhancedMarkovSystem, MarkovCore
+from app.analysis.markov_system import MarkovSystem, MarkovCore
 
 # Common model imports
 from app.api.v1.models import (
@@ -230,7 +230,7 @@ TRADING_IMPORTS = [
 ANALYSIS_IMPORTS = [
     "np",
     "pd",
-    "EnhancedMarkovSystem",
+    "MarkovSystem",
     "MarkovCore",
     "datetime",
     "timedelta",
@@ -317,7 +317,7 @@ from app.core.common_imports import APIRouter, Depends, success_response, logger
 from app.core.common_imports import validate_symbol, get_trading_logger, log_trading_operation
 
 # In analysis modules:
-from app.core.common_imports import np, pd, logger, EnhancedMarkovSystem
+from app.core.common_imports import np, pd, logger, MarkovSystem
 
 # In model modules:
 from app.core.common_imports import BaseModel, Field, validator, ValidationError

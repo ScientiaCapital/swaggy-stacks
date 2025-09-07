@@ -1,6 +1,6 @@
 """
-Consolidated Markov Trading System
-Combines functionality from markov_analyzer.py, enhanced_markov_system.py, and markov_agent.py
+Markov Trading System
+Combines functionality from markov_analyzer.py, markov_agent.py, and legacy enhanced_markov_system.py
 Eliminates redundancy while maintaining all features
 """
 
@@ -130,12 +130,12 @@ class MarkovCore:
 
 
 # ============================================================================
-# ENHANCED DATA HANDLING AND UTILITIES
+# DATA HANDLING AND UTILITIES
 # ============================================================================
 
 
-class EnhancedDataHandler:
-    """Enhanced data handling with validation and cleaning"""
+class DataHandler:
+    """Data handling with validation and cleaning"""
 
     def __init__(self):
         self.data_cache = {}
@@ -227,13 +227,13 @@ class PositionSizer:
 
 
 # ============================================================================
-# ENHANCED MARKOV SYSTEM
+# MARKOV SYSTEM
 # ============================================================================
 
 
-class EnhancedMarkovSystem(MarkovCore):
+class MarkovSystem(MarkovCore):
     """
-    Enhanced Markov System combining core functionality with advanced features
+    Markov System combining core functionality with advanced features
     Consolidates enhanced_markov_system.py functionality
     """
 
@@ -241,7 +241,7 @@ class EnhancedMarkovSystem(MarkovCore):
         super().__init__(lookback_period, n_states)
 
         # Enhanced components
-        self.data_handler = EnhancedDataHandler()
+        self.data_handler = DataHandler()
         self.position_sizer = PositionSizer(**kwargs)
 
         # Enhanced parameters
@@ -254,7 +254,7 @@ class EnhancedMarkovSystem(MarkovCore):
         # Cache for analysis results
         self.analysis_cache = {}
 
-        logger.info("Enhanced Markov system initialized")
+        logger.info("Markov system initialized")
 
     def analyze(self, price_data: pd.DataFrame) -> Dict:
         """
@@ -324,7 +324,7 @@ class EnhancedMarkovSystem(MarkovCore):
             }
 
             logger.info(
-                "Enhanced Markov analysis completed",
+                "Markov analysis completed",
                 signal=signals["signal"],
                 confidence=confidence,
                 current_state=(
@@ -335,13 +335,13 @@ class EnhancedMarkovSystem(MarkovCore):
             return result
 
         except Exception as e:
-            logger.error("Error in enhanced Markov analysis", error=str(e))
-            raise TradingError(f"Enhanced Markov analysis failed: {str(e)}")
+            logger.error("Error in Markov analysis", error=str(e))
+            raise TradingError(f"Markov analysis failed: {str(e)}")
 
     def _generate_enhanced_signals(
         self, price_data: pd.DataFrame, returns: pd.Series, states: pd.Series
     ) -> Dict:
-        """Generate enhanced trading signals with position sizing"""
+        """Generate trading signals with position sizing"""
         current_state = int(states.iloc[-1]) if not pd.isna(states.iloc[-1]) else 0
         current_price = price_data["close"].iloc[-1]
         current_return = returns.iloc[-1]
@@ -500,16 +500,20 @@ class EnhancedMarkovSystem(MarkovCore):
 
 # Maintain backwards compatibility with existing imports
 MarkovAnalyzer = MarkovCore  # For markov_analyzer.py imports
-EnhancedMarkovTradingSystem = (
-    EnhancedMarkovSystem  # For enhanced_markov_system.py imports
-)
+# Backward compatibility aliases
+EnhancedMarkovSystem = MarkovSystem  # For old imports
+EnhancedDataHandler = DataHandler  # For old imports
+EnhancedMarkovTradingSystem = MarkovSystem  # Legacy alias
 
 # Export main classes
 __all__ = [
     "MarkovCore",
+    "MarkovSystem",
+    "DataHandler", 
+    "PositionSizer",
+    # Backward compatibility aliases
     "EnhancedMarkovSystem",
     "EnhancedDataHandler",
-    "PositionSizer",
-    "MarkovAnalyzer",  # Backwards compatibility
-    "EnhancedMarkovTradingSystem",  # Backwards compatibility
+    "MarkovAnalyzer",
+    "EnhancedMarkovTradingSystem",
 ]

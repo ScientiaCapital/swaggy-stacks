@@ -5,7 +5,7 @@ Trading system tests for Swaggy Stacks
 import pytest
 from app.trading.trading_manager import TradingManager
 from app.trading.risk_manager import RiskManager
-from app.analysis.enhanced_markov_system import EnhancedMarkovSystem
+from app.analysis.markov_system import MarkovSystem
 
 
 def test_trading_manager_singleton():
@@ -49,8 +49,8 @@ def test_risk_calculations():
 
 
 def test_markov_system_initialization():
-    """Test Enhanced Markov System initialization"""
-    markov = EnhancedMarkovSystem()
+    """Test Markov System initialization"""
+    markov = MarkovSystem()
     assert markov is not None
     assert hasattr(markov, 'states')
     assert hasattr(markov, 'transition_matrix')
@@ -59,7 +59,7 @@ def test_markov_system_initialization():
 
 def test_markov_state_transitions():
     """Test Markov state transition logic"""
-    markov = EnhancedMarkovSystem()
+    markov = MarkovSystem()
     
     # Test that states are defined
     assert len(markov.states) > 0

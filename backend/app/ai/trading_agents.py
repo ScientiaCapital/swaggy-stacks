@@ -362,7 +362,7 @@ class StrategyOptimizerAgent:
             prompt = f"""
             Generate an optimized trading signal for {symbol}:
             
-            Enhanced Markov Analysis:
+            Markov Analysis:
             - Current State: {markov_analysis.get('current_state', 'Unknown')}
             - Transition Probability: {markov_analysis.get('transition_prob', 0.0)}
             - Confidence: {markov_analysis.get('confidence', 0.0)}

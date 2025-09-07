@@ -495,7 +495,7 @@ class LiveTradingEngine:
     def _calculate_markov_signals(self, price_data: pd.DataFrame, symbol: str) -> Dict:
         """Calculate Markov trading signals from price data"""
         try:
-            # Use the enhanced Markov analysis from backtest
+            # Use the Markov analysis from backtest
             price_series = price_data["Close"]
 
             if len(price_series) < 30:
