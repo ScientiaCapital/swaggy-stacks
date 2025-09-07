@@ -389,3 +389,289 @@ class AlertManager:
             'critical_active': len([a for a in self.active_alerts.values() if a.severity == AlertSeverity.CRITICAL]),
             'warning_active': len([a for a in self.active_alerts.values() if a.severity == AlertSeverity.WARNING])
         }
+
+    def configure_prometheus_alerts(self) -> List[AlertRule]:
+        """Configure Prometheus metric-based alert rules with intelligent thresholds"""
+        prometheus_rules = [
+            # System Health Metrics Alerts
+            AlertRule(
+                name="system_health_degraded",
+                condition="trading_system_health_status < 2",
+                severity=AlertSeverity.WARNING,
+                channels=[AlertChannel.LOG, AlertChannel.WEBHOOK],
+                cooldown_minutes=5,
+                description="System health status indicates degraded performance",
+                threshold=2.0
+            ),
+            
+            AlertRule(
+                name="system_uptime_low",
+                condition="trading_system_uptime_seconds < 300",
+                severity=AlertSeverity.CRITICAL,
+                channels=[AlertChannel.LOG, AlertChannel.WEBHOOK],
+                cooldown_minutes=2,
+                description="System uptime is critically low (less than 5 minutes)",
+                threshold=300.0
+            ),
+            
+            # MCP Agent Coordination Alerts
+            AlertRule(
+                name="mcp_agent_coordination_failure",
+                condition="mcp_agent_coordination_success_rate < 0.8",
+                severity=AlertSeverity.ERROR,
+                channels=[AlertChannel.LOG, AlertChannel.WEBHOOK],
+                cooldown_minutes=10,
+                description="MCP agent coordination success rate below 80%",
+                threshold=0.8
+            ),
+            
+            AlertRule(
+                name="mcp_agent_high_response_time",
+                condition="mcp_agent_response_time_seconds > 5.0",
+                severity=AlertSeverity.WARNING,
+                channels=[AlertChannel.LOG],
+                cooldown_minutes=15,
+                description="MCP agent response time exceeds 5 seconds",
+                threshold=5.0
+            ),
+            
+            AlertRule(
+                name="mcp_agent_queue_depth_high",
+                condition="mcp_agent_queue_depth > 50",
+                severity=AlertSeverity.WARNING,
+                channels=[AlertChannel.LOG],
+                cooldown_minutes=10,
+                description="MCP agent queue depth is critically high",
+                threshold=50.0
+            ),
+            
+            AlertRule(
+                name="mcp_server_unavailable",
+                condition="mcp_server_status == 0",
+                severity=AlertSeverity.CRITICAL,
+                channels=[AlertChannel.LOG, AlertChannel.WEBHOOK],
+                cooldown_minutes=5,
+                description="MCP server is completely unavailable",
+                threshold=0.0
+            ),
+            
+            # Trading System Alerts
+            AlertRule(
+                name="trading_portfolio_value_drop",
+                condition="trading_portfolio_value_usd_change_rate < -0.05",
+                severity=AlertSeverity.ERROR,
+                channels=[AlertChannel.LOG, AlertChannel.WEBHOOK],
+                cooldown_minutes=5,
+                description="Portfolio value dropped more than 5% in short period",
+                threshold=-0.05
+            ),
+            
+            AlertRule(
+                name="trading_orders_failure_rate_high",
+                condition="trading_orders_failure_rate > 0.1",
+                severity=AlertSeverity.WARNING,
+                channels=[AlertChannel.LOG],
+                cooldown_minutes=10,
+                description="Trading order failure rate exceeds 10%",
+                threshold=0.1
+            ),
+            
+            # Database Performance Alerts
+            AlertRule(
+                name="db_connection_pool_exhausted",
+                condition="db_connection_pool_size < 2",
+                severity=AlertSeverity.CRITICAL,
+                channels=[AlertChannel.LOG, AlertChannel.WEBHOOK],
+                cooldown_minutes=5,
+                description="Database connection pool nearly exhausted",
+                threshold=2.0
+            ),
+            
+            AlertRule(
+                name="db_query_duration_high",
+                condition="db_query_duration_seconds > 2.0",
+                severity=AlertSeverity.WARNING,
+                channels=[AlertChannel.LOG],
+                cooldown_minutes=10,
+                description="Database query duration exceeds 2 seconds",
+                threshold=2.0
+            ),
+            
+            # Redis Performance Alerts
+            AlertRule(
+                name="redis_response_time_high",
+                condition="redis_response_time_seconds > 0.1",
+                severity=AlertSeverity.WARNING,
+                channels=[AlertChannel.LOG],
+                cooldown_minutes=10,
+                description="Redis response time exceeds 100ms",
+                threshold=0.1
+            ),
+            
+            AlertRule(
+                name="redis_operations_failure_rate_high",
+                condition="redis_operations_failure_rate > 0.05",
+                severity=AlertSeverity.ERROR,
+                channels=[AlertChannel.LOG, AlertChannel.WEBHOOK],
+                cooldown_minutes=5,
+                description="Redis operation failure rate exceeds 5%",
+                threshold=0.05
+            ),
+            
+            # HTTP API Performance Alerts
+            AlertRule(
+                name="http_request_duration_high",
+                condition="http_request_duration_seconds > 5.0",
+                severity=AlertSeverity.WARNING,
+                channels=[AlertChannel.LOG],
+                cooldown_minutes=10,
+                description="HTTP request duration exceeds 5 seconds",
+                threshold=5.0
+            ),
+            
+            AlertRule(
+                name="http_error_rate_high",
+                condition="http_error_rate > 0.1",
+                severity=AlertSeverity.ERROR,
+                channels=[AlertChannel.LOG, AlertChannel.WEBHOOK],
+                cooldown_minutes=5,
+                description="HTTP error rate exceeds 10%",
+                threshold=0.1
+            ),
+            
+            # AI & Market Research Alerts
+            AlertRule(
+                name="ai_processing_duration_high",
+                condition="ai_processing_duration_seconds > 30.0",
+                severity=AlertSeverity.WARNING,
+                channels=[AlertChannel.LOG],
+                cooldown_minutes=15,
+                description="AI processing duration exceeds 30 seconds",
+                threshold=30.0
+            ),
+            
+            AlertRule(
+                name="market_sentiment_extreme",
+                condition="abs(market_sentiment_score) > 0.9",
+                severity=AlertSeverity.INFO,
+                channels=[AlertChannel.LOG],
+                cooldown_minutes=60,
+                description="Market sentiment score indicates extreme conditions",
+                threshold=0.9
+            ),
+        ]
+        
+        # Add all Prometheus-based rules to the alert system
+        for rule in prometheus_rules:
+            self.add_alert_rule(rule)
+            
+        logger.info(f"Configured {len(prometheus_rules)} Prometheus-based alert rules")
+        return prometheus_rules
+
+    async def evaluate_prometheus_alerts(self, metrics_data: Dict) -> List[Alert]:
+        """Evaluate Prometheus metrics against alert rules and trigger alerts"""
+        triggered_alerts = []
+        
+        for rule in self.alert_rules:
+            # Skip non-Prometheus rules (legacy health-based rules)
+            if not self._is_prometheus_rule(rule):
+                continue
+                
+            try:
+                # Evaluate rule condition against current metrics
+                if self._evaluate_metric_condition(rule, metrics_data):
+                    alert = Alert(
+                        rule_name=rule.name,
+                        severity=rule.severity,
+                        message=f"{rule.description}",
+                        timestamp=datetime.utcnow(),
+                        component=self._extract_component_from_rule(rule),
+                        component_type=rule.component_type,
+                        details={
+                            'threshold': rule.threshold,
+                            'condition': rule.condition,
+                            'metric_value': self._get_metric_value(rule.condition, metrics_data)
+                        }
+                    )
+                    
+                    # Check if we should send this alert (respecting cooldown)
+                    if self._should_send_alert(rule.name, rule.cooldown_minutes):
+                        triggered_alerts.append(alert)
+                        self.active_alerts[rule.name] = alert
+                        await self._send_alert(alert, rule.channels)
+                        
+            except Exception as e:
+                logger.error(f"Error evaluating Prometheus alert rule {rule.name}: {e}")
+                
+        return triggered_alerts
+    
+    def _is_prometheus_rule(self, rule: AlertRule) -> bool:
+        """Check if rule is a Prometheus-based metric rule"""
+        prometheus_prefixes = [
+            'trading_system_', 'mcp_', 'db_', 'redis_', 
+            'http_', 'ai_', 'market_'
+        ]
+        return any(rule.condition.startswith(prefix) for prefix in prometheus_prefixes)
+    
+    def _evaluate_metric_condition(self, rule: AlertRule, metrics_data: Dict) -> bool:
+        """Evaluate a metric-based condition against current data"""
+        try:
+            condition = rule.condition
+            threshold = rule.threshold
+            
+            # Extract metric name from condition
+            if '<' in condition:
+                metric_name = condition.split('<')[0].strip()
+                current_value = metrics_data.get(metric_name, 0)
+                return current_value < threshold
+            elif '>' in condition:
+                metric_name = condition.split('>')[0].strip()
+                current_value = metrics_data.get(metric_name, 0)
+                return current_value > threshold
+            elif '==' in condition:
+                metric_name = condition.split('==')[0].strip()
+                current_value = metrics_data.get(metric_name, 0)
+                return current_value == threshold
+            elif 'abs(' in condition:
+                # Handle absolute value conditions like abs(market_sentiment_score) > 0.9
+                metric_name = condition.split('abs(')[1].split(')')[0].strip()
+                current_value = abs(metrics_data.get(metric_name, 0))
+                return current_value > threshold
+                
+        except Exception as e:
+            logger.error(f"Error evaluating condition '{condition}': {e}")
+            return False
+            
+        return False
+    
+    def _extract_component_from_rule(self, rule: AlertRule) -> str:
+        """Extract component name from alert rule"""
+        if 'mcp' in rule.name:
+            return 'MCP Agent System'
+        elif 'trading' in rule.name:
+            return 'Trading System'
+        elif 'db' in rule.name:
+            return 'Database'
+        elif 'redis' in rule.name:
+            return 'Redis Cache'
+        elif 'http' in rule.name:
+            return 'HTTP API'
+        elif 'ai' in rule.name:
+            return 'AI Processing'
+        elif 'market' in rule.name:
+            return 'Market Research'
+        else:
+            return 'System'
+    
+    def _get_metric_value(self, condition: str, metrics_data: Dict) -> float:
+        """Get the actual metric value for alert details"""
+        try:
+            if '<' in condition or '>' in condition or '==' in condition:
+                metric_name = condition.split('<')[0] if '<' in condition else \
+                             condition.split('>')[0] if '>' in condition else \
+                             condition.split('==')[0]
+                metric_name = metric_name.strip()
+                return metrics_data.get(metric_name, 0.0)
+        except Exception:
+            pass
+        return 0.0
