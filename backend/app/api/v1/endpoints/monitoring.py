@@ -4,7 +4,7 @@ Health monitoring and system observability endpoints.
 
 import asyncio
 from typing import Dict, Any, List
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Query, Response
 from fastapi.responses import PlainTextResponse
 
 from app.core.logging import get_logger
@@ -144,15 +144,32 @@ async def get_mcp_health() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"MCP health check failed: {str(e)}")
 
 
-@router.get("/metrics", response_class=PlainTextResponse, summary="Prometheus metrics endpoint")
-async def get_metrics() -> str:
-    """Get Prometheus metrics for system monitoring"""
+@router.get(
+    "/metrics", 
+    response_class=PlainTextResponse, 
+    summary="Prometheus metrics endpoint",
+    description="Expose comprehensive system metrics in Prometheus format including enhanced MCP agent coordination metrics"
+)
+async def get_metrics() -> Response:
+    """Get Prometheus metrics for system monitoring with proper headers"""
     try:
-        # Collect latest system metrics
+        # Collect latest system metrics (includes our enhanced MCP coordination metrics)
         await metrics_collector.collect_system_metrics()
         
-        # Return Prometheus formatted metrics
-        return metrics_collector.get_prometheus_metrics()
+        # Get Prometheus formatted metrics including all new coordination metrics
+        metrics_data = metrics_collector.get_prometheus_metrics()
+        
+        # Return with proper Prometheus headers
+        return Response(
+            content=metrics_data,
+            media_type="text/plain; version=0.0.4; charset=utf-8",
+            headers={
+                "Content-Type": "text/plain; version=0.0.4; charset=utf-8",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
     except Exception as e:
         logger.error(f"Metrics collection failed: {e}")
         raise HTTPException(status_code=500, detail=f"Metrics collection failed: {str(e)}")

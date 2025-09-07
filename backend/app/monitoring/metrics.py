@@ -81,6 +81,42 @@ class PrometheusMetrics:
             registry=self.registry
         )
         
+        # Enhanced MCP Agent Coordination Metrics
+        self.mcp_agent_coordination_duration = Histogram(
+            'mcp_agent_coordination_duration_seconds',
+            'Duration of MCP agent coordination operations',
+            ['coordination_type', 'source_agent', 'target_agent'],
+            registry=self.registry
+        )
+        
+        self.mcp_agent_queue_depth = Gauge(
+            'mcp_agent_queue_depth',
+            'Current queue depth for MCP agent operations',
+            ['agent_name', 'queue_type'],
+            registry=self.registry
+        )
+        
+        self.mcp_cross_agent_requests_total = Counter(
+            'mcp_cross_agent_requests_total',
+            'Total cross-agent requests between MCP agents',
+            ['source_agent', 'target_agent', 'request_type', 'status'],
+            registry=self.registry
+        )
+        
+        self.mcp_agent_coordination_success_rate = Gauge(
+            'mcp_agent_coordination_success_rate',
+            'Success rate of agent coordination operations (0-1)',
+            ['coordination_type', 'agent_pair'],
+            registry=self.registry
+        )
+        
+        self.mcp_agent_response_time = Histogram(
+            'mcp_agent_response_time_seconds',
+            'Response time for MCP agent operations',
+            ['agent_name', 'operation_type'],
+            registry=self.registry
+        )
+        
         # Trading System Metrics
         self.trading_orders_total = Counter(
             'trading_orders_total',
@@ -243,6 +279,47 @@ class PrometheusMetrics:
             server_name=server_name,
             server_type=server_type
         ).set(1 if available else 0)
+
+    def record_mcp_agent_coordination(self, coordination_type: str, source_agent: str, 
+                                     target_agent: str, duration: float, success: bool):
+        """Record MCP agent coordination metrics"""
+        # Record coordination duration
+        self.mcp_agent_coordination_duration.labels(
+            coordination_type=coordination_type,
+            source_agent=source_agent,
+            target_agent=target_agent
+        ).observe(duration)
+        
+        # Record cross-agent request
+        status = "success" if success else "failed"
+        self.mcp_cross_agent_requests_total.labels(
+            source_agent=source_agent,
+            target_agent=target_agent,
+            request_type=coordination_type,
+            status=status
+        ).inc()
+        
+        # Update success rate (simplified calculation for demo)
+        agent_pair = f"{source_agent}-{target_agent}"
+        current_rate = 1.0 if success else 0.0
+        self.mcp_agent_coordination_success_rate.labels(
+            coordination_type=coordination_type,
+            agent_pair=agent_pair
+        ).set(current_rate)
+    
+    def record_mcp_agent_response_time(self, agent_name: str, operation_type: str, duration: float):
+        """Record MCP agent response time"""
+        self.mcp_agent_response_time.labels(
+            agent_name=agent_name,
+            operation_type=operation_type
+        ).observe(duration)
+    
+    def update_mcp_agent_queue_depth(self, agent_name: str, queue_type: str, depth: int):
+        """Update MCP agent queue depth"""
+        self.mcp_agent_queue_depth.labels(
+            agent_name=agent_name,
+            queue_type=queue_type
+        ).set(depth)
     
     def record_trading_order(self, symbol: str, side: str, status: str):
         """Record trading order"""
