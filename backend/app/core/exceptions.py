@@ -67,3 +67,24 @@ class ConfigurationError(TradingSystemException):
     
     def __init__(self, detail: str, error_code: Optional[str] = None):
         super().__init__(detail, error_code, status_code=500)
+
+
+class MCPError(TradingSystemException):
+    """Base MCP server errors"""
+    
+    def __init__(self, detail: str, error_code: Optional[str] = None):
+        super().__init__(detail, error_code, status_code=500)
+
+
+class MCPConnectionError(MCPError):
+    """MCP connection errors"""
+    
+    def __init__(self, detail: str, error_code: Optional[str] = None):
+        super().__init__(detail, error_code, status_code=503)
+
+
+class MCPTimeoutError(MCPError):
+    """MCP timeout errors"""
+    
+    def __init__(self, detail: str, error_code: Optional[str] = None):
+        super().__init__(detail, error_code, status_code=504)

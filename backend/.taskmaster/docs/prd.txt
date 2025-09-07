@@ -1,0 +1,140 @@
+<context>
+# Overview  
+Complete MCP (Model Context Protocol) server integration and testing infrastructure for Swaggy Stacks algorithmic trading system. This project transforms the trading system into a fully orchestrated AI-powered platform by integrating multiple MCP servers: TaskMaster-AI for project management, Serena for intelligent code assistance, MCP Memory for knowledge graph operations, Tavily for real-time market research, Sequential Thinking for complex analysis workflows, and GitHub for automated CI/CD operations. The system leverages existing consolidated architecture from Phase 1 (singleton TradingManager, plugin strategy agents, centralized logging) and extends it with comprehensive MCP orchestration, full test coverage, and production-ready deployment validation.
+
+# Core Features  
+## MCP Server Orchestra
+- **TaskMaster-AI Integration**: Project management with advanced mode, rule profiles for Python/FastAPI/trading patterns, task generation and tracking
+- **Serena Code Intelligence**: Project memories covering architecture, trading algorithms, API patterns, database schema, intelligent code analysis and suggestions  
+- **MCP Memory Knowledge Graph**: Comprehensive knowledge graph connecting trading strategies (Markov, Wyckoff, Fibonacci, Elliott Wave), system components, market patterns, user workflows with 50+ entities and 100+ relationships
+- **Tavily Market Research**: Real-time market data analysis, news sentiment analysis, market intelligence integration with trading algorithms
+- **Sequential Thinking Workflows**: Complex multi-step market analysis, decision trees, advanced trading strategy evaluation
+- **GitHub Automation**: Automated PR creation, branch management, CI/CD pipeline orchestration, release coordination
+
+## Testing Infrastructure
+- **Comprehensive Backend Testing**: Organized test suites in backend/tests/ with unit tests (core modules), integration tests (API endpoints), trading algorithm tests, MCP integration tests with 80%+ coverage
+- **Enhanced CI/CD Pipeline**: Extended .github/workflows/ci.yml with MCP server testing, health checks, deployment validation stages
+- **Frontend MCP Dashboard**: React components for system health monitoring, market research visualization, AI-driven insights display
+
+## System Health & Monitoring  
+- **Health Check Endpoints**: Comprehensive validation for MCP servers, trading system, database, Redis, Celery with detailed status reporting
+- **Prometheus/Grafana Integration**: MCP-specific metrics collection, monitoring dashboards, automated alerting for system reliability
+- **Deployment Readiness Validation**: Complete system validation including Docker health checks, database migrations, performance benchmarks
+
+# User Experience  
+## Developer Workflow
+- **Intelligent Task Management**: TaskMaster-AI provides intelligent task breakdown, dependency management, progress tracking for development workflows
+- **AI-Assisted Development**: Serena provides contextual code suggestions, architecture guidance, pattern recognition based on project memories
+- **Real-Time Market Intelligence**: Developers access live market sentiment, news analysis, complex trading scenarios through integrated dashboard
+
+## System Administrator Experience
+- **Unified Health Monitoring**: Single dashboard showing status of all MCP servers, trading components, infrastructure services
+- **Automated Deployment**: GitHub integration handles automated testing, validation, deployment coordination with minimal manual intervention
+- **Knowledge Graph Insights**: MCP Memory provides intelligent system understanding, relationship mapping, decision support
+</context>
+
+<PRD>
+# Technical Architecture  
+## Existing Foundation (Phase 1 Complete)
+- **Microservices Architecture**: Docker Compose orchestration with FastAPI backend, Next.js frontend, PostgreSQL+pgvector, Redis, Celery, Prometheus/Grafana
+- **Consolidated Components**: Singleton TradingManager (~540 lines), plugin ConsolidatedStrategyAgent (~660 lines), centralized logging, common imports, shared API models (~470 lines), trading utilities (~520 lines)
+- **Eliminated Redundancy**: ~1800 lines of duplicate code removed, 6 redundant files consolidated to 3, backwards compatibility maintained
+
+## MCP Integration Layer
+- **MCPOrchestrator Singleton**: Central coordination system managing all MCP server connections, implementing connection pooling, error handling, health monitoring following existing singleton patterns
+- **Service Layer Integration**: MarketResearchService using Tavily+Sequential Thinking, GitHubAutomationService for CI/CD, comprehensive health monitoring service
+- **API Extensions**: New FastAPI endpoints for MCP services, WebSocket integration for real-time updates, proper async patterns throughout
+
+## Data Architecture
+- **Knowledge Graph Schema**: MCP Memory entities covering TradingStrategy, SystemComponent, MarketPattern, UserWorkflow with rich relationship mapping
+- **Project Memories Structure**: Serena memories documenting architecture (microservices, Docker), trading algorithms (Markov chains, technical analysis), code organization (plugin patterns, singletons), testing strategies
+- **Health Metrics Schema**: Prometheus metrics for MCP server status, connection pooling, response times, error rates
+
+# Development Roadmap  
+## Phase 2A: Core MCP Integration (Foundation)
+- Initialize TaskMaster-AI with advanced mode, rule profiles for Python/FastAPI patterns
+- Complete Serena onboarding with comprehensive project memories covering all Phase 1 consolidation work
+- Configure MCP Memory knowledge graph with trading strategies, system components, relationships
+- Create MCPOrchestrator singleton following existing TradingManager patterns
+
+## Phase 2B: Advanced MCP Services (Enhancement) 
+- Integrate Tavily and Sequential Thinking for market research capabilities
+- Implement GitHub automation for CI/CD workflows, PR management, release coordination
+- Create comprehensive backend test infrastructure with organized test suites, shared fixtures
+- Enhance CI/CD pipeline with MCP integration testing, deployment validation
+
+## Phase 2C: User Interface & Monitoring (Visibility)
+- Create frontend MCP integration dashboard with React components for system monitoring
+- Implement comprehensive health monitoring with Prometheus/Grafana integration
+- Add real-time market research visualization, AI insights display
+- Create deployment readiness validation with automated system health checks
+
+## Phase 3: Production Readiness (Deployment)
+- Complete deployment readiness validation including all system components
+- Performance benchmarking, load testing, memory usage validation
+- Production environment configuration, secrets management, SSL certificates
+- Final system integration testing, end-to-end workflow validation
+
+# Logical Dependency Chain
+## Foundation First (Critical Path)
+1. **TaskMaster-AI Initialization** - Foundation for all project management, task tracking
+2. **Serena Onboarding** - Essential for intelligent code assistance, project understanding
+3. **MCP Memory Setup** - Knowledge graph foundation for AI decision-making
+
+## Service Layer Development (Parallel Execution)
+4. **MCPOrchestrator Creation** - Central coordination enables all subsequent MCP integrations
+5. **Market Research Integration** (Tavily + Sequential Thinking) - Independent of GitHub automation
+6. **GitHub Automation** - Independent of market research, can develop in parallel
+
+## Testing & Validation (Progressive Enhancement)
+7. **Backend Test Infrastructure** - Foundation for reliable system validation
+8. **CI/CD Pipeline Enhancement** - Builds on backend testing, enables deployment validation
+9. **Frontend Dashboard** - Provides visibility into system health, market research results
+
+## Production Readiness (Final Integration)
+10. **Health Monitoring Implementation** - Comprehensive system monitoring and alerting
+11. **Deployment Readiness Validation** - Final production readiness confirmation
+
+# Risks and Mitigations  
+## Technical Challenges
+**Risk**: MCP server connection failures, network timeouts, service unavailability
+**Mitigation**: Implement robust connection pooling, retry logic, circuit breaker patterns, graceful degradation for offline MCP servers
+
+**Risk**: Complex async coordination between multiple MCP servers causing deadlocks or race conditions
+**Mitigation**: Use existing async patterns from consolidated codebase, implement proper connection management, comprehensive error handling
+
+**Risk**: Knowledge graph complexity causing performance issues or memory usage spikes
+**Mitigation**: Implement efficient graph querying, connection pooling, proper indexing, monitoring resource usage with existing Prometheus setup
+
+## Integration Complexity
+**Risk**: Breaking existing trading functionality during MCP integration
+**Mitigation**: Leverage Phase 1 consolidation work, maintain backwards compatibility, comprehensive test coverage, gradual rollout approach
+
+**Risk**: Frontend dashboard performance issues with real-time data updates
+**Mitigation**: Use existing WebSocket patterns, implement efficient data streaming, proper React optimization techniques
+
+## Deployment & Production
+**Risk**: Docker Compose service orchestration complexity with multiple MCP servers
+**Mitigation**: Extend existing docker-compose.yml patterns, implement proper health checks, service dependency management
+
+**Risk**: CI/CD pipeline failures during MCP integration testing
+**Mitigation**: Build on existing .github/workflows/ci.yml foundation, implement proper test isolation, rollback mechanisms
+
+# Appendix  
+## Research Findings
+- Phase 1 successfully eliminated 1800+ lines of redundant code while maintaining full backwards compatibility
+- Existing microservices architecture provides solid foundation for MCP integration without major architectural changes
+- Docker Compose setup already includes monitoring (Prometheus/Grafana), background tasks (Celery), proper service orchestration
+
+## Technical Specifications
+- **API Integration**: Follow existing FastAPI patterns with structured logging, async/await throughout, proper error handling
+- **Database Schema**: Leverage existing PostgreSQL+pgvector setup for knowledge graph storage, maintain existing migration patterns
+- **Frontend Architecture**: Build on existing Next.js setup with TypeScript, component-based architecture, real-time updates
+- **Testing Strategy**: Follow existing pytest-asyncio patterns from root test files, comprehensive coverage including unit, integration, end-to-end tests
+
+## Performance Requirements  
+- **MCP Response Times**: < 2 seconds for knowledge graph queries, < 5 seconds for market research analysis
+- **System Health Checks**: < 30 seconds for complete system validation, < 10 seconds for individual service health
+- **Real-Time Updates**: < 1 second latency for market data streaming, < 500ms for health status updates
+- **Test Suite Execution**: < 5 minutes for complete test suite, < 30 seconds for MCP integration tests
+</PRD>

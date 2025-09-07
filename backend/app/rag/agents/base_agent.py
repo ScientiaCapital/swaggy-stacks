@@ -17,7 +17,7 @@ from langchain.agents import Tool
 from langchain.memory import ConversationBufferMemory
 from langchain.schema import BaseMessage, HumanMessage, AIMessage
 
-from backend.app.rag.services.local_embedding import get_embedding_service
+from app.rag.services.local_embedding import get_embedding_service
 
 logger = logging.getLogger(__name__)
 
@@ -416,21 +416,15 @@ class BaseTradingAgent(ABC):
 async def create_trading_agent(agent_type: str, **kwargs) -> BaseTradingAgent:
     """Factory function to create specific trading agents"""
     
-    # Import here to avoid circular imports
-    if agent_type == "markov":
-        from backend.app.rag.agents.strategies.markov_agent import MarkovTradingAgent
-        agent = MarkovTradingAgent(**kwargs)
-    elif agent_type == "elliott_wave":
-        from backend.app.rag.agents.strategies.elliott_wave_agent import ElliottWaveAgent
-        agent = ElliottWaveAgent(**kwargs)
-    elif agent_type == "fibonacci":
-        from backend.app.rag.agents.strategies.fibonacci_agent import FibonacciAgent
-        agent = FibonacciAgent(**kwargs)
-    elif agent_type == "wyckoff":
-        from backend.app.rag.agents.strategies.wyckoff_agent import WyckoffAgent
-        agent = WyckoffAgent(**kwargs)
-    else:
-        raise ValueError(f"Unknown agent type: {agent_type}")
+    # Import consolidated strategy agent
+    from app.rag.agents.consolidated_strategy_agent import ConsolidatedStrategyAgent
+    
+    # Create agent with specified strategy
+    valid_strategies = ['markov', 'elliott_wave', 'fibonacci', 'wyckoff']
+    if agent_type not in valid_strategies:
+        raise ValueError(f"Unknown agent type: {agent_type}. Valid types: {valid_strategies}")
+    
+    agent = ConsolidatedStrategyAgent(strategies=[agent_type], **kwargs)
     
     await agent.initialize()
     return agent
