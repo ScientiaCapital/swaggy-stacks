@@ -93,10 +93,6 @@ class Settings(BaseSettings):
     MARKOV_LOOKBACK_PERIOD: int = int(os.getenv("MARKOV_LOOKBACK_PERIOD", "100"))
     MARKOV_N_STATES: int = int(os.getenv("MARKOV_N_STATES", "5"))
 
-    class Config:
-        case_sensitive = True
-        env_file = ".env"
-
     # Email Notification Settings
     EMAIL_HOST: str = os.getenv("EMAIL_HOST", "smtp.gmail.com")
     EMAIL_PORT: int = int(os.getenv("EMAIL_PORT", "587"))
@@ -105,6 +101,16 @@ class Settings(BaseSettings):
     EMAIL_FROM: str = os.getenv("EMAIL_FROM", "alerts@swaggy-stacks.com")
     EMAIL_USE_TLS: bool = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
     ALERT_EMAIL_TO: str = os.getenv("ALERT_EMAIL_TO", "tkipper@gmail.com")
+
+    # SMS Notification Settings (Twilio) - Commented out (no Twilio account)
+    # TWILIO_ACCOUNT_SID: str = os.getenv("TWILIO_ACCOUNT_SID", "")
+    # TWILIO_AUTH_TOKEN: str = os.getenv("TWILIO_AUTH_TOKEN", "")
+    # TWILIO_FROM_NUMBER: str = os.getenv("TWILIO_FROM_NUMBER", "")
+    # ALERT_SMS_TO: str = os.getenv("ALERT_SMS_TO", "+14773535838")
+
+    class Config:
+        case_sensitive = True
+        env_file = ".env"
 
 
 # Global settings instance

@@ -19,6 +19,8 @@ from app.trading.order_manager import OrderManager
 from app.trading.risk_manager import RiskManager
 
 logger = structlog.get_logger()
+# Import metrics for monitoring
+from app.monitoring.metrics import PrometheusMetrics
 
 
 class TradingManager:
@@ -162,6 +164,9 @@ class TradingManager:
         """
         Execute a trade with full risk management and analysis integration
         """
+        start_time = datetime.now()
+        metrics = PrometheusMetrics()
+        
         try:
             # Validate inputs
             if action not in ["BUY", "SELL"]:
@@ -170,7 +175,8 @@ class TradingManager:
             # Get current market data
             current_price = await self.get_current_price(symbol)
 
-            # Risk check
+            # Risk check timing
+            risk_check_start = datetime.now()
             risk_check = await self._risk_manager.check_position_risk(
                 symbol=symbol,
                 quantity=quantity,
@@ -178,8 +184,21 @@ class TradingManager:
                 action=action,
                 current_positions=self.active_positions,
             )
+            risk_check_latency = (datetime.now() - risk_check_start).total_seconds()
+            
+            # Record risk check latency
+            metrics.record_risk_check_latency(risk_check_latency, symbol, action.lower())
 
             if not risk_check["approved"]:
+                # Record failed trade execution
+                execution_time = (datetime.now() - start_time).total_seconds()
+                metrics.record_trade_execution_metrics(
+                    status="rejected",
+                    latency=execution_time,
+                    symbol=symbol,
+                    order_type=order_type,
+                    broker="alpaca"
+                )
                 raise RiskManagementError(f"Trade rejected: {risk_check['reason']}")
 
             # Apply risk-adjusted quantity
@@ -191,6 +210,16 @@ class TradingManager:
                 quantity=adjusted_quantity,
                 side=action.lower(),
                 order_type=order_type,
+            )
+
+            # Record successful execution metrics
+            execution_time = (datetime.now() - start_time).total_seconds()
+            metrics.record_trade_execution_metrics(
+                status="success",
+                latency=execution_time,
+                symbol=symbol,
+                order_type=order_type,
+                broker="alpaca"
             )
 
             # Update tracking
@@ -222,6 +251,16 @@ class TradingManager:
             }
 
         except Exception as e:
+            # Record failed execution
+            execution_time = (datetime.now() - start_time).total_seconds()
+            metrics.record_trade_execution_metrics(
+                status="error",
+                latency=execution_time,
+                symbol=symbol,
+                order_type=order_type,
+                broker="alpaca"
+            )
+            
             logger.error(
                 "Trade execution failed", symbol=symbol, action=action, error=str(e)
             )
@@ -236,14 +275,23 @@ class TradingManager:
         """
         Get comprehensive market analysis for a symbol
         """
+        start_time = datetime.now()
+        metrics = PrometheusMetrics()
+        
         try:
-            # Get market data
+            # Get market data with latency tracking
+            market_data_start = datetime.now()
             market_data = await self._alpaca_client.get_market_data(
                 symbol=symbol, timeframe=timeframe, limit=100
             )
+            market_data_latency = (datetime.now() - market_data_start).total_seconds()
+            metrics.record_market_data_latency(market_data_latency, symbol, "alpaca")
 
-            # Perform Markov analysis
+            # Perform Markov analysis with timing
+            analysis_start = datetime.now()
             analysis = await asyncio.to_thread(self._markov_system.analyze, market_data)
+            analysis_latency = (datetime.now() - analysis_start).total_seconds()
+            metrics.record_strategy_analysis_latency(analysis_latency, "markov", symbol)
 
             # Add current position info
             current_position = self.active_positions.get(symbol, {})
@@ -267,10 +315,36 @@ class TradingManager:
             await self._update_performance_metrics()
 
             account_info = await self._alpaca_client.get_account()
+            metrics = PrometheusMetrics()
 
-            return {
+            # Calculate portfolio metrics
+            total_equity = float(account_info.get("equity", 0))
+            total_pnl = float(account_info.get("total_pl", 0))
+            daily_pnl = float(account_info.get("day_pl", 0))
+            
+            # Calculate portfolio risk metrics
+            total_exposure = sum(
+                pos.get("market_value", 0) for pos in self.active_positions.values()
+            )
+            
+            exposure_ratio = total_exposure / self.account_size if self.account_size > 0 else 0
+            position_concentration = max(
+                (pos.get("market_value", 0) / self.account_size for pos in self.active_positions.values()),
+                default=0
+            )
+            
+            # Record portfolio risk metrics
+            metrics.update_portfolio_risk_metrics(
+                total_value=total_equity,
+                var_95=abs(daily_pnl) * 1.65,  # Simple VaR approximation
+                beta=1.0,  # Would calculate against benchmark
+                concentration_risk=position_concentration,
+                sector_exposures={}  # Would calculate from position sectors
+            )
+
+            portfolio_data = {
                 "account": {
-                    "equity": float(account_info.get("equity", 0)),
+                    "equity": total_equity,
                     "cash": float(account_info.get("cash", 0)),
                     "buying_power": float(account_info.get("buying_power", 0)),
                     "day_trade_count": int(account_info.get("day_trade_count", 0)),
@@ -281,6 +355,8 @@ class TradingManager:
                 "risk_status": await self._get_portfolio_risk_status(),
                 "last_updated": datetime.now().isoformat(),
             }
+            
+            return portfolio_data
 
         except Exception as e:
             logger.error("Failed to get portfolio status", error=str(e))

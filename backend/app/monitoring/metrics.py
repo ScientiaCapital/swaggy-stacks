@@ -537,6 +537,186 @@ class PrometheusMetrics:
         """Get all metrics in Prometheus format"""
         return generate_latest(self.registry)
 
+    
+    # CUSTOM TRADING STRATEGY PERFORMANCE METHODS - Task 1.1 Implementation
+    
+    def record_strategy_performance(self, strategy_name: str, symbol: str, 
+                                  win_loss_ratio: float, avg_profit: float, avg_loss: float, 
+                                  total_trades: int, successful_trades: int, timeframe: str = "1D"):
+        """Record comprehensive strategy performance metrics"""
+        
+        # Win/loss ratio
+        self.strategy_win_loss_ratio.labels(
+            strategy_name=strategy_name, 
+            symbol=symbol, 
+            timeframe=timeframe
+        ).set(win_loss_ratio)
+        
+        # Average profit/loss
+        self.strategy_average_profit_loss.labels(
+            strategy_name=strategy_name, 
+            symbol=symbol, 
+            trade_type="profit"
+        ).set(avg_profit)
+        
+        self.strategy_average_profit_loss.labels(
+            strategy_name=strategy_name, 
+            symbol=symbol, 
+            trade_type="loss"
+        ).set(avg_loss)
+        
+        # Success rate calculation
+        success_rate = successful_trades / total_trades if total_trades > 0 else 0
+        self.strategy_success_rate.labels(
+            strategy_name=strategy_name, 
+            symbol=symbol
+        ).set(success_rate)
+    
+    def record_strategy_trade_outcome(self, strategy_name: str, symbol: str, outcome: str):
+        """Record individual trade outcome for strategy"""
+        self.strategy_total_trades.labels(
+            strategy_name=strategy_name,
+            symbol=symbol,
+            outcome=outcome  # "win", "loss", "breakeven"
+        ).inc()
+    
+    def update_strategy_drawdown(self, strategy_name: str, current_drawdown_pct: float, 
+                               max_drawdown_pct: float):
+        """Update strategy drawdown metrics"""
+        self.strategy_drawdown_current.labels(strategy_name=strategy_name).set(current_drawdown_pct)
+        self.strategy_drawdown_max.labels(strategy_name=strategy_name).set(max_drawdown_pct)
+    
+    def record_trade_execution_metrics(self, symbol: str, side: str, order_type: str, 
+                                     status: str, execution_time: float, failure_reason: str = None):
+        """Record trade execution performance and latency"""
+        
+        # Record execution attempt
+        self.trade_execution_total.labels(
+            symbol=symbol,
+            side=side,
+            order_type=order_type,
+            status=status
+        ).inc()
+        
+        # Record execution latency
+        self.trade_execution_latency.labels(
+            operation_type="order_placement",
+            symbol=symbol,
+            broker="alpaca"
+        ).observe(execution_time)
+        
+        # Record failures if applicable
+        if status == "failed" and failure_reason:
+            self.trade_execution_failures.labels(
+                symbol=symbol,
+                side=side,
+                failure_reason=failure_reason,
+                error_type="execution_error"
+            ).inc()
+        
+        # Update success rate (simplified calculation)
+        if status == "filled":
+            success_rate = 0.95  # This would be calculated from historical data
+            self.trade_execution_success_rate.labels(
+                symbol=symbol,
+                order_type=order_type
+            ).set(success_rate)
+    
+    def update_portfolio_risk_metrics(self, total_exposure: float, sector_exposures: Dict[str, float],
+                                    concentration_risk: float, var_daily: float, beta: float,
+                                    position_risks: Dict[str, float], benchmark: str = "SPY"):
+        """Update comprehensive portfolio risk metrics"""
+        
+        # Total exposure
+        self.portfolio_exposure_total.set(total_exposure)
+        
+        # Sector exposures
+        for sector, exposure in sector_exposures.items():
+            self.portfolio_exposure_by_sector.labels(sector=sector).set(exposure)
+        
+        # Risk metrics
+        self.portfolio_concentration_risk.set(concentration_risk)
+        self.portfolio_var_daily.labels(confidence_level="95").set(var_daily)
+        self.portfolio_beta.labels(benchmark=benchmark).set(beta)
+        
+        # Position-specific risks
+        for symbol, risk_pct in position_risks.items():
+            self.position_size_risk.labels(symbol=symbol).set(risk_pct)
+    
+    def record_market_data_latency(self, data_type: str, symbol: str, source: str, latency: float):
+        """Record market data retrieval latency"""
+        self.market_data_latency.labels(
+            data_type=data_type,  # "quote", "bars", "trades"
+            symbol=symbol,
+            source=source  # "alpaca", "polygon", "yahoo"
+        ).observe(latency)
+    
+    def record_strategy_analysis_latency(self, strategy_name: str, analysis_type: str, 
+                                       symbol: str, duration: float):
+        """Record strategy analysis computation time"""
+        self.strategy_analysis_latency.labels(
+            strategy_name=strategy_name,
+            analysis_type=analysis_type,  # "markov", "wyckoff", "fibonacci"
+            symbol=symbol
+        ).observe(duration)
+    
+    def record_order_book_latency(self, symbol: str, exchange: str, latency: float):
+        """Record order book update latency"""
+        self.order_book_latency.labels(
+            symbol=symbol,
+            exchange=exchange
+        ).observe(latency)
+    
+    def record_risk_check_latency(self, check_type: str, symbol: str, duration: float):
+        """Record risk management check latency"""
+        self.risk_check_latency.labels(
+            check_type=check_type,  # "position_size", "exposure", "drawdown"
+            symbol=symbol
+        ).observe(duration)
+    
+    def collect_trading_manager_metrics(self, trading_manager):
+        """Collect metrics from TradingManager instance"""
+        try:
+            # Portfolio value and positions
+            if trading_manager.performance_metrics:
+                portfolio_value = trading_manager.performance_metrics.get("total_equity", 0)
+                self.trading_portfolio_value.set(portfolio_value)
+                
+                daily_pnl = trading_manager.performance_metrics.get("daily_pnl", 0)
+                self.trading_pnl_total.labels(symbol="PORTFOLIO").set(daily_pnl)
+            
+            # Active positions
+            for symbol, position in trading_manager.active_positions.items():
+                quantity = float(position.get("quantity", 0))
+                self.trading_positions_active.labels(symbol=symbol).set(abs(quantity))
+                
+                unrealized_pnl = float(position.get("unrealized_pnl", 0))
+                self.trading_pnl_total.labels(symbol=symbol).set(unrealized_pnl)
+            
+        except Exception as e:
+            logger.warning("Failed to collect trading manager metrics", error=str(e))
+    
+    def collect_strategy_agent_metrics(self, strategy_agent, symbol: str):
+        """Collect metrics from StrategyAgent instance"""
+        try:
+            # Get strategy performance if available
+            if hasattr(strategy_agent, 'strategies'):
+                for strategy_name in strategy_agent.strategies:
+                    # Record strategy usage
+                    self.strategy_total_trades.labels(
+                        strategy_name=strategy_name,
+                        symbol=symbol,
+                        outcome="analysis"
+                    ).inc()
+            
+            # Record analysis type
+            if hasattr(strategy_agent, 'consensus_method'):
+                consensus_method = strategy_agent.consensus_method
+                logger.debug(f"Using consensus method: {consensus_method}")
+                
+        except Exception as e:
+            logger.warning("Failed to collect strategy agent metrics", error=str(e))
+
 
 class MetricsCollector:
     """Collects and manages system metrics"""

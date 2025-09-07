@@ -26,9 +26,69 @@ class AlertChannel(str, Enum):
     """Alert delivery channels"""
     LOG = "log"
     EMAIL = "email"
-    SLACK = "slack"
     WEBHOOK = "webhook"
     SMS = "sms"
+
+@dataclass
+class RiskThresholdConfig:
+    """Configurable risk management alert thresholds"""
+    
+    # Drawdown Thresholds
+    drawdown_warning_pct: float = 10.0
+    drawdown_critical_pct: float = 15.0
+    max_drawdown_limit_pct: float = 20.0
+    
+    # Portfolio Exposure Thresholds
+    portfolio_exposure_warning_usd: float = 400000.0
+    portfolio_exposure_critical_usd: float = 500000.0
+    sector_exposure_limit_usd: float = 200000.0
+    
+    # Position Size Risk Thresholds
+    position_size_warning_pct: float = 15.0
+    position_size_critical_pct: float = 25.0
+    
+    # Concentration Risk Threshold
+    concentration_risk_limit: float = 0.8
+    
+    # Value at Risk (VaR) Thresholds
+    var_daily_warning_usd: float = 30000.0
+    var_daily_critical_usd: float = 50000.0
+    
+    # Beta Risk Thresholds
+    beta_extreme_high: float = 2.0
+    beta_extreme_low: float = -0.5
+    
+    # Execution Risk Thresholds
+    execution_success_rate_threshold: float = 0.85
+    execution_latency_threshold_sec: float = 2.0
+    
+    def update_threshold(self, threshold_name: str, value: float) -> bool:
+        """Update a specific threshold value"""
+        if hasattr(self, threshold_name):
+            setattr(self, threshold_name, value)
+            return True
+        return False
+    
+    def get_threshold_rationale(self, threshold_name: str) -> str:
+        """Get explanation for threshold settings"""
+        rationales = {
+            'drawdown_warning_pct': 'Warning at 10% drawdown provides early risk awareness',
+            'drawdown_critical_pct': 'Critical at 15% drawdown requires immediate attention',
+            'max_drawdown_limit_pct': 'Maximum 20% drawdown before position closure',
+            'portfolio_exposure_warning_usd': '$400K exposure warning for portfolio management',
+            'portfolio_exposure_critical_usd': '$500K exposure limit for capital preservation',
+            'sector_exposure_limit_usd': '$200K sector limit prevents over-concentration',
+            'position_size_warning_pct': '15% position size warning maintains diversification',
+            'position_size_critical_pct': '25% position size limit prevents single-stock risk',
+            'concentration_risk_limit': '80% concentration threshold maintains portfolio balance',
+            'var_daily_warning_usd': '$30K daily VaR warning for risk monitoring',
+            'var_daily_critical_usd': '$50K daily VaR limit for capital protection',
+            'beta_extreme_high': 'Beta > 2.0 indicates excessive market correlation',
+            'beta_extreme_low': 'Beta < -0.5 indicates unusual inverse correlation',
+            'execution_success_rate_threshold': '85% execution rate minimum for operational efficiency',
+            'execution_latency_threshold_sec': '2-second latency limit for competitive execution'
+        }
+        return rationales.get(threshold_name, 'No rationale available')
 
 
 @dataclass
@@ -61,13 +121,18 @@ class Alert:
 class AlertManager:
     """Manages alerting for system health monitoring"""
     
-    def __init__(self):
+    def __init__(self, risk_thresholds: Optional[RiskThresholdConfig] = None, settings = None):
+        from app.core.config import get_settings
+        
+        self.risk_thresholds = risk_thresholds or RiskThresholdConfig()
+        self.settings = settings or get_settings()
         self.alert_rules = self._setup_default_alert_rules()
         self.active_alerts: Dict[str, Alert] = {}
         self.alert_history: List[Alert] = []
         self.alert_handlers: Dict[AlertChannel, Callable] = {
             AlertChannel.LOG: self._log_alert,
             AlertChannel.WEBHOOK: self._webhook_alert,
+            AlertChannel.EMAIL: self._email_alert,
         }
         self._last_alert_times: Dict[str, datetime] = {}
     
@@ -363,6 +428,62 @@ class AlertManager:
         
         # In production, this would send to actual webhook endpoints
         logger.info(f"Webhook alert: {webhook_payload}")
+
+    async def _email_alert(self, alert: Alert) -> bool:
+        """Send alert via email using SMTP"""
+        try:
+            import aiosmtplib
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+            
+            # Create email message
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = f"[{alert.severity.upper()}] {alert.title}"
+            msg['From'] = self.settings.EMAIL_FROM
+            msg['To'] = self.settings.ALERT_EMAIL_TO
+            
+            # Create HTML content with severity-based styling
+            html_content = self._format_email_html(alert)
+            msg.attach(MIMEText(html_content, 'html'))
+            
+            # Send email
+            await aiosmtplib.send(
+                msg,
+                hostname=self.settings.EMAIL_HOST,
+                port=self.settings.EMAIL_PORT,
+                username=self.settings.EMAIL_USERNAME,
+                password=self.settings.EMAIL_PASSWORD,
+                use_tls=self.settings.EMAIL_USE_TLS
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send email alert: {e}")
+            return False
+
+    def _format_email_html(self, alert: Alert) -> str:
+        """Format alert as HTML email"""
+        severity_colors = {
+            'critical': '#dc2626',
+            'warning': '#ea580c', 
+            'info': '#2563eb'
+        }
+        color = severity_colors.get(alert.severity.lower(), '#6b7280')
+        
+        return f"""
+        <html>
+            <body style="font-family: Arial, sans-serif;">
+                <div style="border-left: 4px solid {color}; padding-left: 16px;">
+                    <h2 style="color: {color}; margin: 0;">{alert.title}</h2>
+                    <p><strong>Severity:</strong> {alert.severity.upper()}</p>
+                    <p><strong>Metric:</strong> {alert.metric}</p>
+                    <p><strong>Value:</strong> {alert.value}</p>
+                    <p><strong>Threshold:</strong> {alert.threshold}</p>
+                    <p><strong>Time:</strong> {alert.timestamp}</p>
+                    {f'<p><strong>Description:</strong> {alert.description}</p>' if alert.description else ''}
+                </div>
+            </body>
+        </html>
+        """
     
     def add_alert_rule(self, rule: AlertRule):
         """Add custom alert rule"""
@@ -390,8 +511,50 @@ class AlertManager:
             'warning_active': len([a for a in self.active_alerts.values() if a.severity == AlertSeverity.WARNING])
         }
 
+    def update_risk_threshold(self, threshold_name: str, value: float) -> bool:
+        """Update a risk management threshold and reconfigure alerts"""
+        if self.risk_thresholds.update_threshold(threshold_name, value):
+            # Reconfigure alerts with new thresholds
+            self.configure_prometheus_alerts()
+            logger.info(f"Updated risk threshold '{threshold_name}' to {value}")
+            return True
+        return False
+    
+    def get_risk_threshold_config(self) -> RiskThresholdConfig:
+        """Get current risk threshold configuration"""
+        return self.risk_thresholds
+    
+    def get_threshold_documentation(self) -> Dict[str, str]:
+        """Get documentation for all risk thresholds"""
+        return {
+            field.name: self.risk_thresholds.get_threshold_rationale(field.name)
+            for field in self.risk_thresholds.__dataclass_fields__.values()
+            if not field.name.startswith('_')
+        }
+    
+    def validate_threshold_breach(self, metric_name: str, current_value: float) -> Optional[Alert]:
+        """Check if a metric value breaches any thresholds and return potential alert"""
+        for rule in self.alert_rules:
+            if metric_name in rule.condition and rule.threshold is not None:
+                if self._evaluate_metric_condition(rule, {metric_name: current_value}):
+                    return Alert(
+                        rule_name=rule.name,
+                        severity=rule.severity,
+                        message=f"Threshold breach detected: {rule.description}",
+                        timestamp=datetime.utcnow(),
+                        details={
+                            'metric_name': metric_name,
+                            'current_value': current_value,
+                            'threshold': rule.threshold,
+                            'condition': rule.condition
+                        }
+                    )
+        return None
+
     def configure_prometheus_alerts(self) -> List[AlertRule]:
         """Configure Prometheus metric-based alert rules with intelligent thresholds"""
+        config = self.risk_thresholds
+        
         prometheus_rules = [
             # System Health Metrics Alerts
             AlertRule(
@@ -412,6 +575,164 @@ class AlertManager:
                 cooldown_minutes=2,
                 description="System uptime is critically low (less than 5 minutes)",
                 threshold=300.0
+            ),
+            
+            # RISK MANAGEMENT ALERTS - Task 1.2 Implementation (Configurable Thresholds)
+            
+            # Drawdown Threshold Alerts
+            AlertRule(
+                name="strategy_current_drawdown_critical",
+                condition=f"trading_strategy_drawdown_current_pct > {config.drawdown_critical_pct}",
+                severity=AlertSeverity.CRITICAL,
+                channels=[AlertChannel.LOG, AlertChannel.WEBHOOK],
+                cooldown_minutes=5,
+                description=f"Strategy current drawdown exceeds critical threshold of {config.drawdown_critical_pct}%",
+                threshold=config.drawdown_critical_pct
+            ),
+            
+            AlertRule(
+                name="strategy_current_drawdown_warning",
+                condition=f"trading_strategy_drawdown_current_pct > {config.drawdown_warning_pct}",
+                severity=AlertSeverity.WARNING,
+                channels=[AlertChannel.LOG],
+                cooldown_minutes=10,
+                description=f"Strategy current drawdown exceeds warning threshold of {config.drawdown_warning_pct}%",
+                threshold=config.drawdown_warning_pct
+            ),
+            
+            AlertRule(
+                name="strategy_max_drawdown_exceeded",
+                condition=f"trading_strategy_drawdown_max_pct > {config.max_drawdown_limit_pct}",
+                severity=AlertSeverity.CRITICAL,
+                channels=[AlertChannel.LOG, AlertChannel.WEBHOOK],
+                cooldown_minutes=5,
+                description=f"Strategy maximum drawdown exceeds {config.max_drawdown_limit_pct}% - immediate risk assessment required",
+                threshold=config.max_drawdown_limit_pct
+            ),
+            
+            # Portfolio Exposure Limit Alerts
+            AlertRule(
+                name="portfolio_exposure_critical",
+                condition=f"trading_portfolio_exposure_total_usd > {config.portfolio_exposure_critical_usd}",
+                severity=AlertSeverity.CRITICAL,
+                channels=[AlertChannel.LOG, AlertChannel.WEBHOOK],
+                cooldown_minutes=5,
+                description=f"Total portfolio exposure exceeds critical limit of ${config.portfolio_exposure_critical_usd:,.0f}",
+                threshold=config.portfolio_exposure_critical_usd
+            ),
+            
+            AlertRule(
+                name="portfolio_exposure_warning",
+                condition=f"trading_portfolio_exposure_total_usd > {config.portfolio_exposure_warning_usd}",
+                severity=AlertSeverity.WARNING,
+                channels=[AlertChannel.LOG],
+                cooldown_minutes=15,
+                description=f"Total portfolio exposure exceeds warning threshold of ${config.portfolio_exposure_warning_usd:,.0f}",
+                threshold=config.portfolio_exposure_warning_usd
+            ),
+            
+            AlertRule(
+                name="portfolio_concentration_risk_high",
+                condition=f"trading_portfolio_concentration_risk > {config.concentration_risk_limit}",
+                severity=AlertSeverity.ERROR,
+                channels=[AlertChannel.LOG, AlertChannel.WEBHOOK],
+                cooldown_minutes=10,
+                description=f"Portfolio concentration risk exceeds {config.concentration_risk_limit*100:.0f}% - diversification needed",
+                threshold=config.concentration_risk_limit
+            ),
+            
+            AlertRule(
+                name="sector_exposure_concentration",
+                condition=f"trading_portfolio_exposure_by_sector_usd > {config.sector_exposure_limit_usd}",
+                severity=AlertSeverity.WARNING,
+                channels=[AlertChannel.LOG],
+                cooldown_minutes=20,
+                description=f"Single sector exposure exceeds ${config.sector_exposure_limit_usd:,.0f} limit",
+                threshold=config.sector_exposure_limit_usd
+            ),
+            
+            # Position Size Risk Alerts  
+            AlertRule(
+                name="position_size_risk_critical",
+                condition=f"trading_position_size_risk_pct > {config.position_size_critical_pct}",
+                severity=AlertSeverity.CRITICAL,
+                channels=[AlertChannel.LOG, AlertChannel.WEBHOOK],
+                cooldown_minutes=5,
+                description=f"Individual position exceeds {config.position_size_critical_pct}% of portfolio - immediate rebalancing required",
+                threshold=config.position_size_critical_pct
+            ),
+            
+            AlertRule(
+                name="position_size_risk_warning", 
+                condition=f"trading_position_size_risk_pct > {config.position_size_warning_pct}",
+                severity=AlertSeverity.WARNING,
+                channels=[AlertChannel.LOG],
+                cooldown_minutes=15,
+                description=f"Individual position exceeds {config.position_size_warning_pct}% of portfolio - monitor closely",
+                threshold=config.position_size_warning_pct
+            ),
+            
+            # Value at Risk (VaR) Alerts
+            AlertRule(
+                name="portfolio_var_daily_critical",
+                condition=f"trading_portfolio_var_daily_usd > {config.var_daily_critical_usd}",
+                severity=AlertSeverity.CRITICAL,
+                channels=[AlertChannel.LOG, AlertChannel.WEBHOOK],
+                cooldown_minutes=5,
+                description=f"Daily VaR exceeds critical threshold of ${config.var_daily_critical_usd:,.0f}",
+                threshold=config.var_daily_critical_usd
+            ),
+            
+            AlertRule(
+                name="portfolio_var_daily_warning",
+                condition=f"trading_portfolio_var_daily_usd > {config.var_daily_warning_usd}",
+                severity=AlertSeverity.WARNING,
+                channels=[AlertChannel.LOG],
+                cooldown_minutes=10,
+                description=f"Daily VaR exceeds warning threshold of ${config.var_daily_warning_usd:,.0f}",
+                threshold=config.var_daily_warning_usd
+            ),
+            
+            # Portfolio Beta Risk Alerts
+            AlertRule(
+                name="portfolio_beta_extreme_high",
+                condition=f"trading_portfolio_beta > {config.beta_extreme_high}",
+                severity=AlertSeverity.WARNING,
+                channels=[AlertChannel.LOG],
+                cooldown_minutes=30,
+                description=f"Portfolio beta exceeds {config.beta_extreme_high} - high market correlation risk",
+                threshold=config.beta_extreme_high
+            ),
+            
+            AlertRule(
+                name="portfolio_beta_extreme_low",
+                condition=f"trading_portfolio_beta < {config.beta_extreme_low}",
+                severity=AlertSeverity.WARNING,
+                channels=[AlertChannel.LOG],
+                cooldown_minutes=30,
+                description=f"Portfolio beta below {config.beta_extreme_low} - unusual inverse market correlation",
+                threshold=config.beta_extreme_low
+            ),
+            
+            # Trading Execution Risk Alerts
+            AlertRule(
+                name="trade_execution_success_rate_low",
+                condition=f"trading_execution_success_rate < {config.execution_success_rate_threshold}",
+                severity=AlertSeverity.ERROR,
+                channels=[AlertChannel.LOG, AlertChannel.WEBHOOK],
+                cooldown_minutes=10,
+                description=f"Trade execution success rate below {config.execution_success_rate_threshold*100:.0f}% - broker connectivity issues",
+                threshold=config.execution_success_rate_threshold
+            ),
+            
+            AlertRule(
+                name="trade_execution_latency_high",
+                condition=f"trading_execution_latency_seconds > {config.execution_latency_threshold_sec}",
+                severity=AlertSeverity.WARNING,
+                channels=[AlertChannel.LOG],
+                cooldown_minutes=15,
+                description=f"Trade execution latency exceeds {config.execution_latency_threshold_sec} seconds - performance degradation",
+                threshold=config.execution_latency_threshold_sec
             ),
             
             # MCP Agent Coordination Alerts
@@ -565,7 +886,7 @@ class AlertManager:
         for rule in prometheus_rules:
             self.add_alert_rule(rule)
             
-        logger.info(f"Configured {len(prometheus_rules)} Prometheus-based alert rules")
+        logger.info(f"Configured {len(prometheus_rules)} Prometheus-based alert rules with configurable thresholds")
         return prometheus_rules
 
     async def evaluate_prometheus_alerts(self, metrics_data: Dict) -> List[Alert]:

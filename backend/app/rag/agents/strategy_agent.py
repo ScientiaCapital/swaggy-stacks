@@ -27,6 +27,8 @@ from app.services.market_research import (
 from app.ai.trading_advisor import AITradingAdvisor, AnalysisType
 
 logger = logging.getLogger(__name__)
+# Import metrics for monitoring
+from app.monitoring.metrics import PrometheusMetrics
 
 
 # ============================================================================
@@ -98,46 +100,63 @@ class MarkovStrategy(StrategyPlugin):
 
     def analyze_market(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
         """Perform Markov analysis"""
-        prices = market_data.get("prices", [])
+        start_time = datetime.now()
+        metrics = PrometheusMetrics()
+        symbol = market_data.get("symbol", "UNKNOWN")
+        
+        try:
+            prices = market_data.get("prices", [])
 
-        if len(prices) < 20:
-            return {"error": "insufficient_data", "states": [], "transitions": []}
+            if len(prices) < 20:
+                return {"error": "insufficient_data", "states": [], "transitions": []}
 
-        # Calculate returns and discretize into states
-        returns = np.diff(np.log(prices))
-        quantiles = np.linspace(0, 1, self.n_states + 1)
-        state_bounds = np.quantile(returns, quantiles)
-        states = np.digitize(returns, state_bounds) - 1
-        states = np.clip(states, 0, self.n_states - 1)
+            # Calculate returns and discretize into states
+            returns = np.diff(np.log(prices))
+            quantiles = np.linspace(0, 1, self.n_states + 1)
+            state_bounds = np.quantile(returns, quantiles)
+            states = np.digitize(returns, state_bounds) - 1
+            states = np.clip(states, 0, self.n_states - 1)
 
-        # Build transition matrix
-        transition_matrix = np.zeros((self.n_states, self.n_states))
-        for i in range(len(states) - 1):
-            transition_matrix[states[i], states[i + 1]] += 1
+            # Build transition matrix
+            transition_matrix = np.zeros((self.n_states, self.n_states))
+            for i in range(len(states) - 1):
+                transition_matrix[states[i], states[i + 1]] += 1
 
-        # Normalize
-        row_sums = transition_matrix.sum(axis=1)
-        transition_matrix = np.divide(
-            transition_matrix,
-            row_sums[:, np.newaxis],
-            out=np.zeros_like(transition_matrix),
-            where=row_sums[:, np.newaxis] != 0,
-        )
+            # Normalize
+            row_sums = transition_matrix.sum(axis=1)
+            transition_matrix = np.divide(
+                transition_matrix,
+                row_sums[:, np.newaxis],
+                out=np.zeros_like(transition_matrix),
+                where=row_sums[:, np.newaxis] != 0,
+            )
 
-        current_state = states[-1] if len(states) > 0 else 0
-        next_state_probs = (
-            transition_matrix[current_state]
-            if len(transition_matrix) > current_state
-            else np.zeros(self.n_states)
-        )
+            current_state = states[-1] if len(states) > 0 else 0
+            next_state_probs = (
+                transition_matrix[current_state]
+                if len(transition_matrix) > current_state
+                else np.zeros(self.n_states)
+            )
 
-        return {
-            "current_state": int(current_state),
-            "transition_matrix": transition_matrix.tolist(),
-            "next_state_probabilities": next_state_probs.tolist(),
-            "confidence": float(np.max(next_state_probs)),
-            "states_sequence": states.tolist(),
-        }
+            analysis_time = (datetime.now() - start_time).total_seconds()
+            confidence = float(np.max(next_state_probs))
+            
+            # Record strategy performance metrics
+            metrics.record_strategy_analysis_latency(analysis_time, "markov", symbol)
+            
+            return {
+                "current_state": int(current_state),
+                "transition_matrix": transition_matrix.tolist(),
+                "next_state_probabilities": next_state_probs.tolist(),
+                "confidence": confidence,
+                "states_sequence": states.tolist(),
+            }
+
+        except Exception as e:
+            analysis_time = (datetime.now() - start_time).total_seconds()
+            metrics.record_strategy_analysis_latency(analysis_time, "markov", symbol)
+            logger.error(f"Markov analysis failed for {symbol}: {str(e)}")
+            return {"error": "analysis_failed", "message": str(e)}
 
     def generate_signal(
         self, analysis: Dict[str, Any], market_data: Dict[str, Any]
@@ -223,42 +242,59 @@ class WyckoffStrategy(StrategyPlugin):
 
     def analyze_market(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
         """Perform Wyckoff analysis"""
-        prices = market_data.get("prices", [])
-        volumes = market_data.get("volumes", [])
+        start_time = datetime.now()
+        metrics = PrometheusMetrics()
+        symbol = market_data.get("symbol", "UNKNOWN")
+        
+        try:
+            prices = market_data.get("prices", [])
+            volumes = market_data.get("volumes", [])
 
-        if len(prices) < self.volume_lookback or len(volumes) < self.volume_lookback:
-            return {"error": "insufficient_data"}
+            if len(prices) < self.volume_lookback or len(volumes) < self.volume_lookback:
+                return {"error": "insufficient_data"}
 
-        # Calculate effort vs result
-        price_changes = np.diff(prices)
-        volume_avg = np.mean(volumes[-self.volume_lookback :])
+            # Calculate effort vs result
+            price_changes = np.diff(prices)
+            volume_avg = np.mean(volumes[-self.volume_lookback :])
 
-        # Simple phase detection
-        recent_volumes = volumes[-10:]
-        recent_prices = prices[-10:]
+            # Simple phase detection
+            recent_volumes = volumes[-10:]
+            recent_prices = prices[-10:]
 
-        volume_trend = np.polyfit(range(len(recent_volumes)), recent_volumes, 1)[0]
-        price_trend = np.polyfit(range(len(recent_prices)), recent_prices, 1)[0]
+            volume_trend = np.polyfit(range(len(recent_volumes)), recent_volumes, 1)[0]
+            price_trend = np.polyfit(range(len(recent_prices)), recent_prices, 1)[0]
 
-        # Determine phase
-        if volume_trend > 0 and abs(price_trend) < np.std(price_changes):
-            phase = "accumulation"
-        elif volume_trend > 0 and price_trend > 0:
-            phase = "markup"
-        elif volume_trend > 0 and price_trend < 0:
-            phase = "distribution"
-        elif price_trend < 0:
-            phase = "markdown"
-        else:
-            phase = "unknown"
+            # Determine phase
+            if volume_trend > 0 and abs(price_trend) < np.std(price_changes):
+                phase = "accumulation"
+            elif volume_trend > 0 and price_trend > 0:
+                phase = "markup"
+            elif volume_trend > 0 and price_trend < 0:
+                phase = "distribution"
+            elif price_trend < 0:
+                phase = "markdown"
+            else:
+                phase = "unknown"
 
-        return {
-            "phase": phase,
-            "volume_trend": volume_trend,
-            "price_trend": price_trend,
-            "effort_result_ratio": volume_trend / (abs(price_trend) + 1e-6),
-            "confidence": min(abs(volume_trend) / volume_avg, 1.0),
-        }
+            analysis_time = (datetime.now() - start_time).total_seconds()
+            confidence = min(abs(volume_trend) / volume_avg, 1.0)
+            
+            # Record strategy performance metrics
+            metrics.record_strategy_analysis_latency(analysis_time, "wyckoff", symbol)
+
+            return {
+                "phase": phase,
+                "volume_trend": volume_trend,
+                "price_trend": price_trend,
+                "effort_result_ratio": volume_trend / (abs(price_trend) + 1e-6),
+                "confidence": confidence,
+            }
+
+        except Exception as e:
+            analysis_time = (datetime.now() - start_time).total_seconds()
+            metrics.record_strategy_analysis_latency(analysis_time, "wyckoff", symbol)
+            logger.error(f"Wyckoff analysis failed for {symbol}: {str(e)}")
+            return {"error": "analysis_failed", "message": str(e)}
 
     def generate_signal(
         self, analysis: Dict[str, Any], market_data: Dict[str, Any]
@@ -335,45 +371,61 @@ class FibonacciStrategy(StrategyPlugin):
 
     def analyze_market(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
         """Perform Fibonacci analysis"""
-        prices = market_data.get("prices", [])
+        start_time = datetime.now()
+        metrics = PrometheusMetrics()
+        symbol = market_data.get("symbol", "UNKNOWN")
+        
+        try:
+            prices = market_data.get("prices", [])
 
-        if len(prices) < 20:
-            return {"error": "insufficient_data"}
+            if len(prices) < 20:
+                return {"error": "insufficient_data"}
 
-        # Find swing high and low
-        recent_prices = np.array(prices[-50:])  # Last 50 periods
-        swing_high = np.max(recent_prices)
-        swing_low = np.min(recent_prices)
-        current_price = prices[-1]
+            # Find swing high and low
+            recent_prices = np.array(prices[-50:])  # Last 50 periods
+            swing_high = np.max(recent_prices)
+            swing_low = np.min(recent_prices)
+            current_price = prices[-1]
 
-        # Calculate Fibonacci levels
-        price_range = swing_high - swing_low
-        fib_levels = {}
+            # Calculate Fibonacci levels
+            price_range = swing_high - swing_low
+            fib_levels = {}
 
-        for ratio in self.retracement_ratios:
-            fib_levels[f"fib_{ratio}"] = swing_high - (price_range * ratio)
+            for ratio in self.retracement_ratios:
+                fib_levels[f"fib_{ratio}"] = swing_high - (price_range * ratio)
 
-        # Check golden zone
-        golden_low = swing_high - (price_range * self.golden_zone[1])  # 78.6%
-        golden_high = swing_high - (price_range * self.golden_zone[0])  # 61.8%
+            # Check golden zone
+            golden_low = swing_high - (price_range * self.golden_zone[1])  # 78.6%
+            golden_high = swing_high - (price_range * self.golden_zone[0])  # 61.8%
 
-        in_golden_zone = golden_low <= current_price <= golden_high
+            in_golden_zone = golden_low <= current_price <= golden_high
 
-        # Find nearest level
-        nearest_level = min(fib_levels.values(), key=lambda x: abs(x - current_price))
-        distance_to_nearest = abs(current_price - nearest_level) / current_price
+            # Find nearest level
+            nearest_level = min(fib_levels.values(), key=lambda x: abs(x - current_price))
+            distance_to_nearest = abs(current_price - nearest_level) / current_price
 
-        return {
-            "swing_high": swing_high,
-            "swing_low": swing_low,
-            "current_price": current_price,
-            "fib_levels": fib_levels,
-            "in_golden_zone": in_golden_zone,
-            "golden_zone_bounds": [golden_low, golden_high],
-            "nearest_level": nearest_level,
-            "distance_to_nearest": distance_to_nearest,
-            "at_key_level": distance_to_nearest < self.proximity_threshold,
-        }
+            analysis_time = (datetime.now() - start_time).total_seconds()
+            
+            # Record strategy performance metrics
+            metrics.record_strategy_analysis_latency(analysis_time, "fibonacci", symbol)
+
+            return {
+                "swing_high": swing_high,
+                "swing_low": swing_low,
+                "current_price": current_price,
+                "fib_levels": fib_levels,
+                "in_golden_zone": in_golden_zone,
+                "golden_zone_bounds": [golden_low, golden_high],
+                "nearest_level": nearest_level,
+                "distance_to_nearest": distance_to_nearest,
+                "at_key_level": distance_to_nearest < self.proximity_threshold,
+            }
+
+        except Exception as e:
+            analysis_time = (datetime.now() - start_time).total_seconds()
+            metrics.record_strategy_analysis_latency(analysis_time, "fibonacci", symbol)
+            logger.error(f"Fibonacci analysis failed for {symbol}: {str(e)}")
+            return {"error": "analysis_failed", "message": str(e)}
 
     def generate_signal(
         self, analysis: Dict[str, Any], market_data: Dict[str, Any]

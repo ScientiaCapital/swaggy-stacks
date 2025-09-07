@@ -39,6 +39,7 @@ scipy==1.11.4
 scikit-learn==1.3.2
 
 # Async & Background Tasks
+aiosmtplib>=2.0.2
 celery==5.3.4
 asyncio-mqtt==0.16.1
 
