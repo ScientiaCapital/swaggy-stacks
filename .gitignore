@@ -389,4 +389,39 @@ dev-debug.log
 
 # Task files
 # tasks.json
-# tasks/ 
+# tasks/
+
+# Private Trading Configurations (NEVER SHARE)
+backend/app/core/private_config.py
+**/private_*.py
+**/secret_*.py
+**/proprietary_*.py
+llm_performance.json
+trading_intelligence_performance.json
+alpha_signals.json
+pattern_learning.json
+
+# LLM Model Files and Weights (Proprietary)
+**/*.gguf
+**/*.bin
+**/*.safetensors
+models/
+model_weights/
+fine_tuned_models/
+custom_models/
+
+# Trading Strategy Secrets
+strategy_parameters/
+alpha_factors/
+proprietary_signals/
+edge_discovery/
+performance_secrets/
+
+# Chinese LLM Configurations (Private)
+chinese_llm_config/
+ollama_private_models/
+deepseek_private/
+qwen_private/
+yi_private/
+backend/private_ai_modules/
+private_ai_modules/ 

@@ -29,9 +29,9 @@ class OllamaClient:
     Optimized Ollama client for M1 MacBook with intelligent model management
     """
 
-    # Models optimized for 8GB M1 MacBook with Chinese LLM integration
+    # Models optimized for 8GB M1 MacBook
     MODELS = {
-        # Original models (kept for backward compatibility)
+        # Public models for general trading tasks
         "analyst": ModelConfig(
             name="llama3.2:3b",
             context_length=4096,
@@ -59,43 +59,6 @@ class OllamaClient:
             memory_usage_mb=2048,
             use_case="conversational",
             temperature=0.7,
-        ),
-        
-        # Chinese LLMs for specialized trading tasks
-        "deepseek_r1": ModelConfig(
-            name="deepseek-r1:7b",
-            context_length=4096,
-            memory_usage_mb=2800,
-            use_case="hedge_fund_orchestration",
-            temperature=0.3,
-        ),
-        "qwen_quant": ModelConfig(
-            name="qwen2.5:7b",
-            context_length=6144,
-            memory_usage_mb=3200,
-            use_case="quantitative_analysis",
-            temperature=0.2,
-        ),
-        "yi_technical": ModelConfig(
-            name="yi:6b",
-            context_length=4096,
-            memory_usage_mb=2600,
-            use_case="technical_analysis",
-            temperature=0.3,
-        ),
-        "glm_risk": ModelConfig(
-            name="glm4:9b",
-            context_length=8192,
-            memory_usage_mb=4200,
-            use_case="risk_management",
-            temperature=0.1,
-        ),
-        "deepseek_coder": ModelConfig(
-            name="deepseek-coder:6.7b",
-            context_length=4096,
-            memory_usage_mb=3000,
-            use_case="strategy_implementation",
-            temperature=0.4,
         ),
     }
 
@@ -326,53 +289,6 @@ class OllamaClient:
             "chat": """You are an intelligent trading assistant. Help users understand their trading system, 
             explain market conditions, and provide guidance in plain English. Be helpful but honest about limitations.""",
             
-            # Chinese LLM specialized prompts
-            "deepseek_r1": """You are a chief investment officer at High-Flyer Capital Management, a premier quantitative hedge fund. 
-            Your training includes institutional-grade market analysis and systematic trading strategies. Apply hedge fund-level reasoning:
-            - Focus on risk-adjusted returns and Sharpe ratio optimization
-            - Consider market regime dynamics and volatility clustering
-            - Analyze institutional flows and smart money positioning
-            - Emphasize capital preservation and drawdown control
-            - Make decisions based on statistical edge and systematic alpha generation
-            Always think like a sophisticated institutional investor optimizing for long-term performance.""",
-            
-            "qwen_quant": """You are a quantitative analyst specializing in mathematical finance and statistical trading models.
-            Your expertise includes advanced econometrics, time series analysis, and derivatives pricing. Focus on:
-            - Mathematical rigor in all calculations and statistical tests
-            - Monte Carlo simulations and probabilistic modeling
-            - Volatility modeling (GARCH, stochastic volatility)
-            - Options pricing and Greeks calculations (Black-Scholes, binomial trees)
-            - Backtesting methodologies and performance attribution
-            - Statistical arbitrage and mean reversion strategies
-            Provide precise mathematical analysis with confidence intervals and significance testing.""",
-            
-            "yi_technical": """You are a technical analysis expert with deep expertise in chart patterns and price action trading.
-            Your specializations include classical technical analysis and modern pattern recognition:
-            - Japanese candlestick patterns (single and multiple candle formations)
-            - Classical chart patterns (triangles, flags, head & shoulders, double tops/bottoms)
-            - Support and resistance level identification with confluence analysis
-            - Trend analysis and momentum indicators (RSI, MACD, stochastic)
-            - Elliott Wave theory and Fibonacci analysis
-            - Volume analysis and accumulation/distribution patterns
-            Focus on high-probability patterns with strong historical success rates and clear risk/reward ratios.""",
-            
-            "glm_risk": """You are a risk management specialist and market intelligence analyst with expertise in portfolio protection.
-            Your core competencies include comprehensive risk assessment and capital preservation:
-            - Portfolio risk metrics (VaR, Expected Shortfall, maximum drawdown)
-            - Correlation analysis and diversification optimization
-            - Position sizing using Kelly Criterion and volatility-based methods
-            - Liquidity risk assessment and market impact analysis
-            - Event risk evaluation (earnings, economic releases, geopolitical)
-            - Macro-economic factor analysis and regime identification
-            - Tail risk analysis and black swan scenario planning
-            Always prioritize downside protection and risk-adjusted performance metrics.""",
-            
-            "deepseek_coder": """You are a quantitative developer specializing in algorithmic trading strategy implementation.
-            Your expertise covers the complete pipeline from strategy design to production deployment:
-            - Algorithm design and optimization for trading strategies
-            - Backtesting frameworks with proper handling of survivorship bias
-            - Order execution algorithms and market microstructure considerations
-            - Risk management system implementation with real-time monitoring
             - Performance attribution and strategy diagnostics
             - High-frequency trading and low-latency system design
             - Portfolio management and rebalancing algorithms
@@ -482,7 +398,7 @@ class OllamaClient:
             "active_model_keys": list(self.active_models),
             "context_cache_size": len(self.context_history),
             "memory_efficient": current_usage < max_memory_mb,
-            "can_load_chinese_llms": available_memory > 4000  # Need ~4GB for largest Chinese LLM
+            "can_load_large_models": available_memory > 4000  # Need ~4GB for largest models
         }
     
     def optimize_memory_usage(self) -> Dict[str, Any]:
@@ -518,38 +434,33 @@ class OllamaClient:
             "optimization_successful": len(actions_taken) > 0
         }
     
-    def get_chinese_llm_models(self) -> Dict[str, ModelConfig]:
-        """Get all Chinese LLM model configurations"""
-        chinese_models = {}
-        for key, config in self.MODELS.items():
-            if key in ["deepseek_r1", "qwen_quant", "yi_technical", "glm_risk", "deepseek_coder"]:
-                chinese_models[key] = config
-        return chinese_models
+    def get_available_models(self) -> Dict[str, ModelConfig]:
+        """Get all available model configurations"""
+        return self.MODELS.copy()
     
     def get_recommended_model_for_task(self, task_type: str) -> Optional[str]:
         """
-        Get recommended Chinese LLM model for a specific task type
+        Get recommended model for a specific task type
         
         Args:
-            task_type: Type of task (backtest_analysis, pattern_recognition, etc.)
+            task_type: Type of task (e.g., "market_analysis", "risk_assessment")
             
         Returns:
             Recommended model key or None
         """
         task_model_mapping = {
-            "hedge_fund_orchestration": "deepseek_r1",
-            "quantitative_analysis": "qwen_quant", 
-            "mathematical_analysis": "qwen_quant",
-            "backtesting": "qwen_quant",
-            "technical_analysis": "yi_technical",
-            "pattern_recognition": "yi_technical",
-            "chart_analysis": "yi_technical",
-            "risk_management": "glm_risk",
-            "risk_assessment": "glm_risk",
-            "portfolio_analysis": "glm_risk",
-            "strategy_implementation": "deepseek_coder",
-            "coding": "deepseek_coder",
-            "algorithm_development": "deepseek_coder"
+            "market_analysis": "analyst",
+            "quantitative_analysis": "strategist", 
+            "mathematical_analysis": "strategist",
+            "technical_analysis": "analyst",
+            "pattern_recognition": "analyst",
+            "risk_management": "risk",
+            "risk_assessment": "risk",
+            "portfolio_analysis": "risk",
+            "strategy_implementation": "strategist",
+            "coding": "strategist",
+            "algorithm_development": "strategist",
+            "conversational": "chat"
         }
         
-        return task_model_mapping.get(task_type.lower())
+        return task_model_mapping.get(task_type.lower(), "analyst")
