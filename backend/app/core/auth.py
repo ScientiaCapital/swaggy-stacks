@@ -87,19 +87,10 @@ def authenticate_user(username: str, password: str, user_db) -> Union[dict, bool
     return user
 
 
-def verify_token(token: str) -> dict:
-    """
-    Verify JWT token and return payload
-    """
-    try:
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[ALGORITHM]
-        )
-        return payload
-    except JWTError:
-        raise ValueError("Invalid token")
+def create_test_token(username: str = "demo_user", user_id: int = 1) -> str:
+    """Create a test JWT token for testing purposes"""
+    data = {"sub": username, "user_id": user_id}
+    return create_access_token(data)
 
 
 def create_jwt_exception() -> HTTPException:
