@@ -5,9 +5,10 @@ Core AI trading agents for Swaggy Stacks Trading System
 import asyncio
 import json
 import os
-from typing import Dict, List, Optional, Any, Tuple
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Tuple
+
 import pandas as pd
 import structlog
 
@@ -19,6 +20,7 @@ logger = structlog.get_logger()
 @dataclass
 class MarketAnalysis:
     """Market analysis result from AI agent"""
+
     symbol: str
     sentiment: str  # bullish, bearish, neutral
     confidence: float  # 0.0 to 1.0
@@ -32,6 +34,7 @@ class MarketAnalysis:
 @dataclass
 class RiskAssessment:
     """Risk assessment result from AI agent"""
+
     symbol: str
     risk_level: str  # low, medium, high
     portfolio_heat: float  # current portfolio heat percentage
@@ -46,6 +49,7 @@ class RiskAssessment:
 @dataclass
 class StrategySignal:
     """Strategy signal from AI agent"""
+
     symbol: str
     action: str  # BUY, SELL, HOLD
     confidence: float  # 0.0 to 1.0
@@ -61,6 +65,7 @@ class StrategySignal:
 @dataclass
 class TradeReview:
     """Trade review result from AI agent"""
+
     trade_id: str
     symbol: str
     performance_grade: str  # A, B, C, D, F
@@ -74,31 +79,33 @@ class TradeReview:
 
 class MarketAnalystAgent:
     """AI agent specialized in market analysis and sentiment evaluation"""
-    
+
     def __init__(self, ollama_client: OllamaClient):
         self.ollama_client = ollama_client
-        self.agent_type = 'analyst'
-        self.system_prompt = self._load_prompt('market_analysis.txt')
-        
+        self.agent_type = "analyst"
+        self.system_prompt = self._load_prompt("market_analysis.txt")
+
     def _load_prompt(self, filename: str) -> str:
         """Load system prompt from file"""
         try:
-            prompt_path = os.path.join(os.path.dirname(__file__), 'prompts', filename)
-            with open(prompt_path, 'r') as f:
+            prompt_path = os.path.join(os.path.dirname(__file__), "prompts", filename)
+            with open(prompt_path, "r") as f:
                 return f.read().strip()
         except Exception as e:
             logger.error("Failed to load prompt", filename=filename, error=str(e))
-            return "You are a market analysis expert. Provide clear, actionable insights."
-    
+            return (
+                "You are a market analysis expert. Provide clear, actionable insights."
+            )
+
     async def analyze_market(
         self,
         symbol: str,
         market_data: Dict[str, Any],
         technical_indicators: Dict[str, Any],
-        context: str = ""
+        context: str = "",
     ) -> MarketAnalysis:
         """Analyze market conditions for a specific symbol"""
-        
+
         try:
             prompt = f"""
             Analyze the market conditions for {symbol}:
@@ -131,35 +138,38 @@ class MarketAnalystAgent:
                 "reasoning": "detailed explanation of your analysis"
             }}
             """
-            
+
             response = await self.ollama_client.generate_response(
                 prompt,
                 model_key=self.agent_type,
                 system_prompt=self.system_prompt,
-                max_tokens=1024
+                max_tokens=1024,
             )
-            
+
             # Parse JSON response
-            analysis_data = self._parse_json_response(response, {
-                "sentiment": "neutral",
-                "confidence": 0.5,
-                "key_factors": ["Unable to analyze"],
-                "recommendations": ["Review data quality"],
-                "risk_level": "medium",
-                "reasoning": "Analysis failed"
-            })
-            
+            analysis_data = self._parse_json_response(
+                response,
+                {
+                    "sentiment": "neutral",
+                    "confidence": 0.5,
+                    "key_factors": ["Unable to analyze"],
+                    "recommendations": ["Review data quality"],
+                    "risk_level": "medium",
+                    "reasoning": "Analysis failed",
+                },
+            )
+
             return MarketAnalysis(
                 symbol=symbol,
-                sentiment=analysis_data['sentiment'],
-                confidence=float(analysis_data['confidence']),
-                key_factors=analysis_data['key_factors'],
-                recommendations=analysis_data['recommendations'],
-                risk_level=analysis_data['risk_level'],
-                reasoning=analysis_data['reasoning'],
-                timestamp=datetime.now()
+                sentiment=analysis_data["sentiment"],
+                confidence=float(analysis_data["confidence"]),
+                key_factors=analysis_data["key_factors"],
+                recommendations=analysis_data["recommendations"],
+                risk_level=analysis_data["risk_level"],
+                reasoning=analysis_data["reasoning"],
+                timestamp=datetime.now(),
             )
-            
+
         except Exception as e:
             logger.error("Market analysis failed", symbol=symbol, error=str(e))
             return MarketAnalysis(
@@ -170,18 +180,18 @@ class MarketAnalystAgent:
                 recommendations=["Retry analysis"],
                 risk_level="high",
                 reasoning=f"Error: {str(e)}",
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
-    
+
     def _parse_json_response(self, response: str, default_values: Dict) -> Dict:
         """Parse JSON response with fallback to default values"""
         try:
             # Clean response - remove markdown code blocks if present
             clean_response = response.strip()
-            if clean_response.startswith('```'):
-                lines = clean_response.split('\n')
-                clean_response = '\n'.join(lines[1:-1])
-            
+            if clean_response.startswith("```"):
+                lines = clean_response.split("\n")
+                clean_response = "\n".join(lines[1:-1])
+
             return json.loads(clean_response)
         except json.JSONDecodeError:
             logger.warning("Failed to parse JSON response", response=response[:200])
@@ -190,22 +200,22 @@ class MarketAnalystAgent:
 
 class RiskAdvisorAgent:
     """AI agent specialized in risk assessment and portfolio protection"""
-    
+
     def __init__(self, ollama_client: OllamaClient):
         self.ollama_client = ollama_client
-        self.agent_type = 'risk'
-        self.system_prompt = self._load_prompt('risk_assessment.txt')
-        
+        self.agent_type = "risk"
+        self.system_prompt = self._load_prompt("risk_assessment.txt")
+
     def _load_prompt(self, filename: str) -> str:
         """Load system prompt from file"""
         try:
-            prompt_path = os.path.join(os.path.dirname(__file__), 'prompts', filename)
-            with open(prompt_path, 'r') as f:
+            prompt_path = os.path.join(os.path.dirname(__file__), "prompts", filename)
+            with open(prompt_path, "r") as f:
                 return f.read().strip()
         except Exception as e:
             logger.error("Failed to load prompt", filename=filename, error=str(e))
             return "You are a risk management expert. Focus on capital preservation."
-    
+
     async def assess_risk(
         self,
         symbol: str,
@@ -213,19 +223,23 @@ class RiskAdvisorAgent:
         account_value: float,
         current_positions: List[Dict],
         market_volatility: Dict[str, float],
-        proposed_trade: Dict[str, Any]
+        proposed_trade: Dict[str, Any],
     ) -> RiskAssessment:
         """Assess risk for a proposed trade"""
-        
+
         try:
             # Calculate current portfolio heat
-            total_risk = sum(pos.get('risk_amount', 0) for pos in current_positions)
-            portfolio_heat = (total_risk / account_value) * 100 if account_value > 0 else 0
-            
+            total_risk = sum(pos.get("risk_amount", 0) for pos in current_positions)
+            portfolio_heat = (
+                (total_risk / account_value) * 100 if account_value > 0 else 0
+            )
+
             # Calculate proposed position risk
-            proposed_risk = position_size * proposed_trade.get('stop_loss_percent', 0.05)
+            proposed_risk = position_size * proposed_trade.get(
+                "stop_loss_percent", 0.05
+            )
             position_risk_percent = (proposed_risk / account_value) * 100
-            
+
             prompt = f"""
             Assess the risk for this proposed trade:
             
@@ -257,36 +271,39 @@ class RiskAdvisorAgent:
                 "max_position_risk": 0.5
             }}
             """
-            
+
             response = await self.ollama_client.generate_response(
                 prompt,
                 model_key=self.agent_type,
                 system_prompt=self.system_prompt,
-                max_tokens=1024
+                max_tokens=1024,
             )
-            
-            risk_data = self._parse_json_response(response, {
-                "risk_level": "high",
-                "portfolio_heat": portfolio_heat,
-                "recommended_position_size": position_size * 0.5,
-                "key_risk_factors": ["High uncertainty"],
-                "mitigation_strategies": ["Reduce position size"],
-                "exit_conditions": ["Stop loss triggered"],
-                "max_position_risk": 0.5
-            })
-            
+
+            risk_data = self._parse_json_response(
+                response,
+                {
+                    "risk_level": "high",
+                    "portfolio_heat": portfolio_heat,
+                    "recommended_position_size": position_size * 0.5,
+                    "key_risk_factors": ["High uncertainty"],
+                    "mitigation_strategies": ["Reduce position size"],
+                    "exit_conditions": ["Stop loss triggered"],
+                    "max_position_risk": 0.5,
+                },
+            )
+
             return RiskAssessment(
                 symbol=symbol,
-                risk_level=risk_data['risk_level'],
-                portfolio_heat=float(risk_data['portfolio_heat']),
-                recommended_position_size=float(risk_data['recommended_position_size']),
-                key_risk_factors=risk_data['key_risk_factors'],
-                mitigation_strategies=risk_data['mitigation_strategies'],
-                exit_conditions=risk_data['exit_conditions'],
-                max_position_risk=float(risk_data['max_position_risk']),
-                timestamp=datetime.now()
+                risk_level=risk_data["risk_level"],
+                portfolio_heat=float(risk_data["portfolio_heat"]),
+                recommended_position_size=float(risk_data["recommended_position_size"]),
+                key_risk_factors=risk_data["key_risk_factors"],
+                mitigation_strategies=risk_data["mitigation_strategies"],
+                exit_conditions=risk_data["exit_conditions"],
+                max_position_risk=float(risk_data["max_position_risk"]),
+                timestamp=datetime.now(),
             )
-            
+
         except Exception as e:
             logger.error("Risk assessment failed", symbol=symbol, error=str(e))
             return RiskAssessment(
@@ -298,16 +315,16 @@ class RiskAdvisorAgent:
                 mitigation_strategies=["Manual review required"],
                 exit_conditions=["Immediate exit if uncertain"],
                 max_position_risk=0.25,
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
-    
+
     def _parse_json_response(self, response: str, default_values: Dict) -> Dict:
         """Parse JSON response with fallback"""
         try:
             clean_response = response.strip()
-            if clean_response.startswith('```'):
-                lines = clean_response.split('\n')
-                clean_response = '\n'.join(lines[1:-1])
+            if clean_response.startswith("```"):
+                lines = clean_response.split("\n")
+                clean_response = "\n".join(lines[1:-1])
             return json.loads(clean_response)
         except json.JSONDecodeError:
             return default_values
@@ -315,32 +332,32 @@ class RiskAdvisorAgent:
 
 class StrategyOptimizerAgent:
     """AI agent specialized in strategy generation and optimization"""
-    
+
     def __init__(self, ollama_client: OllamaClient):
         self.ollama_client = ollama_client
-        self.agent_type = 'strategist'
-        self.system_prompt = self._load_prompt('strategy_generation.txt')
-        
+        self.agent_type = "strategist"
+        self.system_prompt = self._load_prompt("strategy_generation.txt")
+
     def _load_prompt(self, filename: str) -> str:
         """Load system prompt from file"""
         try:
-            prompt_path = os.path.join(os.path.dirname(__file__), 'prompts', filename)
-            with open(prompt_path, 'r') as f:
+            prompt_path = os.path.join(os.path.dirname(__file__), "prompts", filename)
+            with open(prompt_path, "r") as f:
                 return f.read().strip()
         except Exception as e:
             logger.error("Failed to load prompt", filename=filename, error=str(e))
             return "You are a strategy optimization expert. Generate actionable trading signals."
-    
+
     async def generate_signal(
         self,
         symbol: str,
         markov_analysis: Dict[str, Any],
         technical_indicators: Dict[str, Any],
         market_context: Dict[str, Any],
-        performance_history: List[Dict]
+        performance_history: List[Dict],
     ) -> StrategySignal:
         """Generate optimized trading signal"""
-        
+
         try:
             prompt = f"""
             Generate an optimized trading signal for {symbol}:
@@ -374,38 +391,41 @@ class StrategyOptimizerAgent:
                 "technical_factors": ["factor1", "factor2", "factor3"]
             }}
             """
-            
+
             response = await self.ollama_client.generate_response(
                 prompt,
                 model_key=self.agent_type,
                 system_prompt=self.system_prompt,
-                max_tokens=1024
+                max_tokens=1024,
             )
-            
-            signal_data = self._parse_json_response(response, {
-                "action": "HOLD",
-                "confidence": 0.0,
-                "entry_price": None,
-                "stop_loss": None,
-                "take_profit": None,
-                "position_size": None,
-                "reasoning": "Signal generation failed",
-                "technical_factors": ["Error in analysis"]
-            })
-            
+
+            signal_data = self._parse_json_response(
+                response,
+                {
+                    "action": "HOLD",
+                    "confidence": 0.0,
+                    "entry_price": None,
+                    "stop_loss": None,
+                    "take_profit": None,
+                    "position_size": None,
+                    "reasoning": "Signal generation failed",
+                    "technical_factors": ["Error in analysis"],
+                },
+            )
+
             return StrategySignal(
                 symbol=symbol,
-                action=signal_data['action'],
-                confidence=float(signal_data['confidence']),
-                entry_price=signal_data.get('entry_price'),
-                stop_loss=signal_data.get('stop_loss'),
-                take_profit=signal_data.get('take_profit'),
-                position_size=signal_data.get('position_size'),
-                reasoning=signal_data['reasoning'],
-                technical_factors=signal_data['technical_factors'],
-                timestamp=datetime.now()
+                action=signal_data["action"],
+                confidence=float(signal_data["confidence"]),
+                entry_price=signal_data.get("entry_price"),
+                stop_loss=signal_data.get("stop_loss"),
+                take_profit=signal_data.get("take_profit"),
+                position_size=signal_data.get("position_size"),
+                reasoning=signal_data["reasoning"],
+                technical_factors=signal_data["technical_factors"],
+                timestamp=datetime.now(),
             )
-            
+
         except Exception as e:
             logger.error("Signal generation failed", symbol=symbol, error=str(e))
             return StrategySignal(
@@ -418,16 +438,16 @@ class StrategyOptimizerAgent:
                 position_size=None,
                 reasoning=f"Error: {str(e)}",
                 technical_factors=["Generation error"],
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
-    
+
     def _parse_json_response(self, response: str, default_values: Dict) -> Dict:
         """Parse JSON response with fallback"""
         try:
             clean_response = response.strip()
-            if clean_response.startswith('```'):
-                lines = clean_response.split('\n')
-                clean_response = '\n'.join(lines[1:-1])
+            if clean_response.startswith("```"):
+                lines = clean_response.split("\n")
+                clean_response = "\n".join(lines[1:-1])
             return json.loads(clean_response)
         except json.JSONDecodeError:
             return default_values
@@ -435,38 +455,42 @@ class StrategyOptimizerAgent:
 
 class PerformanceCoachAgent:
     """AI agent specialized in trade review and system improvement"""
-    
+
     def __init__(self, ollama_client: OllamaClient):
         self.ollama_client = ollama_client
-        self.agent_type = 'analyst'  # Use analyst model for performance analysis
-        self.system_prompt = self._load_prompt('trade_review.txt')
-        
+        self.agent_type = "analyst"  # Use analyst model for performance analysis
+        self.system_prompt = self._load_prompt("trade_review.txt")
+
     def _load_prompt(self, filename: str) -> str:
         """Load system prompt from file"""
         try:
-            prompt_path = os.path.join(os.path.dirname(__file__), 'prompts', filename)
-            with open(prompt_path, 'r') as f:
+            prompt_path = os.path.join(os.path.dirname(__file__), "prompts", filename)
+            with open(prompt_path, "r") as f:
                 return f.read().strip()
         except Exception as e:
             logger.error("Failed to load prompt", filename=filename, error=str(e))
             return "You are a performance coach. Review trades and provide improvement insights."
-    
+
     async def review_trade(
         self,
         trade_data: Dict[str, Any],
         market_context: Dict[str, Any],
-        system_performance: Dict[str, Any]
+        system_performance: Dict[str, Any],
     ) -> TradeReview:
         """Review a completed trade and provide insights"""
-        
+
         try:
             # Calculate trade metrics
-            entry_price = trade_data.get('entry_price', 0)
-            exit_price = trade_data.get('exit_price', 0)
-            quantity = trade_data.get('quantity', 0)
+            entry_price = trade_data.get("entry_price", 0)
+            exit_price = trade_data.get("exit_price", 0)
+            quantity = trade_data.get("quantity", 0)
             pnl = (exit_price - entry_price) * quantity
-            pnl_percent = ((exit_price - entry_price) / entry_price) * 100 if entry_price > 0 else 0
-            
+            pnl_percent = (
+                ((exit_price - entry_price) / entry_price) * 100
+                if entry_price > 0
+                else 0
+            )
+
             prompt = f"""
             Review this completed trade:
             
@@ -499,56 +523,61 @@ class PerformanceCoachAgent:
                 "systematic_improvements": ["improvement1", "improvement2"]
             }}
             """
-            
+
             response = await self.ollama_client.generate_response(
                 prompt,
                 model_key=self.agent_type,
                 system_prompt=self.system_prompt,
-                max_tokens=1024
+                max_tokens=1024,
             )
-            
-            review_data = self._parse_json_response(response, {
-                "performance_grade": "C",
-                "execution_quality": "fair",
-                "key_learnings": ["Review analysis failed"],
-                "improvement_suggestions": ["Retry trade review"],
-                "pattern_insights": ["Unable to identify patterns"],
-                "systematic_improvements": ["Improve review process"]
-            })
-            
+
+            review_data = self._parse_json_response(
+                response,
+                {
+                    "performance_grade": "C",
+                    "execution_quality": "fair",
+                    "key_learnings": ["Review analysis failed"],
+                    "improvement_suggestions": ["Retry trade review"],
+                    "pattern_insights": ["Unable to identify patterns"],
+                    "systematic_improvements": ["Improve review process"],
+                },
+            )
+
             return TradeReview(
-                trade_id=trade_data.get('id', 'unknown'),
-                symbol=trade_data.get('symbol', 'Unknown'),
-                performance_grade=review_data['performance_grade'],
-                execution_quality=review_data['execution_quality'],
-                key_learnings=review_data['key_learnings'],
-                improvement_suggestions=review_data['improvement_suggestions'],
-                pattern_insights=review_data['pattern_insights'],
-                systematic_improvements=review_data['systematic_improvements'],
-                timestamp=datetime.now()
+                trade_id=trade_data.get("id", "unknown"),
+                symbol=trade_data.get("symbol", "Unknown"),
+                performance_grade=review_data["performance_grade"],
+                execution_quality=review_data["execution_quality"],
+                key_learnings=review_data["key_learnings"],
+                improvement_suggestions=review_data["improvement_suggestions"],
+                pattern_insights=review_data["pattern_insights"],
+                systematic_improvements=review_data["systematic_improvements"],
+                timestamp=datetime.now(),
             )
-            
+
         except Exception as e:
-            logger.error("Trade review failed", trade_id=trade_data.get('id'), error=str(e))
+            logger.error(
+                "Trade review failed", trade_id=trade_data.get("id"), error=str(e)
+            )
             return TradeReview(
-                trade_id=trade_data.get('id', 'unknown'),
-                symbol=trade_data.get('symbol', 'Unknown'),
+                trade_id=trade_data.get("id", "unknown"),
+                symbol=trade_data.get("symbol", "Unknown"),
                 performance_grade="F",
                 execution_quality="poor",
                 key_learnings=[f"Review error: {str(e)}"],
                 improvement_suggestions=["Fix review process"],
                 pattern_insights=["Unable to analyze"],
                 systematic_improvements=["Debug review system"],
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
-    
+
     def _parse_json_response(self, response: str, default_values: Dict) -> Dict:
         """Parse JSON response with fallback"""
         try:
             clean_response = response.strip()
-            if clean_response.startswith('```'):
-                lines = clean_response.split('\n')
-                clean_response = '\n'.join(lines[1:-1])
+            if clean_response.startswith("```"):
+                lines = clean_response.split("\n")
+                clean_response = "\n".join(lines[1:-1])
             return json.loads(clean_response)
         except json.JSONDecodeError:
             return default_values
@@ -556,14 +585,14 @@ class PerformanceCoachAgent:
 
 class AIAgentCoordinator:
     """Coordinates all AI agents for comprehensive trading intelligence"""
-    
+
     def __init__(self, ollama_base_url: str = "http://localhost:11434"):
         self.ollama_client = OllamaClient(ollama_base_url)
         self.market_analyst = MarketAnalystAgent(self.ollama_client)
         self.risk_advisor = RiskAdvisorAgent(self.ollama_client)
         self.strategy_optimizer = StrategyOptimizerAgent(self.ollama_client)
         self.performance_coach = PerformanceCoachAgent(self.ollama_client)
-        
+
     async def comprehensive_analysis(
         self,
         symbol: str,
@@ -571,24 +600,24 @@ class AIAgentCoordinator:
         technical_indicators: Dict[str, Any],
         account_info: Dict[str, Any],
         current_positions: List[Dict],
-        markov_analysis: Dict[str, Any]
+        markov_analysis: Dict[str, Any],
     ) -> Dict[str, Any]:
         """Run comprehensive analysis using all agents"""
-        
+
         try:
             logger.info("Starting comprehensive AI analysis", symbol=symbol)
-            
+
             # Run market analysis
             market_analysis = await self.market_analyst.analyze_market(
                 symbol=symbol,
                 market_data=market_data,
-                technical_indicators=technical_indicators
+                technical_indicators=technical_indicators,
             )
-            
+
             # Calculate proposed position size (simplified)
-            account_value = account_info.get('equity', 100000)
+            account_value = account_info.get("equity", 100000)
             proposed_position_size = account_value * 0.02  # 2% of account
-            
+
             # Run risk assessment
             risk_assessment = await self.risk_advisor.assess_risk(
                 symbol=symbol,
@@ -596,77 +625,75 @@ class AIAgentCoordinator:
                 account_value=account_value,
                 current_positions=current_positions,
                 market_volatility={
-                    'atr': technical_indicators.get('atr', 0),
-                    'hist_vol': market_data.get('volatility', 0)
+                    "atr": technical_indicators.get("atr", 0),
+                    "hist_vol": market_data.get("volatility", 0),
                 },
-                proposed_trade={
-                    'stop_loss_percent': 0.05,
-                    'take_profit_percent': 0.10
-                }
+                proposed_trade={"stop_loss_percent": 0.05, "take_profit_percent": 0.10},
             )
-            
+
             # Generate optimized signal
             strategy_signal = await self.strategy_optimizer.generate_signal(
                 symbol=symbol,
                 markov_analysis=markov_analysis,
                 technical_indicators=technical_indicators,
                 market_context={
-                    'regime': 'trending',  # This would come from regime detection
-                    'volatility': 'normal',
-                    'trend_strength': 'moderate'
+                    "regime": "trending",  # This would come from regime detection
+                    "volatility": "normal",
+                    "trend_strength": "moderate",
                 },
-                performance_history=[]  # This would come from trade history
+                performance_history=[],  # This would come from trade history
             )
-            
+
             # Compile comprehensive result
             result = {
-                'symbol': symbol,
-                'timestamp': datetime.now().isoformat(),
-                'market_analysis': asdict(market_analysis),
-                'risk_assessment': asdict(risk_assessment),
-                'strategy_signal': asdict(strategy_signal),
-                'final_recommendation': self._synthesize_recommendation(
+                "symbol": symbol,
+                "timestamp": datetime.now().isoformat(),
+                "market_analysis": asdict(market_analysis),
+                "risk_assessment": asdict(risk_assessment),
+                "strategy_signal": asdict(strategy_signal),
+                "final_recommendation": self._synthesize_recommendation(
                     market_analysis, risk_assessment, strategy_signal
-                )
+                ),
             }
-            
+
             logger.info("Comprehensive analysis completed", symbol=symbol)
             return result
-            
+
         except Exception as e:
             logger.error("Comprehensive analysis failed", symbol=symbol, error=str(e))
             return {
-                'symbol': symbol,
-                'timestamp': datetime.now().isoformat(),
-                'error': str(e),
-                'final_recommendation': 'HOLD'
+                "symbol": symbol,
+                "timestamp": datetime.now().isoformat(),
+                "error": str(e),
+                "final_recommendation": "HOLD",
             }
-    
+
     def _synthesize_recommendation(
         self,
         market_analysis: MarketAnalysis,
         risk_assessment: RiskAssessment,
-        strategy_signal: StrategySignal
+        strategy_signal: StrategySignal,
     ) -> str:
         """Synthesize final recommendation from all agents"""
-        
+
         # Weight the recommendations
-        if risk_assessment.risk_level == 'high':
-            return 'HOLD'  # Risk trumps everything
-            
+        if risk_assessment.risk_level == "high":
+            return "HOLD"  # Risk trumps everything
+
         if market_analysis.confidence < 0.6 or strategy_signal.confidence < 0.6:
-            return 'HOLD'  # Need high confidence for action
-            
+            return "HOLD"  # Need high confidence for action
+
         # If both market and strategy agree, follow their recommendation
-        if (market_analysis.sentiment in ['bullish'] and 
-            strategy_signal.action == 'BUY'):
-            return 'BUY'
-        elif (market_analysis.sentiment in ['bearish'] and 
-              strategy_signal.action == 'SELL'):
-            return 'SELL'
+        if market_analysis.sentiment in ["bullish"] and strategy_signal.action == "BUY":
+            return "BUY"
+        elif (
+            market_analysis.sentiment in ["bearish"]
+            and strategy_signal.action == "SELL"
+        ):
+            return "SELL"
         else:
-            return 'HOLD'
-    
+            return "HOLD"
+
     async def health_check(self) -> Dict[str, Any]:
         """Check health of all AI components"""
         return await self.ollama_client.health_check()

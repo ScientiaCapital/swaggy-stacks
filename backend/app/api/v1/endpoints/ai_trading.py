@@ -2,12 +2,13 @@
 AI Trading endpoints for Swaggy Stacks Trading System
 """
 
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
-from pydantic import BaseModel, Field
-from typing import Dict, List, Optional, Any
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 import structlog
 import yfinance as yf
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from pydantic import BaseModel, Field
 
 from app.ai.trading_agents import AIAgentCoordinator
 from app.core.exceptions import TradingError
@@ -18,6 +19,7 @@ router = APIRouter()
 
 # Global AI coordinator instance
 ai_coordinator = None
+
 
 async def get_ai_coordinator():
     """Get or initialize AI coordinator"""
@@ -38,6 +40,7 @@ class MarketAnalysisRequest(BaseModel):
     symbol: str = Field(..., description="Stock symbol to analyze")
     context: Optional[str] = Field(None, description="Additional context for analysis")
 
+
 class MarketAnalysisResponse(BaseModel):
     symbol: str
     sentiment: str
@@ -48,12 +51,14 @@ class MarketAnalysisResponse(BaseModel):
     reasoning: str
     timestamp: datetime
 
+
 class RiskAssessmentRequest(BaseModel):
     symbol: str
     position_size: float
     account_value: float
     current_positions: List[Dict] = Field(default_factory=list)
     proposed_trade: Dict = Field(default_factory=dict)
+
 
 class RiskAssessmentResponse(BaseModel):
     symbol: str
@@ -66,11 +71,13 @@ class RiskAssessmentResponse(BaseModel):
     max_position_risk: float
     timestamp: datetime
 
+
 class StrategySignalRequest(BaseModel):
     symbol: str
     markov_analysis: Dict = Field(default_factory=dict)
     technical_indicators: Dict = Field(default_factory=dict)
     market_context: Dict = Field(default_factory=dict)
+
 
 class StrategySignalResponse(BaseModel):
     symbol: str
@@ -84,10 +91,12 @@ class StrategySignalResponse(BaseModel):
     technical_factors: List[str]
     timestamp: datetime
 
+
 class TradeReviewRequest(BaseModel):
     trade_data: Dict
     market_context: Dict = Field(default_factory=dict)
     system_performance: Dict = Field(default_factory=dict)
+
 
 class TradeReviewResponse(BaseModel):
     trade_id: str
@@ -100,14 +109,17 @@ class TradeReviewResponse(BaseModel):
     systematic_improvements: List[str]
     timestamp: datetime
 
+
 class ComprehensiveAnalysisRequest(BaseModel):
     symbol: str
     account_value: float = Field(default=100000)
     current_positions: List[Dict] = Field(default_factory=list)
 
+
 class ChatRequest(BaseModel):
     message: str
     context: Optional[Dict] = None
+
 
 class ChatResponse(BaseModel):
     response: str
@@ -123,15 +135,11 @@ async def ai_health_check():
         return {
             "status": "healthy",
             "ai_services": health_status,
-            "timestamp": datetime.now()
+            "timestamp": datetime.now(),
         }
     except Exception as e:
         logger.error("AI health check failed", error=str(e))
-        return {
-            "status": "unhealthy",
-            "error": str(e),
-            "timestamp": datetime.now()
-        }
+        return {"status": "unhealthy", "error": str(e), "timestamp": datetime.now()}
 
 
 @router.post("/analyze/market", response_model=MarketAnalysisResponse)
@@ -139,35 +147,37 @@ async def analyze_market(request: MarketAnalysisRequest):
     """Get AI market analysis for a symbol"""
     try:
         coordinator = await get_ai_coordinator()
-        
+
         # Get recent market data
         ticker = yf.Ticker(request.symbol)
         hist = ticker.history(period="3mo")
-        
+
         if hist.empty:
-            raise HTTPException(status_code=404, detail=f"No market data found for {request.symbol}")
-        
+            raise HTTPException(
+                status_code=404, detail=f"No market data found for {request.symbol}"
+            )
+
         # Prepare market data
-        current_price = hist['Close'].iloc[-1]
+        current_price = hist["Close"].iloc[-1]
         market_data = {
-            'current_price': current_price,
-            'volume': hist['Volume'].iloc[-1],
-            'high_52w': hist['High'].max(),
-            'low_52w': hist['Low'].min(),
-            'volatility': hist['Close'].pct_change().std() * (252 ** 0.5)
+            "current_price": current_price,
+            "volume": hist["Volume"].iloc[-1],
+            "high_52w": hist["High"].max(),
+            "low_52w": hist["Low"].min(),
+            "volatility": hist["Close"].pct_change().std() * (252**0.5),
         }
-        
+
         # Calculate technical indicators
         technical_indicators = _calculate_basic_indicators(hist)
-        
+
         # Get AI analysis
         analysis = await coordinator.market_analyst.analyze_market(
             symbol=request.symbol,
             market_data=market_data,
             technical_indicators=technical_indicators,
-            context=request.context or ""
+            context=request.context or "",
         )
-        
+
         return MarketAnalysisResponse(
             symbol=analysis.symbol,
             sentiment=analysis.sentiment,
@@ -176,9 +186,9 @@ async def analyze_market(request: MarketAnalysisRequest):
             recommendations=analysis.recommendations,
             risk_level=analysis.risk_level,
             reasoning=analysis.reasoning,
-            timestamp=analysis.timestamp
+            timestamp=analysis.timestamp,
         )
-        
+
     except Exception as e:
         logger.error("Market analysis failed", symbol=request.symbol, error=str(e))
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
@@ -189,16 +199,22 @@ async def assess_risk(request: RiskAssessmentRequest):
     """Get AI risk assessment for a proposed trade"""
     try:
         coordinator = await get_ai_coordinator()
-        
+
         # Get market volatility data
         ticker = yf.Ticker(request.symbol)
         hist = ticker.history(period="3mo")
-        
+
         market_volatility = {
-            'hist_vol': hist['Close'].pct_change().std() * (252 ** 0.5) if not hist.empty else 0.2,
-            'atr': _calculate_atr(hist) if not hist.empty else 0.02 * hist['Close'].iloc[-1] if not hist.empty else 0
+            "hist_vol": (
+                hist["Close"].pct_change().std() * (252**0.5) if not hist.empty else 0.2
+            ),
+            "atr": (
+                _calculate_atr(hist)
+                if not hist.empty
+                else 0.02 * hist["Close"].iloc[-1] if not hist.empty else 0
+            ),
         }
-        
+
         # Get risk assessment
         assessment = await coordinator.risk_advisor.assess_risk(
             symbol=request.symbol,
@@ -206,9 +222,9 @@ async def assess_risk(request: RiskAssessmentRequest):
             account_value=request.account_value,
             current_positions=request.current_positions,
             market_volatility=market_volatility,
-            proposed_trade=request.proposed_trade
+            proposed_trade=request.proposed_trade,
         )
-        
+
         return RiskAssessmentResponse(
             symbol=assessment.symbol,
             risk_level=assessment.risk_level,
@@ -218,9 +234,9 @@ async def assess_risk(request: RiskAssessmentRequest):
             mitigation_strategies=assessment.mitigation_strategies,
             exit_conditions=assessment.exit_conditions,
             max_position_risk=assessment.max_position_risk,
-            timestamp=assessment.timestamp
+            timestamp=assessment.timestamp,
         )
-        
+
     except Exception as e:
         logger.error("Risk assessment failed", symbol=request.symbol, error=str(e))
         raise HTTPException(status_code=500, detail=f"Risk assessment failed: {str(e)}")
@@ -231,16 +247,16 @@ async def generate_strategy_signal(request: StrategySignalRequest):
     """Generate AI-optimized trading signal"""
     try:
         coordinator = await get_ai_coordinator()
-        
+
         # Generate signal
         signal = await coordinator.strategy_optimizer.generate_signal(
             symbol=request.symbol,
             markov_analysis=request.markov_analysis,
             technical_indicators=request.technical_indicators,
             market_context=request.market_context,
-            performance_history=[]  # Could be populated from trading history
+            performance_history=[],  # Could be populated from trading history
         )
-        
+
         return StrategySignalResponse(
             symbol=signal.symbol,
             action=signal.action,
@@ -251,12 +267,14 @@ async def generate_strategy_signal(request: StrategySignalRequest):
             position_size=signal.position_size,
             reasoning=signal.reasoning,
             technical_factors=signal.technical_factors,
-            timestamp=signal.timestamp
+            timestamp=signal.timestamp,
         )
-        
+
     except Exception as e:
         logger.error("Signal generation failed", symbol=request.symbol, error=str(e))
-        raise HTTPException(status_code=500, detail=f"Signal generation failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Signal generation failed: {str(e)}"
+        )
 
 
 @router.post("/review/trade", response_model=TradeReviewResponse)
@@ -264,14 +282,14 @@ async def review_trade(request: TradeReviewRequest):
     """Get AI trade review and insights"""
     try:
         coordinator = await get_ai_coordinator()
-        
+
         # Get trade review
         review = await coordinator.performance_coach.review_trade(
             trade_data=request.trade_data,
             market_context=request.market_context,
-            system_performance=request.system_performance
+            system_performance=request.system_performance,
         )
-        
+
         return TradeReviewResponse(
             trade_id=review.trade_id,
             symbol=review.symbol,
@@ -281,9 +299,9 @@ async def review_trade(request: TradeReviewRequest):
             improvement_suggestions=review.improvement_suggestions,
             pattern_insights=review.pattern_insights,
             systematic_improvements=review.systematic_improvements,
-            timestamp=review.timestamp
+            timestamp=review.timestamp,
         )
-        
+
     except Exception as e:
         logger.error("Trade review failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Trade review failed: {str(e)}")
@@ -294,42 +312,51 @@ async def comprehensive_analysis(request: ComprehensiveAnalysisRequest):
     """Run comprehensive AI analysis using all agents"""
     try:
         coordinator = await get_ai_coordinator()
-        
+
         # Get market data
         ticker = yf.Ticker(request.symbol)
         hist = ticker.history(period="3mo")
-        
+
         if hist.empty:
-            raise HTTPException(status_code=404, detail=f"No market data found for {request.symbol}")
-        
+            raise HTTPException(
+                status_code=404, detail=f"No market data found for {request.symbol}"
+            )
+
         # Prepare data
-        current_price = hist['Close'].iloc[-1]
+        current_price = hist["Close"].iloc[-1]
         market_data = {
-            'current_price': current_price,
-            'volume': hist['Volume'].iloc[-1],
-            'high_52w': hist['High'].max(),
-            'low_52w': hist['Low'].min(),
-            'volatility': hist['Close'].pct_change().std() * (252 ** 0.5)
+            "current_price": current_price,
+            "volume": hist["Volume"].iloc[-1],
+            "high_52w": hist["High"].max(),
+            "low_52w": hist["Low"].min(),
+            "volatility": hist["Close"].pct_change().std() * (252**0.5),
         }
-        
+
         technical_indicators = _calculate_basic_indicators(hist)
         markov_analysis = _calculate_simple_markov(hist)
-        
+
         # Run comprehensive analysis
         analysis = await coordinator.comprehensive_analysis(
             symbol=request.symbol,
             market_data=market_data,
             technical_indicators=technical_indicators,
-            account_info={'equity': request.account_value, 'cash': request.account_value * 0.5},
+            account_info={
+                "equity": request.account_value,
+                "cash": request.account_value * 0.5,
+            },
             current_positions=request.current_positions,
-            markov_analysis=markov_analysis
+            markov_analysis=markov_analysis,
         )
-        
+
         return analysis
-        
+
     except Exception as e:
-        logger.error("Comprehensive analysis failed", symbol=request.symbol, error=str(e))
-        raise HTTPException(status_code=500, detail=f"Comprehensive analysis failed: {str(e)}")
+        logger.error(
+            "Comprehensive analysis failed", symbol=request.symbol, error=str(e)
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Comprehensive analysis failed: {str(e)}"
+        )
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -337,19 +364,14 @@ async def ai_chat(request: ChatRequest):
     """Chat with AI trading assistant"""
     try:
         coordinator = await get_ai_coordinator()
-        
+
         # Use the chat model for conversational response
         response = await coordinator.ollama_client.generate_response(
-            prompt=request.message,
-            model_key='chat',
-            max_tokens=512
+            prompt=request.message, model_key="chat", max_tokens=512
         )
-        
-        return ChatResponse(
-            response=response,
-            timestamp=datetime.now()
-        )
-        
+
+        return ChatResponse(response=response, timestamp=datetime.now())
+
     except Exception as e:
         logger.error("AI chat failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
@@ -359,8 +381,8 @@ async def ai_chat(request: ChatRequest):
 def _calculate_basic_indicators(hist_data) -> Dict:
     """Calculate basic technical indicators"""
     try:
-        close = hist_data['Close']
-        
+        close = hist_data["Close"]
+
         # RSI
         gains = close.diff().clip(lower=0)
         losses = (-1 * close.diff()).clip(lower=0)
@@ -368,34 +390,34 @@ def _calculate_basic_indicators(hist_data) -> Dict:
         avg_losses = losses.rolling(14).mean()
         rs = avg_gains / avg_losses
         rsi = 100 - (100 / (1 + rs)).iloc[-1]
-        
+
         # Moving averages
         ma20 = close.rolling(20).mean().iloc[-1]
         ma50 = close.rolling(50).mean().iloc[-1]
-        
+
         # MACD
         exp12 = close.ewm(span=12).mean()
         exp26 = close.ewm(span=26).mean()
         macd = (exp12 - exp26).iloc[-1]
-        
+
         return {
-            'rsi': rsi if not pd.isna(rsi) else 50.0,
-            'ma20': ma20 if not pd.isna(ma20) else close.iloc[-1],
-            'ma50': ma50 if not pd.isna(ma50) else close.iloc[-1],
-            'macd': macd if not pd.isna(macd) else 0.0,
-            'atr': _calculate_atr(hist_data)
+            "rsi": rsi if not pd.isna(rsi) else 50.0,
+            "ma20": ma20 if not pd.isna(ma20) else close.iloc[-1],
+            "ma50": ma50 if not pd.isna(ma50) else close.iloc[-1],
+            "macd": macd if not pd.isna(macd) else 0.0,
+            "atr": _calculate_atr(hist_data),
         }
-        
+
     except Exception:
-        return {'rsi': 50.0, 'ma20': 0, 'ma50': 0, 'macd': 0.0, 'atr': 0.0}
+        return {"rsi": 50.0, "ma20": 0, "ma50": 0, "macd": 0.0, "atr": 0.0}
 
 
 def _calculate_atr(hist_data) -> float:
     """Calculate Average True Range"""
     try:
-        high_low = hist_data['High'] - hist_data['Low']
-        high_close = (hist_data['High'] - hist_data['Close'].shift()).abs()
-        low_close = (hist_data['Low'] - hist_data['Close'].shift()).abs()
+        high_low = hist_data["High"] - hist_data["Low"]
+        high_close = (hist_data["High"] - hist_data["Close"].shift()).abs()
+        low_close = (hist_data["Low"] - hist_data["Close"].shift()).abs()
         ranges = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
         return ranges.rolling(14).mean().iloc[-1]
     except Exception:
@@ -405,35 +427,35 @@ def _calculate_atr(hist_data) -> float:
 def _calculate_simple_markov(hist_data) -> Dict:
     """Calculate simplified Markov analysis"""
     try:
-        close = hist_data['Close']
+        close = hist_data["Close"]
         returns = close.pct_change().dropna()
-        
+
         # Simple momentum-based state
         recent_momentum = returns.tail(5).mean()
-        
+
         if recent_momentum > 0.01:
-            state = 'bullish'
+            state = "bullish"
             confidence = min(0.8, abs(recent_momentum) * 50)
         elif recent_momentum < -0.01:
-            state = 'bearish'  
+            state = "bearish"
             confidence = min(0.8, abs(recent_momentum) * 50)
         else:
-            state = 'neutral'
+            state = "neutral"
             confidence = 0.3
-            
+
         return {
-            'current_state': state,
-            'confidence': confidence,
-            'direction': 'up' if recent_momentum > 0 else 'down',
-            'transition_prob': confidence
+            "current_state": state,
+            "confidence": confidence,
+            "direction": "up" if recent_momentum > 0 else "down",
+            "transition_prob": confidence,
         }
-        
+
     except Exception:
         return {
-            'current_state': 'neutral',
-            'confidence': 0.5,
-            'direction': 'neutral',
-            'transition_prob': 0.5
+            "current_state": "neutral",
+            "confidence": 0.5,
+            "direction": "neutral",
+            "transition_prob": 0.5,
         }
 
 

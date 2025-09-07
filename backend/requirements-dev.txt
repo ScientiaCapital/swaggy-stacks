@@ -1,0 +1,15 @@
+# Development and Testing Dependencies
+pytest==8.4.2
+pytest-cov==6.3.0
+pytest-asyncio==1.1.0
+
+# Code Quality Tools
+black==25.1.0
+isort==6.0.1
+flake8==7.3.0
+mypy==1.17.1
+
+# Additional Development Tools
+pre-commit==3.6.0
+httpx==0.26.0  # For testing HTTP clients
+pytest-mock==3.12.0  # For mocking in tests

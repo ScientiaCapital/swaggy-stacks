@@ -26,7 +26,6 @@ from app.core.config import get_settings
 from app.mcp.orchestrator import MCPOrchestrator
 from app.services.github_automation import GitHubAutomationService
 from app.services.market_research import MarketResearchService
-from app.rag.agents.consolidated_strategy_agent import ConsolidatedStrategyAgent
 from app.trading.trading_manager import TradingManager
 
 
@@ -53,7 +52,9 @@ def settings():
         "LOG_LEVEL": "WARNING",
         "ALPACA_API_KEY": "test_key",
         "ALPACA_SECRET_KEY": "test_secret",
-        "ALPACA_BASE_URL": "https://paper-api.alpaca.markets"
+        "ALPACA_BASE_URL": "https://paper-api.alpaca.markets",
+        "ML_FEATURES_ENABLED": "false",  # Disable ML features for testing
+        "EMBEDDING_SERVICE_TYPE": "mock"  # Use mock embedding service
     }):
         yield get_settings()
 
@@ -316,9 +317,20 @@ def sample_technical_indicators() -> Dict[str, Any]:
 @pytest.fixture
 def sample_trading_signal():
     """Sample trading signal for testing"""
-    from app.rag.agents.base_agent import TradingSignal
+    # Create mock trading signal without importing from ML modules
+    from dataclasses import dataclass
+    from datetime import datetime
     
-    return TradingSignal(
+    @dataclass
+    class MockTradingSignal:
+        symbol: str
+        action: str
+        confidence: float
+        reasoning: str
+        timestamp: datetime
+        metadata: dict
+    
+    return MockTradingSignal(
         symbol='AAPL',
         action='buy',
         confidence=0.75,
@@ -334,16 +346,32 @@ def sample_trading_signal():
 
 @pytest_asyncio.fixture
 async def consolidated_strategy_agent(mock_market_research_service):
-    """Create consolidated strategy agent for testing"""
-    agent = ConsolidatedStrategyAgent(
-        strategies=['markov', 'wyckoff'],
-        use_market_research=False  # Disable for unit tests
-    )
+    """Create mock consolidated strategy agent for testing"""
+    # Create a mock agent that doesn't require ML dependencies
+    mock_agent = AsyncMock()
+    mock_agent.strategies = ['markov', 'wyckoff']
+    mock_agent.use_market_research = False
+    mock_agent.market_research_service = mock_market_research_service
+    mock_agent.agent_name = "MockConsolidatedAgent"
     
-    # Mock the market research service
-    agent.market_research_service = mock_market_research_service
+    # Mock analyze method to return a sample signal
+    async def mock_analyze(symbol: str, timeframe: str = "1h"):
+        return {
+            'signal': 'buy',
+            'confidence': 0.75,
+            'reasoning': f'Mock analysis for {symbol}',
+            'metadata': {
+                'strategy': 'consolidated',
+                'signals': ['markov', 'wyckoff'],
+                'timeframe': timeframe
+            }
+        }
     
-    return agent
+    mock_agent.analyze = mock_analyze
+    mock_agent.initialize = AsyncMock()
+    mock_agent.health_check = AsyncMock(return_value={'status': 'healthy', 'agent': 'mock'})
+    
+    return mock_agent
 
 
 @pytest.fixture

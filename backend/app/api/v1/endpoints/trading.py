@@ -3,17 +3,19 @@ Trading API endpoints
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
-import structlog
 
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from app.api.v1.dependencies import get_current_user
 from app.core.database import get_db
-from app.core.exceptions import TradingError, RiskManagementError
-from app.trading.alpaca_client import AlpacaClient
-from app.trading.risk_manager import RiskManager
+from app.core.exceptions import RiskManagementError, TradingError
 from app.models.trade import Trade
 from app.models.user import User
+from app.trading.alpaca_client import AlpacaClient
+from app.trading.risk_manager import RiskManager
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -21,6 +23,7 @@ router = APIRouter()
 
 class OrderRequest(BaseModel):
     """Order request model"""
+
     symbol: str
     quantity: float
     side: str  # BUY or SELL
@@ -33,6 +36,7 @@ class OrderRequest(BaseModel):
 
 class OrderResponse(BaseModel):
     """Order response model"""
+
     order_id: str
     symbol: str
     quantity: float
@@ -44,6 +48,7 @@ class OrderResponse(BaseModel):
 
 class TradeResponse(BaseModel):
     """Trade response model"""
+
     id: int
     symbol: str
     quantity: float
@@ -60,7 +65,7 @@ class TradeResponse(BaseModel):
 async def create_order(
     order_request: OrderRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)  # This would be implemented
+    current_user: User = Depends(get_current_user),  # This would be implemented
 ):
     """Create a new trading order"""
     try:
@@ -68,24 +73,24 @@ async def create_order(
         alpaca_client = AlpacaClient(
             api_key=current_user.alpaca_api_key,
             secret_key=current_user.alpaca_secret_key,
-            paper=True
+            paper=True,
         )
-        
+
         # Get current account info
         account = await alpaca_client.get_account()
         positions = await alpaca_client.get_positions()
-        
+
         # Initialize risk manager
         risk_manager = RiskManager(
             user_id=current_user.id,
             user_risk_params={
-                'max_position_size': current_user.max_position_size,
-                'max_daily_loss': current_user.max_daily_loss,
-                'max_portfolio_exposure': 0.95,
-                'max_single_stock_exposure': 0.20
-            }
+                "max_position_size": current_user.max_position_size,
+                "max_daily_loss": current_user.max_daily_loss,
+                "max_portfolio_exposure": 0.95,
+                "max_single_stock_exposure": 0.20,
+            },
         )
-        
+
         # Validate order against risk management
         is_valid, reason = risk_manager.validate_order(
             symbol=order_request.symbol,
@@ -93,13 +98,13 @@ async def create_order(
             price=order_request.limit_price or 0,  # Would need current price
             side=order_request.side,
             current_positions=positions,
-            account_value=float(account['portfolio_value']),
-            daily_pnl=0  # Would need to calculate from trades
+            account_value=float(account["portfolio_value"]),
+            daily_pnl=0,  # Would need to calculate from trades
         )
-        
+
         if not is_valid:
             raise RiskManagementError(f"Order rejected: {reason}")
-        
+
         # Execute order with Alpaca
         order = await alpaca_client.execute_order(
             symbol=order_request.symbol,
@@ -108,9 +113,9 @@ async def create_order(
             order_type=order_request.order_type,
             time_in_force=order_request.time_in_force,
             limit_price=order_request.limit_price,
-            stop_price=order_request.stop_price
+            stop_price=order_request.stop_price,
         )
-        
+
         # Save trade to database
         trade = Trade(
             symbol=order_request.symbol,
@@ -119,32 +124,32 @@ async def create_order(
             side=order_request.side,
             order_type=order_request.order_type.upper(),
             time_in_force=order_request.time_in_force.upper(),
-            alpaca_order_id=order['id'],
+            alpaca_order_id=order["id"],
             user_id=current_user.id,
-            strategy_id=order_request.strategy_id
+            strategy_id=order_request.strategy_id,
         )
-        
+
         db.add(trade)
         db.commit()
         db.refresh(trade)
-        
+
         logger.info(
             "Order created successfully",
             user_id=current_user.id,
             symbol=order_request.symbol,
-            order_id=order['id']
+            order_id=order["id"],
         )
-        
+
         return OrderResponse(
-            order_id=order['id'],
-            symbol=order['symbol'],
-            quantity=order['qty'],
-            side=order['side'],
-            status=order['status'],
-            submitted_at=order['submitted_at'],
-            message="Order submitted successfully"
+            order_id=order["id"],
+            symbol=order["symbol"],
+            quantity=order["qty"],
+            side=order["side"],
+            status=order["status"],
+            submitted_at=order["submitted_at"],
+            message="Order submitted successfully",
         )
-        
+
     except TradingError as e:
         logger.error("Trading error", error=str(e), user_id=current_user.id)
         raise HTTPException(status_code=400, detail=str(e))
@@ -152,7 +157,9 @@ async def create_order(
         logger.error("Risk management error", error=str(e), user_id=current_user.id)
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error("Unexpected error creating order", error=str(e), user_id=current_user.id)
+        logger.error(
+            "Unexpected error creating order", error=str(e), user_id=current_user.id
+        )
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -161,31 +168,31 @@ async def get_orders(
     status: Optional[str] = None,
     limit: int = 50,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """Get user's orders"""
     try:
         alpaca_client = AlpacaClient(
             api_key=current_user.alpaca_api_key,
             secret_key=current_user.alpaca_secret_key,
-            paper=True
+            paper=True,
         )
-        
+
         orders = await alpaca_client.get_orders(status=status, limit=limit)
-        
+
         return [
             OrderResponse(
-                order_id=order['id'],
-                symbol=order['symbol'],
-                quantity=order['qty'],
-                side=order['side'],
-                status=order['status'],
-                submitted_at=order['submitted_at'],
-                message=""
+                order_id=order["id"],
+                symbol=order["symbol"],
+                quantity=order["qty"],
+                side=order["side"],
+                status=order["status"],
+                submitted_at=order["submitted_at"],
+                message="",
             )
             for order in orders
         ]
-        
+
     except Exception as e:
         logger.error("Error fetching orders", error=str(e), user_id=current_user.id)
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -197,19 +204,19 @@ async def get_trades(
     status: Optional[str] = None,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """Get user's trades"""
     try:
         query = db.query(Trade).filter(Trade.user_id == current_user.id)
-        
+
         if symbol:
             query = query.filter(Trade.symbol == symbol)
         if status:
             query = query.filter(Trade.status == status)
-        
+
         trades = query.order_by(Trade.created_at.desc()).limit(limit).all()
-        
+
         return [
             TradeResponse(
                 id=trade.id,
@@ -221,11 +228,11 @@ async def get_trades(
                 exit_time=trade.exit_time.isoformat() if trade.exit_time else None,
                 pnl=trade.pnl,
                 status=trade.status,
-                side=trade.side
+                side=trade.side,
             )
             for trade in trades
         ]
-        
+
     except Exception as e:
         logger.error("Error fetching trades", error=str(e), user_id=current_user.id)
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -235,34 +242,37 @@ async def get_trades(
 async def cancel_order(
     order_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """Cancel an order"""
     try:
         alpaca_client = AlpacaClient(
             api_key=current_user.alpaca_api_key,
             secret_key=current_user.alpaca_secret_key,
-            paper=True
+            paper=True,
         )
-        
+
         success = await alpaca_client.cancel_order(order_id)
-        
+
         if success:
             # Update trade status in database
-            trade = db.query(Trade).filter(
-                Trade.alpaca_order_id == order_id,
-                Trade.user_id == current_user.id
-            ).first()
-            
+            trade = (
+                db.query(Trade)
+                .filter(
+                    Trade.alpaca_order_id == order_id, Trade.user_id == current_user.id
+                )
+                .first()
+            )
+
             if trade:
                 trade.status = "CANCELLED"
                 db.commit()
-            
+
             logger.info("Order cancelled", order_id=order_id, user_id=current_user.id)
             return {"message": "Order cancelled successfully"}
         else:
             raise HTTPException(status_code=400, detail="Failed to cancel order")
-            
+
     except Exception as e:
         logger.error("Error cancelling order", error=str(e), user_id=current_user.id)
         raise HTTPException(status_code=500, detail="Internal server error")
