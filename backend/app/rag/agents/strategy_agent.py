@@ -538,14 +538,272 @@ class StrategyAgent(BaseTradingAgent):
             f"market research: {self.use_market_research}, AI advisor: {self.use_ai_advisor}"
         )
     
-    def _create_tools(self) -> List:
+    async def _create_tools(self) -> List[Tool]:
         """Create tools for the strategy agent"""
-        tools = super()._create_tools()
+        tools = await super()._create_tools()
         
-        # Add strategy-specific tools if needed
-        # This can be extended with custom strategy tools
+        # Import and initialize our LangGraph trading workflow
+        from app.rag.agents.langgraph.trading_workflow import TradingWorkflowEngine
+        from app.rag.services.tool_registry import get_langgraph_tool_registry
+        
+        # Initialize the LangGraph workflow engine
+        if not hasattr(self, 'workflow_engine'):
+            self.workflow_engine = TradingWorkflowEngine()
+            await self.workflow_engine.initialize()
+        
+        # Get LangChain tools from our registry
+        tool_registry = await get_langgraph_tool_registry()
+        strategy_tools = await tool_registry.get_tools_for_agent(
+            agent_type="strategy_agent",
+            permission_level="advanced"
+        )
+        
+        # Add LangGraph workflow execution tool
+        from langchain.tools import Tool
+        
+        workflow_tool = Tool(
+            name="execute_trading_workflow",
+            description="Execute comprehensive LangGraph trading analysis workflow for a symbol",
+            func=self._execute_langgraph_workflow
+        )
+        
+        tools.extend(strategy_tools)
+        tools.append(workflow_tool)
         
         return tools
+
+    async def _execute_langgraph_workflow(self, symbol: str) -> str:
+        """Execute the LangGraph trading workflow for comprehensive analysis"""
+        import json
+        from datetime import datetime
+        
+        try:
+            # Initialize workflow engine if not already done
+            if not hasattr(self, 'workflow_engine'):
+                from app.rag.agents.langgraph.trading_workflow import TradingWorkflowEngine
+                self.workflow_engine = TradingWorkflowEngine()
+                await self.workflow_engine.initialize()
+            
+            # Create initial state for the workflow
+            initial_state = {
+                "session_id": f"strategy_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                "symbol": symbol.upper(),
+                "user_preferences": {
+                    "risk_tolerance": "medium",
+                    "strategy_focus": self.strategies,
+                    "analysis_depth": self.analysis_complexity
+                },
+                "workflow_metadata": {
+                    "initiated_by": f"StrategyAgent_{self.agent_name}",
+                    "timestamp": datetime.now().isoformat(),
+                    "strategies_enabled": self.strategies
+                }
+            }
+            
+            # Execute the complete LangGraph workflow
+            final_state = await self.workflow_engine.execute_workflow(initial_state)
+            
+            # Extract key insights for strategy decision making
+            analysis_summary = {
+                "symbol": symbol,
+                "market_analysis": final_state.get("market_context", {}),
+                "strategy_signals": final_state.get("strategy_signals", []),
+                "risk_assessment": final_state.get("risk_metrics", {}),
+                "execution_plan": final_state.get("execution_plan", {}),
+                "confidence_score": final_state.get("decision_confidence", 0.0),
+                "recommended_action": final_state.get("final_decision", {}).get("action", "HOLD"),
+                "reasoning": final_state.get("final_decision", {}).get("reasoning", ""),
+                "workflow_session": final_state.get("session_id", "")
+            }
+            
+            # Store results in agent memory for learning
+            if self.learning_enabled and final_state.get("final_decision"):
+                await self._store_workflow_results(symbol, analysis_summary)
+            
+            return json.dumps(analysis_summary, indent=2)
+            
+        except Exception as e:
+            error_msg = f"LangGraph workflow execution failed for {symbol}: {str(e)}"
+            self.logger.error(error_msg)
+            return json.dumps({"error": error_msg, "symbol": symbol})
+    
+    async def _store_workflow_results(self, symbol: str, analysis: Dict[str, Any]) -> None:
+        """Store LangGraph workflow results for learning and pattern recognition"""
+        try:
+            # Create a learning pattern from workflow results
+            workflow_features = {
+                "symbol": symbol,
+                "strategy_combination": "_".join(self.strategies),
+                "confidence": analysis.get("confidence_score", 0.0),
+                "action": analysis.get("recommended_action", "HOLD"),
+                "market_regime": analysis.get("market_analysis", {}).get("regime", "unknown"),
+                "risk_score": analysis.get("risk_assessment", {}).get("overall_score", 0.5),
+                "signal_count": len(analysis.get("strategy_signals", [])),
+                "workflow_session": analysis.get("workflow_session", "")
+            }
+            
+            # Convert to text for embedding storage
+            feature_text = self._features_to_text(workflow_features)
+            
+            if self.embedding_service:
+                embedding_result = await self.embedding_service.embed_text(feature_text)
+                
+                # Store pattern for future similarity matching
+                async with self._get_db_connection() as conn:
+                    await conn.execute(
+                        """
+                        INSERT INTO agent_patterns (
+                            agent_type, strategy_name, pattern_name, pattern_embedding,
+                            pattern_metadata, market_data, success_rate, occurrence_count,
+                            total_profit_loss, is_active, created_at
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                        """,
+                        self.agent_name,
+                        f"langgraph_{self.strategy_type}",
+                        f"workflow_{symbol}_{analysis.get('workflow_session', 'unknown')}",
+                        embedding_result.embedding.tolist(),
+                        json.dumps(workflow_features),
+                        json.dumps(analysis),
+                        0.5,  # Neutral until we get outcome feedback
+                        1,
+                        0.0,  # Will be updated when we get P&L feedback
+                        True,
+                        datetime.now()
+                    )
+                    
+                self.logger.info(f"Stored LangGraph workflow results for {symbol}")
+                
+        except Exception as e:
+            self.logger.error(f"Error storing workflow results for {symbol}: {e}")
+
+    async def analyze_market_with_langgraph(self, market_data: Dict[str, Any]) -> TradingSignal:
+        """Enhanced market analysis using LangGraph workflow integration"""
+        symbol = market_data.get("symbol", "UNKNOWN")
+        
+        try:
+            # Execute LangGraph workflow for comprehensive analysis
+            workflow_results = await self._execute_langgraph_workflow(symbol)
+            analysis = json.loads(workflow_results)
+            
+            if "error" in analysis:
+                # Fallback to traditional strategy analysis
+                return await self._fallback_analysis(market_data)
+            
+            # Convert LangGraph results to TradingSignal
+            from app.rag.models.trading_models import TradingSignal, SignalType
+            
+            action_map = {
+                "BUY": SignalType.BUY,
+                "SELL": SignalType.SELL,
+                "HOLD": SignalType.HOLD,
+                "WAIT": SignalType.HOLD
+            }
+            
+            signal = TradingSignal(
+                agent_id=self.agent_name,
+                symbol=symbol,
+                signal_type=action_map.get(analysis.get("recommended_action", "HOLD"), SignalType.HOLD),
+                confidence=analysis.get("confidence_score", 0.5),
+                reasoning=analysis.get("reasoning", "LangGraph workflow analysis"),
+                metadata={
+                    "workflow_session": analysis.get("workflow_session", ""),
+                    "risk_assessment": analysis.get("risk_assessment", {}),
+                    "strategy_signals": analysis.get("strategy_signals", []),
+                    "market_analysis": analysis.get("market_analysis", {}),
+                    "langgraph_enhanced": True
+                },
+                timestamp=datetime.now()
+            )
+            
+            return signal
+            
+        except Exception as e:
+            self.logger.error(f"LangGraph analysis failed for {symbol}, falling back to traditional analysis: {e}")
+            return await self._fallback_analysis(market_data)
+    
+    async def _fallback_analysis(self, market_data: Dict[str, Any]) -> TradingSignal:
+        """Fallback to traditional strategy analysis if LangGraph fails"""
+        # This would call the original strategy-specific analysis
+        # For now, return a basic signal
+        from app.rag.models.trading_models import TradingSignal, SignalType
+        
+        return TradingSignal(
+            agent_id=self.agent_name,
+            symbol=market_data.get("symbol", "UNKNOWN"),
+            signal_type=SignalType.HOLD,
+            confidence=0.5,
+            reasoning="Fallback analysis - LangGraph workflow unavailable",
+            metadata={"fallback_mode": True},
+            timestamp=datetime.now()
+        )
+
+    async def analyze_market(self, market_data: Dict[str, Any]) -> TradingSignal:
+        """Main market analysis method - uses LangGraph workflow by default"""
+        return await self.analyze_market_with_langgraph(market_data)
+    
+    def _extract_market_features(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract strategy-specific features from market data for pattern recognition"""
+        symbol = market_data.get("symbol", "UNKNOWN")
+        
+        # Extract basic market features
+        features = {
+            "symbol": symbol,
+            "strategies_used": self.strategies,
+            "price": market_data.get("current_price", 0.0),
+            "volume": market_data.get("volume", 0.0),
+            "timestamp": market_data.get("timestamp", datetime.now().isoformat())
+        }
+        
+        # Add strategy-specific feature extraction
+        if "markov" in self.strategies:
+            features.update(self._extract_markov_features(market_data))
+        
+        if "wyckoff" in self.strategies:
+            features.update(self._extract_wyckoff_features(market_data))
+            
+        if "fibonacci" in self.strategies:
+            features.update(self._extract_fibonacci_features(market_data))
+        
+        return features
+    
+    def _extract_markov_features(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract Markov chain specific features"""
+        return {
+            "markov_state": market_data.get("markov_state", "neutral"),
+            "transition_probability": market_data.get("transition_prob", 0.5),
+            "regime_strength": market_data.get("regime_strength", 0.5)
+        }
+    
+    def _extract_wyckoff_features(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract Wyckoff method specific features"""
+        return {
+            "wyckoff_phase": market_data.get("wyckoff_phase", "unknown"),
+            "volume_analysis": market_data.get("volume_profile", {}),
+            "effort_vs_result": market_data.get("effort_result", 0.5)
+        }
+    
+    def _extract_fibonacci_features(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract Fibonacci analysis specific features"""
+        return {
+            "fib_level": market_data.get("fibonacci_level", 0.5),
+            "retracement_depth": market_data.get("retracement", 0.0),
+            "support_resistance": market_data.get("sr_levels", [])
+        }
+    
+    def _initialize_strategy_engines(self) -> None:
+        """Initialize individual strategy engines based on selected strategies"""
+        self.strategy_engines = {}
+        
+        # This would initialize individual strategy engines
+        # For now, we'll rely on the LangGraph workflow to handle strategy coordination
+        for strategy in self.strategies:
+            self.strategy_engines[strategy] = {
+                "name": self.AVAILABLE_STRATEGIES[strategy],
+                "enabled": True,
+                "config": self.strategy_configs.get(strategy, {})
+            }
+            
+        self.logger.info(f"Initialized {len(self.strategy_engines)} strategy engines")
 
 # ============================================================================
 # BACKWARDS COMPATIBILITY ALIASES
