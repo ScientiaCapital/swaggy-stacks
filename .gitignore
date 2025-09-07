@@ -368,6 +368,7 @@ secrets/
 
 # Revenue model and monetization strategy (private)
 api-monetization/
+docs/
 
 # Competitive advantages and proprietary algorithms (private)
 finrl-integration/

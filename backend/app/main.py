@@ -15,6 +15,7 @@ from app.api.v1.api import api_router
 from app.core.config import settings
 from app.core.database import engine
 from app.core.exceptions import TradingSystemException
+from app.core.middleware import ErrorDiagnosticMiddleware
 
 # Configure structured logging
 structlog.configure(
@@ -58,6 +59,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Error diagnostic middleware
+app.add_middleware(ErrorDiagnosticMiddleware, enable_detailed_errors=True)
 
 
 # Request timing middleware
