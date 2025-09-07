@@ -13,6 +13,7 @@ from .analyzers import (
     WyckoffAnalyzer,
     ConfluenceAnalyzer
 )
+from .analyzers.cached_analyzer import CachedAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +28,12 @@ class PatternRecognitionTool(AgentTool):
         )
         self.category = "pattern_analysis"
         
-        # Initialize analyzers
+        # Initialize cached analyzers for improved performance
         self.analyzers = {
-            'fibonacci': FibonacciAnalyzer(),
-            'elliott_wave': ElliottWaveAnalyzer(),
-            'wyckoff': WyckoffAnalyzer(),
-            'confluence': ConfluenceAnalyzer()
+            'fibonacci': CachedAnalyzer(FibonacciAnalyzer(), cache_name="fibonacci", ttl_seconds=3600),
+            'elliott_wave': CachedAnalyzer(ElliottWaveAnalyzer(), cache_name="elliott_wave", ttl_seconds=3600),
+            'wyckoff': CachedAnalyzer(WyckoffAnalyzer(), cache_name="wyckoff", ttl_seconds=1800),
+            'confluence': CachedAnalyzer(ConfluenceAnalyzer(), cache_name="confluence", ttl_seconds=1800)
         }
     
     def get_parameters(self) -> List[ToolParameter]:
@@ -335,3 +336,61 @@ class PatternRecognitionTool(AgentTool):
             return "medium"
         else:
             return "low"
+    
+    async def clear_cache(self, pattern_type: Optional[str] = None) -> Dict[str, int]:
+        """Clear cached results for specific or all analyzers"""
+        results = {}
+        
+        if pattern_type and pattern_type.lower() in self.analyzers:
+            # Clear specific analyzer cache
+            analyzer = self.analyzers[pattern_type.lower()]
+            cleared = await analyzer.clear_cache()
+            results[pattern_type] = cleared
+            logger.info(f"Cleared {cleared} cache entries for {pattern_type}")
+        else:
+            # Clear all analyzer caches
+            for name, analyzer in self.analyzers.items():
+                cleared = await analyzer.clear_cache()
+                results[name] = cleared
+                logger.info(f"Cleared {cleared} cache entries for {name}")
+        
+        return results
+    
+    async def get_cache_stats(self) -> Dict[str, Any]:
+        """Get cache performance statistics for all analyzers"""
+        stats = {}
+        
+        for name, analyzer in self.analyzers.items():
+            try:
+                analyzer_stats = await analyzer.get_cache_stats()
+                stats[name] = analyzer_stats
+            except Exception as e:
+                logger.warning(f"Failed to get cache stats for {name}: {e}")
+                stats[name] = {"error": str(e)}
+        
+        return {
+            "tool": "PatternRecognitionTool",
+            "total_analyzers": len(self.analyzers),
+            "analyzer_stats": stats,
+            "cache_health_summary": self._summarize_cache_health(stats)
+        }
+    
+    def _summarize_cache_health(self, stats: Dict[str, Any]) -> Dict[str, Any]:
+        """Summarize overall cache health across all analyzers"""
+        healthy_analyzers = 0
+        total_analyzers = len(self.analyzers)
+        
+        for name, analyzer_stats in stats.items():
+            if isinstance(analyzer_stats, dict) and not analyzer_stats.get("error"):
+                cache_health = analyzer_stats.get("cache_health", {})
+                if cache_health.get("status") == "healthy":
+                    healthy_analyzers += 1
+        
+        health_percentage = (healthy_analyzers / total_analyzers * 100) if total_analyzers > 0 else 0
+        
+        return {
+            "healthy_analyzers": healthy_analyzers,
+            "total_analyzers": total_analyzers,
+            "health_percentage": round(health_percentage, 1),
+            "overall_status": "healthy" if health_percentage >= 75 else "degraded" if health_percentage >= 50 else "unhealthy"
+        }
