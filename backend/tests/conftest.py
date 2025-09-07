@@ -350,14 +350,14 @@ def sample_trading_signal():
 
 
 @pytest_asyncio.fixture
-async def consolidated_strategy_agent(mock_market_research_service):
-    """Create mock consolidated strategy agent for testing"""
+async def multi_strategy_agent(mock_market_research_service):
+    """Create mock multi-strategy agent for testing"""
     # Create a mock agent that doesn't require ML dependencies
     mock_agent = AsyncMock()
     mock_agent.strategies = ['markov', 'wyckoff']
     mock_agent.use_market_research = False
     mock_agent.market_research_service = mock_market_research_service
-    mock_agent.agent_name = "MockConsolidatedAgent"
+    mock_agent.agent_name = "MockMultiStrategyAgent"
     
     # Mock analyze method to return a sample signal
     async def mock_analyze(symbol: str, timeframe: str = "1h"):
@@ -366,7 +366,7 @@ async def consolidated_strategy_agent(mock_market_research_service):
             'confidence': 0.75,
             'reasoning': f'Mock analysis for {symbol}',
             'metadata': {
-                'strategy': 'consolidated',
+                'strategy': 'multi_strategy',
                 'signals': ['markov', 'wyckoff'],
                 'timeframe': timeframe
             }

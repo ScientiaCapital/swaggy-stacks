@@ -1,5 +1,5 @@
 """
-Enhanced caching infrastructure with Redis backend support.
+Caching infrastructure with Redis backend support.
 Extends existing TTLCache patterns with two-tier caching (L1: memory, L2: Redis).
 """
 
@@ -450,5 +450,5 @@ async def cache_context():
             await _market_cache.close()
 
 
-# Backward compatibility alias
-EnhancedTTLCache = TTLCache
+# Export main classes
+__all__ = ["TTLCache", "get_embedding_cache", "get_market_cache"]

@@ -366,6 +366,14 @@ secrets/
 *.key
 *.crt
 
+# Revenue model and monetization strategy (private)
+api-monetization/
+
+# Competitive advantages and proprietary algorithms (private)
+finrl-integration/
+mooncake-integration/
+deep-rl/
+
 dev-debug.log
 # Environment variables
 # Editor directories and files

@@ -17,7 +17,7 @@ import torch
 from cachetools import TTLCache
 from sentence_transformers import SentenceTransformer
 
-from app.core.cache import get_embedding_cache, EnhancedTTLCache
+from app.core.cache import get_embedding_cache, TTLCache
 
 logger = logging.getLogger(__name__)
 
@@ -46,14 +46,14 @@ class LocalEmbeddingService:
         cache_ttl: int = 3600,
         use_mps: bool = True,
         batch_size: int = 8,  # Small batch size for 8GB RAM
-        use_enhanced_cache: bool = True,
+        use_two_tier_cache: bool = True,
     ):
         self.model_name = model_name
         self.target_dim = 1536  # SuperBPE compatibility
         self.cache_size = cache_size
         self.cache_ttl = cache_ttl
         self.batch_size = batch_size
-        self.use_enhanced_cache = use_enhanced_cache
+        self.use_two_tier_cache = use_two_tier_cache
 
         # Detect M1 GPU availability
         self.device = self._get_optimal_device(use_mps)
@@ -63,10 +63,10 @@ class LocalEmbeddingService:
         self.actual_dim = None
         self.model_version = "local-superbpe-v1.0"
 
-        # Enhanced two-tier caching or fallback to TTLCache
-        if use_enhanced_cache:
+        # Two-tier caching or fallback to TTLCache
+        if use_two_tier_cache:
             self.embedding_cache = get_embedding_cache()
-            logger.info("Using enhanced two-tier cache (TTL + Redis)")
+            logger.info("Using two-tier cache (TTL + Redis)")
         else:
             self.embedding_cache = TTLCache(maxsize=cache_size, ttl=cache_ttl)
             logger.info("Using traditional TTL cache")
@@ -154,8 +154,8 @@ class LocalEmbeddingService:
             cache_key = self._get_cache_key(text)
             cached_embedding = None
             
-            if self.use_enhanced_cache:
-                # Use async enhanced cache
+            if self.use_two_tier_cache:
+                # Use async two-tier cache
                 cached_embedding = await self.embedding_cache.get(cache_key)
             else:
                 # Use traditional TTLCache
@@ -188,8 +188,8 @@ class LocalEmbeddingService:
             for i, result in enumerate(uncached_results):
                 cache_key = self._get_cache_key(result.text)
                 
-                if self.use_enhanced_cache:
-                    # Use async enhanced cache
+                if self.use_two_tier_cache:
+                    # Use async two-tier cache
                     await self.embedding_cache.set(cache_key, result.embedding)
                 else:
                     # Use traditional TTLCache
@@ -361,11 +361,11 @@ class LocalEmbeddingService:
 
             # Get cache health information
             cache_info = {}
-            if self.use_enhanced_cache:
-                # Enhanced cache health check
+            if self.use_two_tier_cache:
+                # Two-tier cache health check
                 cache_health = await self.embedding_cache.health_check()
                 cache_info = {
-                    "type": "enhanced_ttl_redis",
+                    "type": "two_tier_ttl_redis",
                     "health": cache_health
                 }
             else:
@@ -403,8 +403,8 @@ class LocalEmbeddingService:
 
     async def clear_cache(self) -> int:
         """Clear embedding cache and return number of items cleared"""
-        if self.use_enhanced_cache:
-            # Enhanced cache clear
+        if self.use_two_tier_cache:
+            # Two-tier cache clear
             cleared_count = await self.embedding_cache.clear()
         else:
             # Traditional cache clear

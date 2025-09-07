@@ -81,7 +81,7 @@ class PrometheusMetrics:
             registry=self.registry
         )
         
-        # Enhanced MCP Agent Coordination Metrics
+        # MCP Agent Coordination Metrics
         self.mcp_agent_coordination_duration = Histogram(
             'mcp_agent_coordination_duration_seconds',
             'Duration of MCP agent coordination operations',
