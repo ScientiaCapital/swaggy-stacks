@@ -4,7 +4,7 @@ Comprehensive health checks for all system components.
 
 import asyncio
 import time
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, TYPE_CHECKING
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
@@ -16,7 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db_session
 from app.core.logging import get_logger
 from app.mcp.orchestrator import MCPOrchestrator
-from app.trading.trading_manager import TradingManager
+
+if TYPE_CHECKING:
+    from app.trading.trading_manager import TradingManager
 
 logger = get_logger(__name__)
 
@@ -71,7 +73,7 @@ class HealthChecker:
         self.start_time = time.time()
         self._redis_client: Optional[redis.Redis] = None
         self._mcp_orchestrator: Optional[MCPOrchestrator] = None
-        self._trading_manager: Optional[TradingManager] = None
+        self._trading_manager: Optional["TradingManager"] = None
     
     async def check_all_components(self) -> SystemHealthStatus:
         """Run comprehensive health checks on all system components"""
@@ -282,6 +284,7 @@ class HealthChecker:
         
         try:
             if not self._trading_manager:
+                from app.trading.trading_manager import TradingManager
                 self._trading_manager = TradingManager()
             
             # Basic trading system health check

@@ -19,32 +19,13 @@ from langchain.memory import ConversationBufferMemory
 from langchain.schema import AIMessage, BaseMessage, HumanMessage
 
 from app.rag.services.embedding_factory import get_embedding_service
+from app.rag.services.memory_manager import AgentMemoryManager, MemoryType
+from app.rag.services.rag_service import AgentRAGService
+from app.rag.services.tool_registry import LangChainToolRegistry
+from app.rag.services.context_builder import TradingContextBuilder
+from app.rag.types import TradingSignal
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class TradingSignal:
-    """Standard trading signal format across all agents"""
-
-    agent_type: str
-    strategy_name: str
-    symbol: str
-    action: str  # BUY, SELL, HOLD
-    confidence: float  # 0.0 to 1.0
-    reasoning: str
-    entry_price: Optional[float] = None
-    stop_loss: Optional[float] = None
-    take_profit: Optional[float] = None
-    position_size: Optional[float] = None
-    metadata: Dict[str, Any] = None
-    timestamp: datetime = None
-
-    def __post_init__(self):
-        if self.timestamp is None:
-            self.timestamp = datetime.now()
-        if self.metadata is None:
-            self.metadata = {}
 
 
 @dataclass
@@ -96,6 +77,12 @@ class BaseTradingAgent(ABC):
         self.is_initialized = False
         self.embedding_service = None
 
+        # Agent Intelligence Infrastructure
+        self.memory_manager: Optional[AgentMemoryManager] = None
+        self.rag_service: Optional[AgentRAGService] = None
+        self.tool_registry: Optional[LangChainToolRegistry] = None
+        self.context_builder: Optional[TradingContextBuilder] = None
+
         # LangChain memory for conversation context
         self.memory = ConversationBufferMemory(
             memory_key="chat_history",
@@ -126,6 +113,9 @@ class BaseTradingAgent(ABC):
             # Initialize embedding service
             self.embedding_service = await get_embedding_service()
 
+            # Initialize Agent Intelligence Infrastructure
+            await self._initialize_intelligence_components()
+
             # Create agent-specific tools
             self.tools = await self._create_tools()
 
@@ -137,6 +127,38 @@ class BaseTradingAgent(ABC):
 
         except Exception as e:
             logger.error(f"Failed to initialize {self.agent_name} agent: {e}")
+            raise
+
+    async def _initialize_intelligence_components(self) -> None:
+        """Initialize the agent intelligence infrastructure components"""
+        try:
+            # Initialize memory manager for persistent agent memory
+            self.memory_manager = AgentMemoryManager(
+                db_connection_string=self.db_connection_string
+            )
+            await self.memory_manager.initialize()
+
+            # Initialize tool registry for dynamic tool management
+            self.tool_registry = LangChainToolRegistry()
+            await self.tool_registry.initialize()
+
+            # Initialize RAG service for pattern retrieval and decision augmentation
+            self.rag_service = AgentRAGService(
+                db_connection_string=self.db_connection_string,
+                memory_manager=self.memory_manager
+            )
+            await self.rag_service.initialize()
+
+            # Initialize context builder for decision context assembly
+            self.context_builder = TradingContextBuilder()
+            # Set up connections to other components after initialization
+            self.context_builder.memory_manager = self.memory_manager
+            # Note: context_builder will be fully integrated when we add the initialize method
+
+            logger.info(f"✅ Agent intelligence infrastructure initialized for {self.agent_name}")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize intelligence components for {self.agent_name}: {e}")
             raise
 
     @abstractmethod

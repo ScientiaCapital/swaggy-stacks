@@ -15,7 +15,7 @@ import numpy as np
 from langchain.schema import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
 from app.monitoring.metrics import PrometheusMetrics
-from app.rag.agents.base_agent import TradingSignal
+from app.rag.types import TradingSignal
 from app.rag.services.memory_manager import AgentMemoryManager, MemoryQuery, MemoryType
 from app.trading.trading_manager import get_trading_manager
 

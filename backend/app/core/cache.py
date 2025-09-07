@@ -18,7 +18,7 @@ except ImportError:
     REDIS_AVAILABLE = False
     redis = None
 
-from cachetools import TTLCache
+from cachetools import TTLCache as CacheToolsTTLCache
 import structlog
 
 from app.core.config import get_settings
@@ -115,7 +115,7 @@ class TTLCache:
         self.warming_threshold = warming_threshold
         
         # L1 Cache (in-memory TTL)
-        self.l1_cache = TTLCache(maxsize=l1_maxsize, ttl=l1_ttl)
+        self.l1_cache = CacheToolsTTLCache(maxsize=l1_maxsize, ttl=l1_ttl)
         
         # L2 Cache (Redis) - only if available
         self.redis_available = REDIS_AVAILABLE

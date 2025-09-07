@@ -3,13 +3,15 @@ Prometheus metrics collection for system monitoring.
 """
 
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 from dataclasses import dataclass
 from prometheus_client import Counter, Histogram, Gauge, Info, CollectorRegistry, generate_latest
 from prometheus_client.core import REGISTRY
 
 from app.core.logging import get_logger
-from .health_checks import HealthChecker, HealthStatus, SystemHealthStatus
+
+if TYPE_CHECKING:
+    from .health_checks import HealthChecker, HealthStatus, SystemHealthStatus
 
 logger = get_logger(__name__)
 
@@ -375,8 +377,9 @@ class PrometheusMetrics:
             registry=self.registry
         )
     
-    def update_health_metrics(self, health_status: SystemHealthStatus):
+    def update_health_metrics(self, health_status: "SystemHealthStatus"):
         """Update health-related metrics"""
+        from .health_checks import HealthStatus
         
         # Overall system health
         health_value = {
@@ -723,6 +726,7 @@ class MetricsCollector:
     
     def __init__(self):
         self.prometheus_metrics = PrometheusMetrics()
+        from .health_checks import HealthChecker
         self.health_checker = HealthChecker()
         self._last_update = 0
         self._update_interval = 30  # Update every 30 seconds
