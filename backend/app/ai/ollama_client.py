@@ -29,8 +29,9 @@ class OllamaClient:
     Optimized Ollama client for M1 MacBook with intelligent model management
     """
 
-    # Models optimized for 8GB M1 MacBook
+    # Models optimized for 8GB M1 MacBook with Chinese LLM integration
     MODELS = {
+        # Original models (kept for backward compatibility)
         "analyst": ModelConfig(
             name="llama3.2:3b",
             context_length=4096,
@@ -59,6 +60,43 @@ class OllamaClient:
             use_case="conversational",
             temperature=0.7,
         ),
+        
+        # Chinese LLMs for specialized trading tasks
+        "deepseek_r1": ModelConfig(
+            name="deepseek-r1:7b",
+            context_length=4096,
+            memory_usage_mb=2800,
+            use_case="hedge_fund_orchestration",
+            temperature=0.3,
+        ),
+        "qwen_quant": ModelConfig(
+            name="qwen2.5:7b",
+            context_length=6144,
+            memory_usage_mb=3200,
+            use_case="quantitative_analysis",
+            temperature=0.2,
+        ),
+        "yi_technical": ModelConfig(
+            name="yi:6b",
+            context_length=4096,
+            memory_usage_mb=2600,
+            use_case="technical_analysis",
+            temperature=0.3,
+        ),
+        "glm_risk": ModelConfig(
+            name="glm4:9b",
+            context_length=8192,
+            memory_usage_mb=4200,
+            use_case="risk_management",
+            temperature=0.1,
+        ),
+        "deepseek_coder": ModelConfig(
+            name="deepseek-coder:6.7b",
+            context_length=4096,
+            memory_usage_mb=3000,
+            use_case="strategy_implementation",
+            temperature=0.4,
+        ),
     }
 
     def __init__(self, base_url: str = "http://localhost:11434"):
@@ -66,6 +104,7 @@ class OllamaClient:
         self.current_model = None
         self.context_history = {}
         self.max_context_tokens = 2048  # Conservative for 8GB RAM
+        self.active_models = set()  # Track which models are loaded
 
     async def ensure_model_loaded(self, model_key: str) -> bool:
         """Ensure the specified model is loaded and ready"""
@@ -95,10 +134,12 @@ class OllamaClient:
                     return False
 
                 self.current_model = model_config
+                self.active_models.add(model_key)  # Track active model
                 logger.info(
                     "Model ready",
                     model=model_config.name,
                     use_case=model_config.use_case,
+                    memory_mb=model_config.memory_usage_mb
                 )
                 return True
 
@@ -275,6 +316,7 @@ class OllamaClient:
     def _get_default_system_prompt(self, model_key: str) -> str:
         """Get default system prompt for each model type"""
         prompts = {
+            # Original models (backward compatibility)
             "analyst": """You are a senior quantitative analyst for a hedge fund specializing in algorithmic trading. 
             Analyze market data with statistical rigor and provide clear, actionable insights. Be concise and precise.""",
             "risk": """You are a risk management expert focused on portfolio protection and capital preservation. 
@@ -283,6 +325,58 @@ class OllamaClient:
             Generate Python code and mathematical models for trading systems. Focus on statistical edge and risk-adjusted returns.""",
             "chat": """You are an intelligent trading assistant. Help users understand their trading system, 
             explain market conditions, and provide guidance in plain English. Be helpful but honest about limitations.""",
+            
+            # Chinese LLM specialized prompts
+            "deepseek_r1": """You are a chief investment officer at High-Flyer Capital Management, a premier quantitative hedge fund. 
+            Your training includes institutional-grade market analysis and systematic trading strategies. Apply hedge fund-level reasoning:
+            - Focus on risk-adjusted returns and Sharpe ratio optimization
+            - Consider market regime dynamics and volatility clustering
+            - Analyze institutional flows and smart money positioning
+            - Emphasize capital preservation and drawdown control
+            - Make decisions based on statistical edge and systematic alpha generation
+            Always think like a sophisticated institutional investor optimizing for long-term performance.""",
+            
+            "qwen_quant": """You are a quantitative analyst specializing in mathematical finance and statistical trading models.
+            Your expertise includes advanced econometrics, time series analysis, and derivatives pricing. Focus on:
+            - Mathematical rigor in all calculations and statistical tests
+            - Monte Carlo simulations and probabilistic modeling
+            - Volatility modeling (GARCH, stochastic volatility)
+            - Options pricing and Greeks calculations (Black-Scholes, binomial trees)
+            - Backtesting methodologies and performance attribution
+            - Statistical arbitrage and mean reversion strategies
+            Provide precise mathematical analysis with confidence intervals and significance testing.""",
+            
+            "yi_technical": """You are a technical analysis expert with deep expertise in chart patterns and price action trading.
+            Your specializations include classical technical analysis and modern pattern recognition:
+            - Japanese candlestick patterns (single and multiple candle formations)
+            - Classical chart patterns (triangles, flags, head & shoulders, double tops/bottoms)
+            - Support and resistance level identification with confluence analysis
+            - Trend analysis and momentum indicators (RSI, MACD, stochastic)
+            - Elliott Wave theory and Fibonacci analysis
+            - Volume analysis and accumulation/distribution patterns
+            Focus on high-probability patterns with strong historical success rates and clear risk/reward ratios.""",
+            
+            "glm_risk": """You are a risk management specialist and market intelligence analyst with expertise in portfolio protection.
+            Your core competencies include comprehensive risk assessment and capital preservation:
+            - Portfolio risk metrics (VaR, Expected Shortfall, maximum drawdown)
+            - Correlation analysis and diversification optimization
+            - Position sizing using Kelly Criterion and volatility-based methods
+            - Liquidity risk assessment and market impact analysis
+            - Event risk evaluation (earnings, economic releases, geopolitical)
+            - Macro-economic factor analysis and regime identification
+            - Tail risk analysis and black swan scenario planning
+            Always prioritize downside protection and risk-adjusted performance metrics.""",
+            
+            "deepseek_coder": """You are a quantitative developer specializing in algorithmic trading strategy implementation.
+            Your expertise covers the complete pipeline from strategy design to production deployment:
+            - Algorithm design and optimization for trading strategies
+            - Backtesting frameworks with proper handling of survivorship bias
+            - Order execution algorithms and market microstructure considerations
+            - Risk management system implementation with real-time monitoring
+            - Performance attribution and strategy diagnostics
+            - High-frequency trading and low-latency system design
+            - Portfolio management and rebalancing algorithms
+            Write robust, production-ready code with comprehensive error handling and logging.""",
         }
 
         return prompts.get(model_key, prompts["chat"])
@@ -353,3 +447,109 @@ class OllamaClient:
     def get_model_info(self, model_key: str) -> Optional[ModelConfig]:
         """Get information about a specific model"""
         return self.MODELS.get(model_key)
+    
+    def get_total_memory_usage(self) -> int:
+        """Get total estimated memory usage of active models in MB"""
+        total_memory = 0
+        for model_key in self.active_models:
+            model_config = self.MODELS.get(model_key)
+            if model_config:
+                total_memory += model_config.memory_usage_mb
+        
+        # Add context cache overhead (estimated)
+        cache_overhead = len(self.context_history) * 50  # ~50MB per cached context
+        return total_memory + cache_overhead
+    
+    def get_memory_budget_status(self, max_memory_mb: int = 7500) -> Dict[str, Any]:
+        """
+        Get memory budget status for M1 Mac optimization
+        
+        Args:
+            max_memory_mb: Maximum allowed memory (default 7.5GB for 8GB Mac)
+            
+        Returns:
+            Dictionary with memory status information
+        """
+        current_usage = self.get_total_memory_usage()
+        available_memory = max_memory_mb - current_usage
+        
+        return {
+            "total_usage_mb": current_usage,
+            "max_budget_mb": max_memory_mb,
+            "available_mb": available_memory,
+            "usage_percentage": (current_usage / max_memory_mb) * 100,
+            "active_models": len(self.active_models),
+            "active_model_keys": list(self.active_models),
+            "context_cache_size": len(self.context_history),
+            "memory_efficient": current_usage < max_memory_mb,
+            "can_load_chinese_llms": available_memory > 4000  # Need ~4GB for largest Chinese LLM
+        }
+    
+    def optimize_memory_usage(self) -> Dict[str, Any]:
+        """
+        Optimize memory usage by clearing context cache if needed
+        
+        Returns:
+            Dictionary with optimization actions taken
+        """
+        actions_taken = []
+        memory_freed = 0
+        
+        # Clear old context history if memory is tight
+        current_usage = self.get_total_memory_usage()
+        if current_usage > 6000:  # If using more than 6GB
+            contexts_cleared = len(self.context_history)
+            memory_freed += contexts_cleared * 50  # Estimated 50MB per context
+            self.context_history.clear()
+            actions_taken.append(f"Cleared {contexts_cleared} context caches")
+        
+        # Limit context history size for future
+        if len(self.context_history) > 3:
+            oldest_contexts = list(self.context_history.keys())[:-3]
+            for context_key in oldest_contexts:
+                del self.context_history[context_key]
+                memory_freed += 50
+            actions_taken.append(f"Removed {len(oldest_contexts)} old contexts")
+        
+        return {
+            "actions_taken": actions_taken,
+            "estimated_memory_freed_mb": memory_freed,
+            "new_usage_mb": self.get_total_memory_usage(),
+            "optimization_successful": len(actions_taken) > 0
+        }
+    
+    def get_chinese_llm_models(self) -> Dict[str, ModelConfig]:
+        """Get all Chinese LLM model configurations"""
+        chinese_models = {}
+        for key, config in self.MODELS.items():
+            if key in ["deepseek_r1", "qwen_quant", "yi_technical", "glm_risk", "deepseek_coder"]:
+                chinese_models[key] = config
+        return chinese_models
+    
+    def get_recommended_model_for_task(self, task_type: str) -> Optional[str]:
+        """
+        Get recommended Chinese LLM model for a specific task type
+        
+        Args:
+            task_type: Type of task (backtest_analysis, pattern_recognition, etc.)
+            
+        Returns:
+            Recommended model key or None
+        """
+        task_model_mapping = {
+            "hedge_fund_orchestration": "deepseek_r1",
+            "quantitative_analysis": "qwen_quant", 
+            "mathematical_analysis": "qwen_quant",
+            "backtesting": "qwen_quant",
+            "technical_analysis": "yi_technical",
+            "pattern_recognition": "yi_technical",
+            "chart_analysis": "yi_technical",
+            "risk_management": "glm_risk",
+            "risk_assessment": "glm_risk",
+            "portfolio_analysis": "glm_risk",
+            "strategy_implementation": "deepseek_coder",
+            "coding": "deepseek_coder",
+            "algorithm_development": "deepseek_coder"
+        }
+        
+        return task_model_mapping.get(task_type.lower())
