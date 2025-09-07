@@ -16,7 +16,12 @@ from sqlalchemy.pool import StaticPool
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
-import redis.asyncio as aioredis
+
+# Handle redis import gracefully
+try:
+    import redis.asyncio as aioredis
+except ImportError:
+    aioredis = None  # Handle missing redis for basic tests
 
 # Import application modules
 from app.main import app

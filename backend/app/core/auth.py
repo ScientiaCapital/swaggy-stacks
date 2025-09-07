@@ -87,6 +87,21 @@ def authenticate_user(username: str, password: str, user_db) -> Union[dict, bool
     return user
 
 
+def verify_token(token: str) -> dict:
+    """
+    Verify JWT token and return payload
+    """
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+        return payload
+    except JWTError:
+        raise ValueError("Invalid token")
+
+
 def create_jwt_exception() -> HTTPException:
     """Create a standardized JWT authentication exception"""
     return HTTPException(

@@ -100,3 +100,8 @@ class Settings(BaseSettings):
 
 # Global settings instance
 settings = Settings()
+
+
+def get_settings():
+    """Get settings instance - for dependency injection"""
+    return settings

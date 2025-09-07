@@ -7,10 +7,9 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import structlog
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from app.core.exceptions import ConfigurationError, MCPError
-from app.core.models import BaseModel
 from app.mcp.orchestrator import MCPOrchestrator
 
 logger = structlog.get_logger(__name__)

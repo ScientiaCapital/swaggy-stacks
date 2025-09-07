@@ -40,3 +40,8 @@ def get_db():
 def get_redis():
     """Dependency to get Redis client"""
     return redis_client
+
+
+def get_db_session():
+    """Get a database session for non-FastAPI contexts"""
+    return SessionLocal()

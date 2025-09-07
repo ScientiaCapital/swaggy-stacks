@@ -9,11 +9,10 @@ from typing import Any, Dict, Optional
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from app.api.dependencies.mcp import get_github_service
 from app.core.exceptions import ConfigurationError, MCPError
-from app.core.models import BaseModel
 from app.services.github_automation import (
     GitHubAutomationService,
     PullRequestConfig,

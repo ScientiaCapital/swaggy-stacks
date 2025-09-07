@@ -24,7 +24,7 @@ from app.services.market_research import (
     MarketResearchService,
     get_market_research_service,
 )
-from app.ai.trading_advisor import AITradingAdvisor, AIAnalysisType
+from app.ai.trading_advisor import AITradingAdvisor, AnalysisType
 
 logger = logging.getLogger(__name__)
 
@@ -471,9 +471,9 @@ class ConsolidatedStrategyAgent(BaseTradingAgent):
         self.ai_advisor: Optional[AITradingAdvisor] = None
         self.use_ai_advisor = kwargs.get("use_ai_advisor", True)
         self.ai_analysis_types = kwargs.get("ai_analysis_types", [
-            AIAnalysisType.MARKET_SENTIMENT,
-            AIAnalysisType.TECHNICAL_ANALYSIS,
-            AIAnalysisType.RISK_ASSESSMENT
+            AnalysisType.MARKET_SENTIMENT,
+            AnalysisType.TECHNICAL_ANALYSIS,
+            AnalysisType.RISK_ASSESSMENT
         ])
 
         if self.use_ai_advisor:
