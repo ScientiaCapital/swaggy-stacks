@@ -630,9 +630,69 @@
       "url": "/d/trading-execution/trade-execution-dashboard"
     }
   ],
+  "templating": {
+    "list": [
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(trading_pnl_total_usd, symbol)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Symbol",
+        "multi": true,
+        "name": "symbol",
+        "options": [],
+        "query": {
+          "query": "label_values(trading_pnl_total_usd, symbol)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(trading_portfolio_exposure_by_sector, sector)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Sector",
+        "multi": true,
+        "name": "sector",
+        "options": [],
+        "query": {
+          "query": "label_values(trading_portfolio_exposure_by_sector, sector)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
   "refresh": "5s",
   "schemaVersion": 30,
-  "version": 1,
+  "version": 2,
   "weekStart": "",
-  "description": "Portfolio risk monitoring dashboard showing exposure metrics, concentration risk, VaR analysis, and position sizing for comprehensive risk management in SwaggyStacks trading system."
+  "description": "Portfolio risk monitoring dashboard showing exposure metrics, concentration risk, VaR analysis, and position sizing for comprehensive risk management in SwaggyStacks trading system. Includes dynamic filtering by symbol and sector."
 }

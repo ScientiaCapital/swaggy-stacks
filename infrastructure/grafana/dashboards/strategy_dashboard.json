@@ -516,9 +516,69 @@
       "url": "/d/trading-risk/risk-monitoring-dashboard"
     }
   ],
+  "templating": {
+    "list": [
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(trading_strategy_success_rate, strategy_name)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Strategy",
+        "multi": true,
+        "name": "strategy",
+        "options": [],
+        "query": {
+          "query": "label_values(trading_strategy_success_rate, strategy_name)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(trading_pnl_total_usd, symbol)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Symbol",
+        "multi": true,
+        "name": "symbol",
+        "options": [],
+        "query": {
+          "query": "label_values(trading_pnl_total_usd, symbol)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
   "refresh": "5s",
   "schemaVersion": 30,
-  "version": 1,
+  "version": 2,
   "weekStart": "",
-  "description": "Strategy performance comparison dashboard showing win/loss ratios, success rates, drawdown analysis, and performance matrices for SwaggyStacks trading strategies."
+  "description": "Strategy performance comparison dashboard showing win/loss ratios, success rates, drawdown analysis, and performance matrices for SwaggyStacks trading strategies. Includes dynamic filtering by strategy and symbol."
 }

@@ -521,9 +521,69 @@
       "url": "/d/trading-risk/risk-monitoring-dashboard"
     }
   ],
+  "templating": {
+    "list": [
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(trading_pnl_total_usd, symbol)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Symbol",
+        "multi": true,
+        "name": "symbol",
+        "options": [],
+        "query": {
+          "query": "label_values(trading_pnl_total_usd, symbol)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(trading_execution_latency_seconds, order_type)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Order Type",
+        "multi": true,
+        "name": "order_type",
+        "options": [],
+        "query": {
+          "query": "label_values(trading_execution_latency_seconds, order_type)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
   "refresh": "5s",
   "schemaVersion": 30,
-  "version": 1,
+  "version": 2,
   "weekStart": "",
-  "description": "Trade execution analytics dashboard showing success rates, failure analysis, latency metrics, and operational performance monitoring for SwaggyStacks trading system."
+  "description": "Trade execution analytics dashboard showing success rates, failure analysis, latency metrics, and operational performance monitoring for SwaggyStacks trading system. Includes dynamic filtering by symbol and order type."
 }
