@@ -424,4 +424,17 @@ deepseek_private/
 qwen_private/
 yi_private/
 backend/private_ai_modules/
-private_ai_modules/ 
+private_ai_modules/
+
+# Sensitive Setup Files (Private)
+setup_ollama_models.py
+backtest_markov.py
+AUDIT_IMPROVEMENTS.md
+BACKUP_LOG.md
+
+# Task Management Folders (Backend Only)
+backend/.taskmaster/
+backend/.claude/
+backend/.cursor/
+backend/.roo/
+backend/.roomodes
