@@ -308,3 +308,17 @@ async def get_mcp_context(
     FastAPI dependency that provides MCP context for request handlers
     """
     return MCPContext(orchestrator)
+
+async def get_github_service() -> 'GitHubAutomationService':
+    """
+    FastAPI dependency that provides configured GitHub automation service
+    """
+    from app.services.github_automation import GitHubAutomationService
+    
+    service = GitHubAutomationService()
+    
+    # Initialize with default repository (could be from config)
+    # For now, using placeholder values - would need actual repo config
+    await service.initialize(owner="tmkipper", repo="swaggy-stacks")
+    
+    return service

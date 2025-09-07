@@ -18,6 +18,12 @@ from langchain.agents import Tool
 from langchain.schema import HumanMessage
 
 from app.rag.agents.base_agent import BaseTradingAgent, TradingSignal
+from app.services.market_research import (
+    get_market_research_service, 
+    MarketResearchService,
+    IntegratedAnalysis,
+    AnalysisComplexity
+)
 
 logger = logging.getLogger(__name__)
 
@@ -425,6 +431,11 @@ class ConsolidatedStrategyAgent(BaseTradingAgent):
         self.strategies = {}
         self.strategy_configs = strategy_configs or {}
         
+        # Initialize market research service
+        self.market_research_service: Optional[MarketResearchService] = None
+        self.use_market_research = kwargs.get('use_market_research', True)
+        self.analysis_complexity = kwargs.get('analysis_complexity', AnalysisComplexity.INTERMEDIATE)
+        
         # Default to all strategies if none specified
         strategies_to_load = strategies or list(self.AVAILABLE_STRATEGIES.keys())
         
@@ -436,7 +447,7 @@ class ConsolidatedStrategyAgent(BaseTradingAgent):
         
         self.consensus_method = kwargs.get('consensus_method', 'weighted_average')
         
-        logger.info(f"ConsolidatedStrategyAgent initialized with {len(self.strategies)} strategies")
+        logger.info(f"ConsolidatedStrategyAgent initialized with {len(self.strategies)} strategies and market research {'enabled' if self.use_market_research else 'disabled'}")
     
     async def _create_tools(self) -> List[Tool]:
         """Create tools from all loaded strategy plugins"""
@@ -454,11 +465,34 @@ class ConsolidatedStrategyAgent(BaseTradingAgent):
     
     async def analyze_market(self, market_data: Dict[str, Any]) -> TradingSignal:
         """
-        Multi-strategy market analysis with consensus building
+        Multi-strategy market analysis with consensus building and market research integration
         """
         try:
             symbol = market_data.get('symbol', 'UNKNOWN')
             current_price = market_data.get('current_price', 0.0)
+            
+            # Initialize market research service if needed
+            market_research_result: Optional[IntegratedAnalysis] = None
+            if self.use_market_research:
+                try:
+                    if not self.market_research_service:
+                        self.market_research_service = await get_market_research_service()
+                    
+                    # Perform integrated market research analysis
+                    market_research_result = await self.market_research_service.integrated_strategy_analysis(
+                        symbol=symbol,
+                        analysis_complexity=self.analysis_complexity,
+                        include_sentiment=True,
+                        include_technical=True,
+                        include_complex_analysis=True
+                    )
+                    logger.info(f"Market research analysis completed for {symbol}",
+                              sentiment=market_research_result.market_sentiment.sentiment.name if market_research_result.market_sentiment else None,
+                              confidence=market_research_result.confidence_score,
+                              recommendation=market_research_result.trading_recommendation.get("action"))
+                    
+                except Exception as e:
+                    logger.warning(f"Market research analysis failed for {symbol}", error=str(e))
             
             # Run all strategy analyses
             strategy_results = {}
@@ -480,7 +514,15 @@ class ConsolidatedStrategyAgent(BaseTradingAgent):
                         'reasoning': f'Analysis error: {str(e)}'
                     }
             
-            # Build consensus
+            # Integrate market research signals with strategy signals
+            if market_research_result and market_research_result.trading_recommendation:
+                market_research_signal = self._convert_market_research_to_signal(market_research_result)
+                strategy_signals['market_research'] = market_research_signal
+                logger.info(f"Added market research signal to consensus",
+                          action=market_research_signal['action'],
+                          confidence=market_research_signal['confidence'])
+            
+            # Build consensus including market research
             consensus = self._build_consensus(strategy_signals)
             
             # Find similar patterns using combined features
@@ -518,6 +560,71 @@ class ConsolidatedStrategyAgent(BaseTradingAgent):
                 confidence=0.0,
                 reasoning=f"Analysis error: {str(e)}"
             )
+
+    def _convert_market_research_to_signal(self, market_research: 'IntegratedAnalysis') -> Dict[str, Any]:
+        """Convert market research results to strategy signal format"""
+        try:
+            # Extract sentiment and confidence from market research
+            sentiment_score = 0.0
+            confidence = 0.5
+            
+            # Process sentiment analysis if available
+            if hasattr(market_research, 'sentiment') and market_research.sentiment:
+                sentiment_mapping = {
+                    'bullish': 0.7,
+                    'very_bullish': 0.9,
+                    'bearish': -0.7,
+                    'very_bearish': -0.9,
+                    'neutral': 0.0
+                }
+                sentiment_score = sentiment_mapping.get(
+                    market_research.sentiment.overall_sentiment.lower(), 0.0
+                )
+                confidence = min(market_research.sentiment.confidence_score / 100.0, 1.0)
+            
+            # Process complex analysis if available
+            if hasattr(market_research, 'complex_analysis') and market_research.complex_analysis:
+                # Adjust signal strength based on analysis insights
+                if market_research.complex_analysis.key_insights:
+                    insight_keywords = ' '.join(market_research.complex_analysis.key_insights).lower()
+                    
+                    # Boost confidence for strong technical signals
+                    if any(keyword in insight_keywords for keyword in ['breakout', 'momentum', 'trend', 'support', 'resistance']):
+                        confidence = min(confidence + 0.1, 1.0)
+                    
+                    # Adjust sentiment based on risk factors
+                    if any(keyword in insight_keywords for keyword in ['risk', 'volatile', 'uncertainty', 'concern']):
+                        sentiment_score *= 0.8
+                        confidence = max(confidence - 0.1, 0.1)
+            
+            # Convert to trading signal format
+            signal_strength = abs(sentiment_score) * confidence
+            action = 'buy' if sentiment_score > 0.1 else 'sell' if sentiment_score < -0.1 else 'hold'
+            
+            return {
+                'action': action,
+                'confidence': confidence,
+                'signal_strength': signal_strength,
+                'sentiment_score': sentiment_score,
+                'source': 'market_research',
+                'reasoning': f"Market research indicates {action} signal with {confidence:.1%} confidence",
+                'metadata': {
+                    'sentiment': getattr(market_research.sentiment, 'overall_sentiment', 'neutral') if hasattr(market_research, 'sentiment') else 'neutral',
+                    'analysis_type': getattr(market_research.complex_analysis, 'analysis_type', 'general') if hasattr(market_research, 'complex_analysis') else 'general'
+                }
+            }
+            
+        except Exception as e:
+            self.logger.warning(f"Error converting market research to signal: {e}")
+            return {
+                'action': 'hold',
+                'confidence': 0.0,
+                'signal_strength': 0.0,
+                'sentiment_score': 0.0,
+                'source': 'market_research',
+                'reasoning': 'Market research conversion failed',
+                'metadata': {'error': str(e)}
+            }
     
     def _build_consensus(self, strategy_signals: Dict[str, Dict]) -> Dict[str, Any]:
         """Build consensus from multiple strategy signals"""
