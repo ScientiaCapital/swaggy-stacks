@@ -2,7 +2,7 @@
 Custom exceptions for the trading system
 """
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 
 class TradingSystemException(Exception):
