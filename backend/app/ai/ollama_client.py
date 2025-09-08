@@ -60,6 +60,36 @@ class OllamaClient:
             use_case="conversational",
             temperature=0.7,
         ),
+        
+        # NEW: Memory-efficient Chinese LLM models
+        "yi_technical": ModelConfig(
+            name="yi-6b-chat",
+            context_length=4096,
+            memory_usage_mb=6144,  # 6GB for Yi-6B
+            use_case="technical_analysis_chinese",
+            temperature=0.2,
+        ),
+        "glm_risk": ModelConfig(
+            name="glm-4-9b-chat", 
+            context_length=8192,
+            memory_usage_mb=7200,  # 7.2GB for GLM-4-9B
+            use_case="risk_management_chinese",
+            temperature=0.1,
+        ),
+        "qwen_quant": ModelConfig(
+            name="qwen2.5-7b",
+            context_length=32768,
+            memory_usage_mb=6800,  # 6.8GB for Qwen2.5-7B
+            use_case="quantitative_analysis_chinese", 
+            temperature=0.3,
+        ),
+        "deepseek_lite": ModelConfig(
+            name="deepseek-coder:6.7b",
+            context_length=16384,
+            memory_usage_mb=6200,  # 6.2GB for DeepSeek Coder 6.7B
+            use_case="strategy_coding_chinese",
+            temperature=0.2,
+        ),
     }
 
     def __init__(self, base_url: str = "http://localhost:11434"):

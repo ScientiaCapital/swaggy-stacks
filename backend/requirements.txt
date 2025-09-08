@@ -27,6 +27,10 @@ torch==2.1.0
 transformers==4.36.0
 datasets==2.15.0
 
+# MLX Framework for Apple Silicon Acceleration
+mlx==0.9.0
+mlx-lm==0.12.0
+
 # Trading & Market Data
 alpaca-trade-api==3.1.1
 yfinance==0.2.28
