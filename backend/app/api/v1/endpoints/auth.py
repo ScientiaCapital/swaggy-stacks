@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import authenticate_user, create_access_token, get_password_hash
 from app.core.config import settings
 from app.core.database import get_db
+from app.models.user import User
 
 router = APIRouter()
 
@@ -78,16 +79,43 @@ async def login_for_access_token(
 async def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
     """
     Register a new user
-    Note: In production, implement proper user creation in database
     """
-    # For demo purposes, return success
-    # In production, check if user exists, create in database, etc.
-
+    # Check if user already exists
+    existing_user = db.query(User).filter(
+        (User.email == user_data.email) | (User.username == user_data.username)
+    ).first()
+    
+    if existing_user:
+        if existing_user.email == user_data.email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already taken"
+            )
+    
+    # Create new user
+    hashed_password = get_password_hash(user_data.password)
+    new_user = User(
+        username=user_data.username,
+        email=user_data.email,
+        hashed_password=hashed_password,
+        is_active=True,
+        is_verified=False
+    )
+    
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
     return {
-        "id": 1,
-        "username": user_data.username,
-        "email": user_data.email,
-        "is_active": True,
+        "id": new_user.id,
+        "username": new_user.username,
+        "email": new_user.email,
+        "is_active": new_user.is_active,
     }
 
 

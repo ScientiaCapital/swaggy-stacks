@@ -65,10 +65,17 @@ class TradeResponse(BaseModel):
 async def create_order(
     order_request: OrderRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),  # This would be implemented
+    current_user: User = Depends(get_current_user),
 ):
     """Create a new trading order"""
     try:
+        # Check if user has trading credentials
+        if not current_user or not current_user.alpaca_api_key or not current_user.alpaca_secret_key:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Trading credentials not configured. Please add Alpaca API keys to your account."
+            )
+        
         # Initialize Alpaca client
         alpaca_client = AlpacaClient(
             api_key=current_user.alpaca_api_key,
@@ -172,6 +179,13 @@ async def get_orders(
 ):
     """Get user's orders"""
     try:
+        # Check if user has trading credentials
+        if not current_user or not current_user.alpaca_api_key or not current_user.alpaca_secret_key:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Trading credentials not configured. Please add Alpaca API keys to your account."
+            )
+        
         alpaca_client = AlpacaClient(
             api_key=current_user.alpaca_api_key,
             secret_key=current_user.alpaca_secret_key,
@@ -246,6 +260,13 @@ async def cancel_order(
 ):
     """Cancel an order"""
     try:
+        # Check if user has trading credentials
+        if not current_user or not current_user.alpaca_api_key or not current_user.alpaca_secret_key:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Trading credentials not configured. Please add Alpaca API keys to your account."
+            )
+        
         alpaca_client = AlpacaClient(
             api_key=current_user.alpaca_api_key,
             secret_key=current_user.alpaca_secret_key,
@@ -278,8 +299,5 @@ async def cancel_order(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-# Placeholder for authentication dependency
-def get_current_user():
-    """Placeholder for user authentication"""
-    # This would be implemented with JWT token validation
-    pass
+# Note: The actual get_current_user function is imported from dependencies module
+# This placeholder is no longer needed

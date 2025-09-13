@@ -65,18 +65,22 @@ async def get_current_user(
     if username is None:
         raise create_jwt_exception()
 
-    # In production, query the user from database
-    # For demo purposes, return a demo user if token is valid
-    demo_user = User(
-        id=1,
-        username="demo_user",
-        email="demo@example.com",
-        alpaca_api_key=settings.ALPACA_API_KEY,
-        alpaca_secret_key=settings.ALPACA_SECRET_KEY,
-        is_active=True,
-    )
-
-    return demo_user
+    # Query the user from database
+    user = db.query(User).filter(User.username == username).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Inactive user",
+        )
+    
+    return user
 
 
 async def get_optional_user(

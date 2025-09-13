@@ -6,7 +6,7 @@ Extends existing TTLCache patterns with two-tier caching (L1: memory, L2: Redis)
 import asyncio
 import hashlib
 import json
-import pickle
+import json
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Union, Callable
 from contextlib import asynccontextmanager
@@ -179,7 +179,7 @@ class TTLCache:
             if cached_data is not None:
                 # Deserialize from Redis
                 try:
-                    value = pickle.loads(cached_data)
+                    value = json.loads(cached_data.decode('utf-8'))
                     response_time = (datetime.now() - start_time).total_seconds()
                     self.metrics.record_l2_hit(response_time)
                     
@@ -190,7 +190,7 @@ class TTLCache:
                     logger.debug("Cache L2 hit and promoted", key=key, response_time=response_time)
                     return value
                 
-                except (pickle.UnpicklingError, Exception) as e:
+                except (json.JSONDecodeError, Exception) as e:
                     logger.warning("Failed to deserialize cached value", key=key, error=str(e))
                     # Remove corrupted key
                     await self.redis_client.delete(redis_key)
@@ -221,7 +221,7 @@ class TTLCache:
             if not l1_only and self.redis_available and self.redis_client:
                 # Set in L2 cache (Redis)
                 redis_key = self._make_key(key)
-                serialized = pickle.dumps(value)
+                serialized = json.dumps(value).encode('utf-8')
                 ttl = ttl_override or self.l2_ttl
                 
                 await self.redis_client.setex(redis_key, ttl, serialized)

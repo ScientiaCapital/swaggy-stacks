@@ -10,15 +10,26 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.config import settings
 
-# PostgreSQL Database
-engine = create_engine(
-    settings.DATABASE_URL,
-    poolclass=StaticPool,
-    connect_args=(
-        {"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {}
-    ),
-    echo=settings.DEBUG,
-)
+# Database Engine (PostgreSQL)
+# Note: StaticPool is typically used for SQLite in-memory databases.
+# For PostgreSQL, we should use the default pool.
+if "sqlite" in settings.DATABASE_URL:
+    # SQLite configuration (for testing)
+    engine = create_engine(
+        settings.DATABASE_URL,
+        poolclass=StaticPool,
+        connect_args={"check_same_thread": False},
+        echo=settings.DEBUG,
+    )
+else:
+    # PostgreSQL configuration (production)
+    engine = create_engine(
+        settings.DATABASE_URL,
+        echo=settings.DEBUG,
+        pool_pre_ping=True,  # Verify connections before using
+        pool_size=10,
+        max_overflow=20,
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

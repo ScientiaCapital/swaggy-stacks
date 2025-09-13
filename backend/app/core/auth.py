@@ -63,31 +63,29 @@ def authenticate_user(username: str, password: str, user_db) -> Union[dict, bool
     Authenticate a user with username and password
     Returns user data if authentic, False otherwise
     """
-    # This would typically query your user database
-    # For now, implementing basic demo authentication
-
-    # Demo user credentials (in production, query from database)
-    demo_users = {
-        "demo_user": {
-            "username": "demo_user",
-            "hashed_password": get_password_hash("demo_password"),
-            "id": 1,
-            "email": "demo@example.com",
-            "is_active": True,
-        }
-    }
-
-    user = demo_users.get(username)
+    from app.models.user import User
+    
+    # Query user from database
+    user = user_db.query(User).filter(User.username == username).first()
+    
     if not user:
         return False
-
-    if not verify_password(password, user["hashed_password"]):
+    
+    if not verify_password(password, user.hashed_password):
         return False
+    
+    if not user.is_active:
+        return False
+    
+    return {
+        "username": user.username,
+        "id": user.id,
+        "email": user.email,
+        "is_active": user.is_active
+    }
 
-    return user
 
-
-def create_test_token(username: str = "demo_user", user_id: int = 1) -> str:
+def create_test_token(username: str, user_id: int) -> str:
     """Create a test JWT token for testing purposes"""
     data = {"sub": username, "user_id": user_id}
     return create_access_token(data)
