@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from app.backtesting.engine import BacktestConfig, BacktestEngine
+from app.backtesting.engine import BacktestConfig, RefactoredBacktestEngine as BacktestEngine
 from app.core.database import get_db
 from app.monitoring.metrics import PrometheusMetrics
 from app.services.indicator_performance_service import IndicatorPerformanceService

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.indicator_performance import (
-    MLModelPrediction,
+    MLPrediction as MLModelPrediction,
     MLModelVersion,
     ParameterOptimization,
 )

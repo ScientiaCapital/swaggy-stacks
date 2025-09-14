@@ -13,8 +13,8 @@ import pandas as pd
 import structlog
 
 from app.ai.ollama_client import OllamaClient
-from app.analysis.modern_indicators import ModernIndicators
-from app.analysis.technical_indicators import TechnicalIndicators
+from app.indicators.modern_indicators import ModernIndicators
+from app.indicators.technical_indicators import TechnicalIndicators
 
 logger = structlog.get_logger()
 

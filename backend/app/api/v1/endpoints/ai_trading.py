@@ -10,7 +10,7 @@ import yfinance as yf
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.ai.trading_agents import AIAgentCoordinator
+from app.ai.trading_agents import AITradingCoordinator
 
 logger = structlog.get_logger()
 
@@ -25,7 +25,7 @@ async def get_ai_coordinator():
     global ai_coordinator
     if ai_coordinator is None:
         try:
-            ai_coordinator = AIAgentCoordinator()
+            ai_coordinator = AITradingCoordinator()
             await ai_coordinator.health_check()  # Verify it's working
             logger.info("AI coordinator initialized")
         except Exception as e:

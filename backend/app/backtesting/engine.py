@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
+import pandas as pd
+
 from app.backtesting.performance_analyzer import BacktestResult, PerformanceAnalyzer
 from app.backtesting.portfolio_manager import PortfolioManager
 from app.backtesting.signal_generator import SignalGenerator
