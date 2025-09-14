@@ -6,12 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Local Development
 ```bash
-# Backend (FastAPI)
+# Backend (Python 3.13 + FastAPI)
 cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 
-# Frontend (Next.js)  
+# Frontend (Next.js 14 + TypeScript)
 cd frontend
 npm install
 npm run dev
@@ -36,9 +38,17 @@ docker-compose logs -f frontend
 cd backend
 pytest tests/ -v --cov=app
 
-# Frontend tests
-cd frontend  
-npm test
+# Frontend tests (Jest + React Testing Library)
+cd frontend
+npm run test:ci              # Run all unit tests with coverage
+npm run test                 # Watch mode for development
+
+# End-to-end tests (Playwright)
+npm run test:e2e            # Headless e2e tests
+npm run test:e2e:headed     # Run with browser visible
+
+# Run all tests
+npm run test:all            # Unit tests + E2E tests
 ```
 
 ### Code Quality
@@ -298,12 +308,13 @@ mcp__shrimp-task-manager__verify_task  # Verify completion (80+ score)
 ## 📋 **Ready for Tomorrow's Development**
 
 ### ✅ **Systems Configured & Ready**
-- **TaskMaster-AI**: 13 strategic tasks with 5 completed subtasks - Next: Task 1.6 (Test and Validate Monitoring System)
-- **Shrimp Task Manager**: All dashboard tasks completed with 95+ quality scores
-- **Serena MCP**: Active project memories with codebase architectural insights
-- **MCP Memory**: Optimized knowledge graph with project entity relationships
-- **Monitoring System**: 6 enterprise dashboards deployed with 50+ metrics active
-- **Alert System**: Email notifications configured and operational
+- **TaskMaster-AI**: Initialized and configured with Claude-3.5-Sonnet model
+- **Shrimp Task Manager**: Ready for tactical task breakdown and execution
+- **Serena MCP**: Active for intelligent codebase navigation and editing
+- **MCP Memory**: Knowledge graph system ready for entity tracking
+- **Database**: All 9 tables initialized with PostgreSQL + Redis operational
+- **Testing**: Complete Jest + Playwright test infrastructure configured
+- **Python Environment**: Python 3.13 virtual environment with updated requirements
 
 ### 🎯 **Recommended Tomorrow Workflow**
 1. **Start**: `mcp__taskmaster-ai__next_task` - Get the next strategic objective

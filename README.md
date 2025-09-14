@@ -1,186 +1,223 @@
-# 🚀 Swaggy Stacks - Where AI Meets Wall Street 📈
+# 🚀 Swaggy Stacks - Modern Algorithmic Trading Platform 📈
 
-> *"Because your portfolio deserves better than YOLO trades and crystal ball predictions"* ✨
+> *"Enterprise-grade trading infrastructure that's actually fun to build and use"* ✨
 
-**The most sophisticated AI-powered algorithmic trading system that's actually fun to use!** 🎯
+**A comprehensive algorithmic trading platform with professional monitoring and risk management!** 🎯
 
-Built with cutting-edge Markov chain analysis, enterprise-grade monitoring, and enough AI agents to make Skynet jealous. But don't worry - these AIs only care about making you money, not world domination. 🤖💰
+Built with cutting-edge technology stack featuring Next.js 14, FastAPI, PostgreSQL, and enterprise-grade monitoring with Grafana dashboards. Perfect for developers who want to explore algorithmic trading with production-ready infrastructure.
 
-## ⚡ What Makes Swaggy Stacks Different?
+## ⚡ What Makes Swaggy Stacks Special?
 
-🎯 **6 Enterprise Dashboards** - Because one chart is never enough when money's involved  
-🧠 **4 AI Agents** working together like a digital trading team  
-📊 **50+ Real-time Metrics** - We measure everything (seriously, *everything*)  
-🔔 **Smart Alerts** - Get notified before your portfolio does something embarrassing  
-🎲 **Advanced Markov Analysis** - Predict market moves like a time traveler (results may vary)  
-🛡️ **Enterprise Risk Management** - Sleep soundly knowing AI is watching your back  
+🎯 **6 Professional Dashboards** - Comprehensive monitoring and analytics
+📊 **50+ Real-time Metrics** - Track every aspect of your trading system
+🔔 **Smart Alert System** - Email notifications for important events
+🛡️ **Enterprise Risk Management** - Professional risk controls and position management
+📚 **Educational Focus** - Learn algorithmic trading with real market data
+🧪 **Paper Trading** - Practice safely without real money at risk
 
-## 🚀 Quick Start - Get Rich Quick™*
-*Results not guaranteed. Past performance doesn't predict future results. Please don't bet your house.
+## 🚀 Quick Start - Development Setup
 
 ```bash
-# 1. Clone this money-making machine
-git clone https://github.com/ScientiaCapital/swaggy-stacks.git
+# 1. Clone the repository
+git clone https://github.com/your-org/swaggy-stacks.git
 cd swaggy-stacks
 
-# 2. One-click deployment (Docker magic ✨)
+# 2. One-click deployment with Docker
 docker-compose up -d
 
-# 3. Watch the dashboards come alive! 
+# 3. Access the applications
 # 🎯 Frontend: http://localhost:3000
 # 📊 Grafana: http://localhost:3001
 # 🚀 API Docs: http://localhost:8000/docs
 
-# 4. Start making algorithmic trades! 
-# (Paper trading mode - your real money is safe... for now 😉)
+# 4. Start exploring algorithmic trading concepts!
+# (All trading is in paper mode for safe learning)
 ```
 
-### 🎮 Alternative: Run Like a Developer
+### 🎮 Alternative: Local Development
 
 ```bash
-# Backend (Python FastAPI + PostgreSQL + Redis)
-cd backend && pip install -r requirements.txt
+# Backend (Python 3.13 + FastAPI + PostgreSQL + Redis)
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
 uvicorn app.main:app --reload
 
-# Frontend (Next.js + TypeScript + Tailwind CSS)
-cd frontend && npm install && npm run dev
+# Frontend (Next.js 14 + TypeScript + Tailwind CSS)
+cd frontend
+npm install && npm run dev
 ```
 
-## 🏗️ Project Architecture - A Beautiful Symphony of Code
+## 🏗️ Project Architecture - Professional Grade
 
 ```
 swaggy-stacks/
-├── 🎯 backend/                    # FastAPI brain center (where the magic happens)
-│   ├── app/monitoring/           # 50+ Prometheus metrics & email alerts 📊
-│   ├── app/trading/             # Alpaca integration & risk management 💼
-│   └── app/analysis/            # Enhanced Markov chain wizardry 🔮
-├── 🎨 frontend/                  # Next.js + TypeScript eye candy
-├── 🏭 infrastructure/            # 6 Grafana dashboards + Docker configs
-│   ├── grafana/dashboards/      # Enterprise monitoring visualizations
-│   └── prometheus/              # Metrics collection configuration
-├── 📚 .taskmaster/              # AI task management system
-│   └── tasks/                   # Strategic task planning & execution
-├── 💡 api-monetization/         # Revenue generation (because bills don't pay themselves)
-├── 🧠 deep-rl/                  # Deep Reinforcement Learning components
-├── 🔬 finrl-integration/        # FinRL framework integration
-├── 📖 docs/                     # Documentation (yes, it exists!)
-├── 🛠️ scripts/                  # Utility scripts for power users
-├── 🧪 tests/                    # Tests (we test our code, unlike WSB)
-└── 🐳 docker-compose.yml        # One-click deployment magic
+├── 🎯 backend/                    # FastAPI application server
+│   ├── app/monitoring/           # 50+ Prometheus metrics & alerts 📊
+│   ├── app/trading/             # Trading engine & risk management 💼
+│   ├── app/analysis/            # Statistical analysis & backtesting 🔮
+│   ├── app/models/              # Database models & relationships
+│   └── app/api/                 # RESTful API endpoints
+├── 🎨 frontend/                  # Next.js + TypeScript application
+│   ├── app/                     # Next.js App Router pages
+│   ├── components/              # Reusable React components
+│   └── lib/                     # Utility functions & hooks
+├── 🏭 infrastructure/            # DevOps & monitoring configuration
+│   ├── grafana/dashboards/      # Professional monitoring dashboards
+│   └── prometheus/              # Metrics collection setup
+├── 📚 .taskmaster/              # Development task management
+├── 🧪 tests/                    # Comprehensive test suite
+└── 🐳 docker-compose.yml        # Complete development environment
 ```
 
-## 🛠 Technology Stack - The Dream Team
+## 🛠 Technology Stack - Modern & Reliable
 
-### 🐍 Backend Powerhouse
-- **Python + FastAPI** - Because life's too short for slow APIs
-- **PostgreSQL** - Rock-solid data storage (your trades are safe)
-- **Redis** - Lightning-fast caching (faster than your emotions during market volatility)
-- **Celery** - Background tasks that work harder than you do
+### 🐍 Backend Excellence
+- **Python 3.13 + FastAPI** - Modern async API framework
+- **PostgreSQL** - Reliable relational database with advanced features
+- **Redis** - High-performance caching and real-time data
+- **Celery** - Distributed task processing for background jobs
+- **SQLAlchemy** - Professional ORM with database migrations
+- **Prometheus** - Industry-standard metrics collection
 
-### 🎨 Frontend Excellence  
-- **Next.js + TypeScript** - Modern, fast, and error-free (unlike manual trading)
-- **Tailwind CSS** - Beautiful designs without the CSS nightmares
-- **Shadcn UI** - Components so pretty, they distract from losses
+### 🎨 Frontend Innovation
+- **Next.js 14 + TypeScript** - React with server-side rendering and type safety
+- **Tailwind CSS** - Utility-first CSS framework for rapid development
+- **Shadcn UI** - Beautiful, accessible component library
+- **Jest + Playwright** - Comprehensive testing with unit and e2e tests
+- **React Query** - Advanced data fetching and state management
 
-### 🏗️ Infrastructure Magic
-- **Docker** - Containerized perfection (works on your machine AND in production!)
-- **Grafana** - 6 dashboards prettier than your dating profile
-- **Prometheus** - Monitoring so comprehensive, it knows your portfolio better than you do
-- **GitHub Actions** - CI/CD that actually works
+### 🏗️ DevOps & Infrastructure
+- **Docker** - Containerized development and deployment
+- **Grafana** - 6 professional monitoring dashboards
+- **Prometheus** - Metrics aggregation and alerting
+- **GitHub Actions** - Automated CI/CD pipeline
+- **Alembic** - Database schema migrations
 
-### 📈 Trading Arsenal
-- **Alpaca API** - Paper trading so realistic, you'll forget it's not real money
-- **Enhanced Markov Chains** - Predicting market moves with mathematical precision
-- **50+ Metrics** - More data points than a conspiracy theorist's cork board
+### 📈 Trading & Analytics
+- **Alpaca API** - Professional paper trading integration
+- **Statistical Analysis** - Mathematical models for market analysis
+- **Risk Management** - Portfolio risk controls and position sizing
+- **Real-time Data** - Live market data processing and visualization
 
-## 🌟 Features That'll Blow Your Mind
+## 🌟 Professional Features
 
-### 🎯 Enterprise Monitoring Dashboard System
-**6 Professional Dashboards** (4,079 lines of pure visualization magic):
+### 🎯 Enterprise Monitoring System
+**6 Professional Dashboards** providing comprehensive system visibility:
 
-1. **💰 P&L Dashboard** - Watch your portfolio grow (or shrink) in real-time
-2. **🏆 Strategy Performance** - Compare strategies like Pokémon cards
-3. **⚡ Trade Execution** - Monitor every trade like a hawk
-4. **🛡️ Risk Monitoring** - Sleep well knowing AI guards your money
-5. **🏥 System Health** - Infrastructure monitoring that would make NASA jealous
-6. **🎨 Advanced Risk Analysis** - VaR calculations, correlation matrices, and other fancy math
+1. **💰 Portfolio & P&L** - Real-time portfolio performance tracking
+2. **🏆 Strategy Performance** - Strategy comparison and analysis
+3. **⚡ Trade Execution** - Order execution monitoring and latency tracking
+4. **🛡️ Risk Management** - Portfolio risk metrics and exposure analysis
+5. **🏥 System Health** - Infrastructure monitoring and performance metrics
+6. **📈 Advanced Analytics** - Statistical analysis and correlation matrices
 
-**Features**: Real-time updates, dynamic filtering, cross-dashboard navigation, PDF exports
+**Professional Features**: Real-time updates, dynamic filtering, cross-dashboard navigation, PDF export capabilities
 
+### 🎲 Trading System Features
+- **Statistical Analysis** - Mathematical models for market pattern recognition
+- **Risk Management** - Sophisticated portfolio risk controls and limits
+- **Technical Indicators** - RSI, MACD, Bollinger Bands, moving averages
+- **Paper Trading Integration** - Safe practice environment with real market data
+- **Real-time Monitoring** - Live system health and performance tracking
+- **Email Alerts** - Configurable notifications for important events
 
-### 🎲 Advanced Trading Features
-- **Enhanced Markov Analysis** - Multi-state regime detection with volatility analysis
-- **Risk Management** - Portfolio limits that actually work
-- **Technical Indicators** - RSI, MACD, Bollinger Bands, Fibonacci levels
-- **Paper Trading** - All the excitement, none of the bankruptcy
-- **Real-time Alerts** - Email notifications when things get spicy 🌶️
+### 🧪 Testing & Quality Assurance
+- **Unit Testing** - Jest with React Testing Library for component testing
+- **End-to-End Testing** - Playwright for full application testing
+- **Code Coverage** - Comprehensive coverage reporting and thresholds
+- **Type Safety** - Full TypeScript coverage with strict type checking
+- **Code Quality** - Automated linting, formatting, and quality checks
 
-### 💰 API Monetization (Because We Like Money Too)
-- **Multi-tier Subscriptions** - Free to Enterprise ($0-$999/month)
-- **Usage-based Pricing** - Pay for what you use
-- **MCP Server** - Advanced AI integrations
-- **Python SDK** - Integration easier than making instant noodles
+## 🎓 Perfect for Learning & Development
 
-## 🎓 For Developers Who Like to Tinker
+### 🛠️ Educational Resources
+This platform is ideal for developers wanting to learn:
+- Modern full-stack development with Python and TypeScript
+- Algorithmic trading concepts and risk management
+- Enterprise monitoring and observability patterns
+- Professional software architecture and design patterns
+- Advanced testing strategies and quality assurance
 
-### 🛠️ Development Setup
-Want to peek under the hood? Check out our [Development Guide](docs/development.md) for:
-- Detailed setup instructions
-- Architecture deep-dives  
-- How to add new AI agents
-- Dashboard customization guides
+### 📖 Documentation & Guides
+- **Architecture Overview** - Understanding the system design
+- **API Documentation** - Complete OpenAPI/Swagger documentation
+- **Development Setup** - Step-by-step development environment setup
+- **Testing Guide** - How to run and write tests effectively
+- **Deployment Guide** - Production deployment best practices
 
-### 🤝 Contributing
-Found a bug? Have a feature idea? Want to make the code even more swaggy?
+### 🤝 Contributing to Open Source
 
-1. **Fork it** 🍴
+Found a bug? Have a feature idea? Want to improve the codebase?
+
+1. **Fork the repository** 🍴
 2. **Create a feature branch** (`git checkout -b feature/AmazingFeature`)
-3. **Commit your changes** (`git commit -m 'Add some AmazingFeature'`)
-4. **Push to the branch** (`git push origin feature/AmazingFeature`)
-5. **Open a Pull Request** 🎉
+3. **Write tests for your changes** 🧪
+4. **Commit your changes** (`git commit -m 'Add some AmazingFeature'`)
+5. **Push to the branch** (`git push origin feature/AmazingFeature`)
+6. **Open a Pull Request** 🎉
 
-We love contributions! Especially ones that include tests and don't break everything. 😉
+We welcome contributions! Please include tests and follow our coding standards.
 
-## ⚠️ Important Disclaimers (The Boring but Necessary Stuff)
+## ⚠️ Important Information
 
-### 📈 About Trading
-- **Paper Trading Only**: This system is designed for educational and paper trading purposes
-- **Not Financial Advice**: We're developers, not financial advisors (shocking, we know)
-- **Risk Warning**: Trading involves risk. Don't bet more than you can afford to lose
-- **Past Performance**: Doesn't guarantee future results (despite what the fancy charts suggest)
+### 📈 About Trading & Risk
+- **Educational Purpose**: This system is designed for learning algorithmic trading concepts
+- **Paper Trading Only**: All trading functionality uses simulated paper trading
+- **Risk Awareness**: Understand that real trading involves financial risk
+- **Not Financial Advice**: This is educational software, not financial advice
 
 ### 🔒 Security & Privacy
-- All trading happens in paper mode by default (your real money is safe)
-- Email alerts are optional (but highly recommended for entertainment value)
-- We don't store real trading credentials (we're paranoid about security)
+- **Paper Trading Default**: All trading operations are simulated by default
+- **Secure Configuration**: Environment variables for sensitive data
+- **No Real Credentials**: System doesn't store real trading account credentials
+- **Data Privacy**: User data handling follows best practices
 
 ### 🧪 Development Status
-- **Production-Ready**: The monitoring and infrastructure are enterprise-grade
-- **Active Development**: New features added regularly
-- **Well-Tested**: We test our code more than most people test their relationships
+- **Production-Ready Infrastructure**: Enterprise-grade monitoring and architecture
+- **Active Development**: Regular updates and improvements
+- **Well-Tested**: Comprehensive test suite with good coverage
+- **Community Driven**: Open source development with contributor guidelines
 
-## 🌟 Show Some Love
+## 🚀 Getting Started with Development
 
-If this project helped you or just made you smile, consider:
-- ⭐ **Starring the repo** (it makes our day!)
-- 🐛 **Reporting bugs** (we squash them like a boss)
-- 💡 **Suggesting features** (we love new ideas)
-- 🗣️ **Spreading the word** (tell your trading friends!)
+### Prerequisites
+- Python 3.13 or higher
+- Node.js 18 or higher
+- PostgreSQL 14 or higher
+- Redis 6 or higher
+- Docker & Docker Compose (recommended)
+
+### Environment Setup
+1. **Clone and setup**: Follow the Quick Start guide above
+2. **Configure environment**: Copy `.env.example` to `.env` and configure
+3. **Run database migrations**: `cd backend && alembic upgrade head`
+4. **Start development servers**: Use the local development commands
+5. **Run tests**: Ensure everything works with `npm run test:all`
+
+## 🌟 Show Your Support
+
+If this project helps you learn or build something awesome:
+- ⭐ **Star the repository** (helps others discover the project!)
+- 🐛 **Report issues** (help us improve the codebase)
+- 💡 **Suggest features** (we love innovative ideas)
+- 🤝 **Contribute code** (make it even better together)
 
 ## 📄 License
 
-MIT License - Because sharing is caring. See [LICENSE](LICENSE) for the legal mumbo-jumbo.
+MIT License - Open source and free to use. See [LICENSE](LICENSE) for full details.
 
 ---
 
 <div align="center">
 
-### Made with ❤️, ☕, and probably too much 🍕
+### Built with ❤️ by developers who believe in open source
 
-**Swaggy Stacks** - *Where AI meets Wall Street and everybody wins!*
+**Swaggy Stacks** - *Professional algorithmic trading infrastructure for everyone*
 
-[⭐ Star us on GitHub](https://github.com/ScientiaCapital/swaggy-stacks) | [📖 Read the Docs](docs/) | [🐛 Report Issues](https://github.com/ScientiaCapital/swaggy-stacks/issues)
+[⭐ Star on GitHub](https://github.com/your-org/swaggy-stacks) | [📖 Documentation](docs/) | [🐛 Report Issues](https://github.com/your-org/swaggy-stacks/issues)
 
-*Built by developers who believe trading should be as fun as it is profitable* 🚀
+*Empowering developers to build and learn with enterprise-grade trading infrastructure* 🚀
 
 </div>
