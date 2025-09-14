@@ -18,6 +18,16 @@ from app.core.exceptions import TradingError
 warnings.filterwarnings("ignore")
 logger = structlog.get_logger()
 
+# Lazy import to avoid circular dependencies
+def _get_regime_detector():
+    """Lazy import of MarketRegimeDetector to avoid circular dependencies"""
+    try:
+        from app.ml.unsupervised.market_regime import MarketRegimeDetector
+        return MarketRegimeDetector
+    except ImportError:
+        logger.warning("MarketRegimeDetector not available, regime detection disabled")
+        return None
+
 # ============================================================================
 # CORE MARKOV ANALYSIS ENGINE
 # ============================================================================
@@ -240,6 +250,22 @@ class MarkovSystem(MarkovCore):
         self.data_handler = DataHandler()
         self.position_sizer = PositionSizer(**kwargs)
 
+        # Market regime detection
+        self.regime_detector = None
+        self.enable_regime_detection = kwargs.get("enable_regime_detection", True)
+
+        if self.enable_regime_detection:
+            RegimeDetectorClass = _get_regime_detector()
+            if RegimeDetectorClass:
+                self.regime_detector = RegimeDetectorClass(
+                    n_regimes=kwargs.get("n_regimes", 5),
+                    lookback_period=lookback_period,
+                    rolling_window=kwargs.get("regime_rolling_window", 20),
+                    transition_threshold=kwargs.get("regime_transition_threshold", 0.7),
+                    min_regime_duration=kwargs.get("min_regime_duration", 5)
+                )
+                logger.info("Market regime detection enabled")
+
         # Enhanced parameters
         self.confidence_adjustment_factor = kwargs.get(
             "confidence_adjustment_factor", 1.2
@@ -298,6 +324,9 @@ class MarkovSystem(MarkovCore):
             # Multi-timeframe analysis
             multi_timeframe = self._multi_timeframe_analysis(cleaned_prices)
 
+            # Market regime detection
+            regime_info = self._perform_regime_detection(price_data)
+
             result = {
                 "signal": signals["signal"],
                 "confidence": confidence,
@@ -311,6 +340,7 @@ class MarkovSystem(MarkovCore):
                 "risk_score": signals["risk_score"],
                 "multi_timeframe": multi_timeframe,
                 "position_sizing": signals.get("position_sizing", {}),
+                "market_regime": regime_info,
                 "analysis_metadata": {
                     "lookback_period": self.lookback_period,
                     "n_states": self.n_states,
@@ -488,6 +518,129 @@ class MarkovSystem(MarkovCore):
 
         confidence = (max_state_prob + transition_confidence) / 2
         return min(confidence, 1.0)
+
+    def _perform_regime_detection(self, price_data: pd.DataFrame) -> Dict[str, Any]:
+        """
+        Perform market regime detection and return regime information.
+
+        Args:
+            price_data: Price data for regime analysis
+
+        Returns:
+            Dictionary containing regime detection results
+        """
+        if not self.enable_regime_detection or self.regime_detector is None:
+            return {
+                "regime_detected": False,
+                "regime_type": "unknown",
+                "regime_confidence": 0.0,
+                "regime_transition_risk": 0.0,
+                "regime_detection_enabled": False
+            }
+
+        try:
+            # Ensure we have sufficient data for regime detection
+            if len(price_data) < self.regime_detector.rolling_window:
+                logger.warning(
+                    "Insufficient data for regime detection",
+                    data_points=len(price_data),
+                    required=self.regime_detector.rolling_window
+                )
+                return {
+                    "regime_detected": False,
+                    "regime_type": "insufficient_data",
+                    "regime_confidence": 0.0,
+                    "regime_transition_risk": 0.0,
+                    "data_points": len(price_data),
+                    "required_points": self.regime_detector.rolling_window
+                }
+
+            # Check if regime detector is fitted
+            if not self.regime_detector.is_fitted:
+                logger.info("Fitting regime detector with historical data")
+                # Use sufficient historical data for fitting
+                fit_data = price_data.tail(max(self.regime_detector.lookback_period, len(price_data)))
+                self.regime_detector.fit(fit_data)
+
+            # Get regime prediction
+            regime_result = self.regime_detector.predict(price_data)
+
+            # Enhance with MarkovSystem-specific information
+            enhanced_result = {
+                **regime_result,
+                "regime_detection_enabled": True,
+                "markov_integration": {
+                    "current_markov_state": getattr(self, 'current_state', 0),
+                    "markov_confidence": self._calculate_confidence(),
+                    "regime_markov_alignment": self._assess_regime_markov_alignment(regime_result)
+                }
+            }
+
+            logger.debug(
+                "Regime detection completed",
+                regime_type=enhanced_result.get("current_regime"),
+                confidence=enhanced_result.get("regime_confidence"),
+                transition_risk=enhanced_result.get("regime_transition_risk")
+            )
+
+            return enhanced_result
+
+        except Exception as e:
+            logger.error("Regime detection failed", error=str(e))
+            return {
+                "regime_detected": False,
+                "regime_type": "error",
+                "regime_confidence": 0.0,
+                "regime_transition_risk": 1.0,  # High risk due to error
+                "error": str(e),
+                "regime_detection_enabled": True
+            }
+
+    def _assess_regime_markov_alignment(self, regime_result: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Assess alignment between regime detection and Markov state analysis.
+
+        Args:
+            regime_result: Result from regime detection
+
+        Returns:
+            Dictionary with alignment assessment
+        """
+        try:
+            regime_type = regime_result.get("current_regime", "unknown")
+            regime_confidence = regime_result.get("regime_confidence", 0.0)
+            markov_confidence = self._calculate_confidence()
+
+            # Simple alignment scoring based on regime type and Markov signals
+            alignment_score = 0.5  # Neutral baseline
+
+            # High confidence in both systems suggests good alignment
+            if regime_confidence > 0.7 and markov_confidence > 0.7:
+                alignment_score = 0.8
+            elif regime_confidence > 0.5 and markov_confidence > 0.5:
+                alignment_score = 0.6
+            elif regime_confidence < 0.3 or markov_confidence < 0.3:
+                alignment_score = 0.3
+
+            return {
+                "alignment_score": alignment_score,
+                "regime_confidence": regime_confidence,
+                "markov_confidence": markov_confidence,
+                "confidence_differential": abs(regime_confidence - markov_confidence),
+                "alignment_quality": (
+                    "strong" if alignment_score > 0.7 else
+                    "moderate" if alignment_score > 0.5 else
+                    "weak"
+                )
+            }
+
+        except Exception as e:
+            logger.warning("Failed to assess regime-Markov alignment", error=str(e))
+            return {
+                "alignment_score": 0.5,
+                "alignment_quality": "unknown",
+                "error": str(e)
+            }
 
 
 # ============================================================================
