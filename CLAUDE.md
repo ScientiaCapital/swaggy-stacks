@@ -79,13 +79,49 @@ npm run type-check
 
 ### Key Backend Components
 
-- `app/analysis/enhanced_markov_system.py` - Core Markov chain trading analysis engine
+- `app/ml/markov_system.py` - Core Markov chain trading analysis engine
+- `app/indicators/technical_indicators.py` - Technical analysis calculations
+- `app/indicators/modern_indicators.py` - Advanced technical indicators
+- `app/ml/llm_predictors.py` - LLM-based market predictions
+- `app/analysis/pattern_validation_framework.py` - Pattern validation logic
+- `app/analysis/integrated_alpha_detector.py` - Alpha signal detection
 - `app/trading/alpaca_client.py` - Alpaca API integration for order execution
 - `app/trading/risk_manager.py` - Risk management and position sizing
 - `app/api/v1/endpoints/trading.py` - Trading API endpoints
 - `app/core/config.py` - Configuration settings (database, trading parameters, API keys)
+- `app/core/database.py` - Optimized database configuration with connection pooling
 - `app/monitoring/metrics.py` - Comprehensive Prometheus metrics (50+ trading-specific metrics)
 - `app/monitoring/alerts.py` - Multi-channel alert system (email notifications)
+
+### Module Architecture (Post-Refactoring)
+
+The system follows clean separation of concerns with focused modules:
+
+- **`app/indicators/`** - Pure technical analysis and indicator calculations
+  - `technical_indicators.py` - Core indicators (RSI, MACD, Bollinger Bands)
+  - `modern_indicators.py` - Advanced indicators from modern trading literature
+  - `indicator_factory.py` - Factory pattern for indicator creation
+
+- **`app/ml/`** - Machine learning and predictive models
+  - `llm_predictors.py` - LLM-based market predictions with Chinese models
+  - `markov_system.py` - Markov chain analysis for trend detection
+  - `prediction_prompts/` - Structured prompt templates for different models
+
+- **`app/analysis/`** - Pattern validation and alpha detection
+  - `pattern_validation_framework.py` - Trading pattern validation logic
+  - `integrated_alpha_detector.py` - Alpha signal detection and analysis
+  - `tool_feedback_tracker.py` - Analysis feedback and learning system
+
+- **`app/trading/`** - Order execution and risk management
+  - `alpaca_client.py` - Alpaca API integration
+  - `risk_manager.py` - Risk management and position sizing
+  - `trading_manager.py` - Centralized trading operations
+  - `order_manager.py` - Order lifecycle management
+
+- **`app/core/`** - Shared utilities and optimized infrastructure
+  - `database.py` - Optimized database configuration with QueuePool (20+30 connections)
+  - `config.py` - Configuration settings and environment management
+  - `exceptions.py` - Custom exception handling
 
 ### Database Architecture
 
@@ -99,6 +135,16 @@ Redis is used for:
 - Session storage and caching
 - Real-time market data streaming
 - Celery task queue for background jobs
+
+### Database Performance Optimizations
+
+Recent migration (003_optimize_database_performance.py) adds:
+- **23+ Strategic Indexes**: Composite, partial, and GIN indexes for optimal query performance
+- **Time-Series Optimization**: Specialized indexes for trading data queries (50-80% performance improvement)
+- **16 Data Integrity Constraints**: Ensures data quality and consistency
+- **2 Materialized Views**: Real-time P&L calculations and indicator performance summaries
+- **Connection Pooling**: QueuePool with 20 base + 30 overflow connections for high-throughput trading
+- **PostgreSQL Session Optimizations**: Trading workload-specific database settings
 
 ### Trading System Architecture
 
