@@ -15,111 +15,363 @@ class RiskManager:
     """Risk management system for trading operations"""
 
     def __init__(self, user_id: int, user_risk_params: Optional[Dict] = None):
-        self.user_id = user_id
-        self.risk_params = user_risk_params or {}
 
-        # Default risk parameters
-        self.max_position_size = self.risk_params.get(
-            "max_position_size", settings.MAX_POSITION_SIZE
-        )
-        self.max_daily_loss = self.risk_params.get(
-            "max_daily_loss", settings.MAX_DAILY_LOSS
-        )
-        self.max_portfolio_exposure = self.risk_params.get(
-            "max_portfolio_exposure", 0.95
-        )  # 95% max exposure
-        self.max_single_stock_exposure = self.risk_params.get(
-            "max_single_stock_exposure", 0.20
-        )  # 20% max per stock
-        self.stop_loss_percentage = self.risk_params.get(
-            "stop_loss_percentage", 0.05
-        )  # 5% stop loss
-        self.take_profit_percentage = self.risk_params.get(
-            "take_profit_percentage", 0.15
-        )  # 15% take profit
-
+    def set_anomaly_detector(self, anomaly_detector) -> None:
+        """
+        Set anomaly detector for risk adjustment integration.
+        
+        Args:
+            anomaly_detector: Instance of AnomalyDetector
+        """
+        self.anomaly_detector = anomaly_detector
         logger.info(
-            "Risk manager initialized", user_id=user_id, risk_params=self.risk_params
+            "Anomaly detector integrated with risk manager",
+            user_id=self.user_id,
+            detector_fitted=getattr(anomaly_detector, 'is_fitted', False)
         )
+
+    def update_risk_from_anomalies(self, market_data: Optional[Union[pd.DataFrame, np.ndarray]] = None) -> Dict[str, Any]:
+        """
+        Update risk parameters based on current anomaly detection.
+        
+        Args:
+            market_data: Recent market data for anomaly analysis
+            
+        Returns:
+            Dictionary with anomaly risk assessment and adjustments made
+        """
+        if not self.anomaly_detector or not self.anomaly_risk_adjustment_enabled:
+            return {
+                'anomaly_system_active': False,
+                'risk_adjustments_made': False,
+                'message': 'Anomaly detection not available or disabled'
+            }
+
+        try:
+            # Get anomaly risk integration data
+            anomaly_data = self.anomaly_detector.get_risk_integration_data()
+            
+            if not anomaly_data.get('anomaly_system_active', False):
+                return {
+                    'anomaly_system_active': False,
+                    'risk_adjustments_made': False,
+                    'message': 'Anomaly detector not fitted or active'
+                }
+
+            # Update current anomaly level
+            new_anomaly_level = anomaly_data.get('alert_level', 'low')
+            previous_level = self.current_anomaly_level
+            self.current_anomaly_level = new_anomaly_level
+            
+            # Calculate risk multiplier
+            risk_multiplier = self.anomaly_risk_multipliers.get(new_anomaly_level, 1.0)
+            
+            # Apply risk adjustments
+            adjustments_made = self._apply_anomaly_risk_adjustments(
+                risk_multiplier, 
+                anomaly_data.get('recommended_position_adjustment', 0.0)
+            )
+            
+            # Update tracking
+            self.risk_adjustment_active = risk_multiplier > 1.0
+            self.last_anomaly_check = pd.Timestamp.now()
+            
+            result = {
+                'anomaly_system_active': True,
+                'risk_adjustments_made': adjustments_made,
+                'previous_anomaly_level': previous_level,
+                'current_anomaly_level': new_anomaly_level,
+                'risk_multiplier': risk_multiplier,
+                'recommended_position_adjustment': anomaly_data.get('recommended_position_adjustment', 0.0),
+                'recent_anomaly_rate': anomaly_data.get('recent_anomaly_rate', 0.0),
+                'active_alerts': anomaly_data.get('active_alerts', 0),
+                'last_detection_time': anomaly_data.get('last_detection_time'),
+                'adjustments': self._get_current_risk_adjustments()
+            }
+            
+            if adjustments_made or new_anomaly_level != previous_level:
+                logger.info(
+                    "Risk parameters updated from anomaly detection",
+                    user_id=self.user_id,
+                    previous_level=previous_level,
+                    new_level=new_anomaly_level,
+                    risk_multiplier=risk_multiplier,
+                    adjustments_made=adjustments_made
+                )
+            
+            return result
+            
+        except Exception as e:
+            logger.error(
+                "Error updating risk from anomaly detection",
+                user_id=self.user_id,
+                error=str(e)
+            )
+            return {
+                'anomaly_system_active': False,
+                'risk_adjustments_made': False,
+                'error': str(e)
+            }
+
+    def _apply_anomaly_risk_adjustments(self, risk_multiplier: float, position_adjustment: float) -> bool:
+        """
+        Apply risk parameter adjustments based on anomaly level.
+        
+        Args:
+            risk_multiplier: Multiplier for risk constraints (>1.0 = more conservative)
+            position_adjustment: Recommended position size adjustment (-1.0 to 1.0)
+            
+        Returns:
+            bool: True if any adjustments were made
+        """
+        adjustments_made = False
+        
+        # Calculate new risk parameters
+        new_max_position_size = self.base_max_position_size / risk_multiplier
+        new_max_portfolio_exposure = min(
+            self.base_max_portfolio_exposure / risk_multiplier,
+            0.95  # Never exceed 95% even with adjustments
+        )
+        new_max_single_stock_exposure = min(
+            self.base_max_single_stock_exposure / risk_multiplier,
+            0.30  # Never exceed 30% per stock
+        )
+        new_max_daily_loss = self.base_max_daily_loss / risk_multiplier
+        
+        # Apply position adjustment
+        if position_adjustment < 0:  # Reduce positions
+            adjustment_factor = 1.0 + position_adjustment  # position_adjustment is negative
+            new_max_position_size *= adjustment_factor
+            new_max_portfolio_exposure *= adjustment_factor
+            new_max_single_stock_exposure *= adjustment_factor
+        
+        # Update parameters if they've changed significantly
+        tolerance = 0.01  # 1% tolerance
+        
+        if abs(self.max_position_size - new_max_position_size) / self.base_max_position_size > tolerance:
+            self.max_position_size = new_max_position_size
+            adjustments_made = True
+            
+        if abs(self.max_portfolio_exposure - new_max_portfolio_exposure) / self.base_max_portfolio_exposure > tolerance:
+            self.max_portfolio_exposure = new_max_portfolio_exposure
+            adjustments_made = True
+            
+        if abs(self.max_single_stock_exposure - new_max_single_stock_exposure) / self.base_max_single_stock_exposure > tolerance:
+            self.max_single_stock_exposure = new_max_single_stock_exposure
+            adjustments_made = True
+            
+        if abs(self.max_daily_loss - new_max_daily_loss) / self.base_max_daily_loss > tolerance:
+            self.max_daily_loss = new_max_daily_loss
+            adjustments_made = True
+        
+        return adjustments_made
+
+    def _get_current_risk_adjustments(self) -> Dict[str, Dict[str, float]]:
+        """Get current risk parameter adjustments vs base values."""
+        return {
+            'max_position_size': {
+                'base': self.base_max_position_size,
+                'current': self.max_position_size,
+                'adjustment_factor': self.max_position_size / self.base_max_position_size
+            },
+            'max_portfolio_exposure': {
+                'base': self.base_max_portfolio_exposure,
+                'current': self.max_portfolio_exposure,
+                'adjustment_factor': self.max_portfolio_exposure / self.base_max_portfolio_exposure
+            },
+            'max_single_stock_exposure': {
+                'base': self.base_max_single_stock_exposure,
+                'current': self.max_single_stock_exposure,
+                'adjustment_factor': self.max_single_stock_exposure / self.base_max_single_stock_exposure
+            },
+            'max_daily_loss': {
+                'base': self.base_max_daily_loss,
+                'current': self.max_daily_loss,
+                'adjustment_factor': self.max_daily_loss / self.base_max_daily_loss
+            }
+        }
+
+    def reset_risk_parameters(self) -> None:
+        """Reset risk parameters to their base values."""
+        self.max_position_size = self.base_max_position_size
+        self.max_daily_loss = self.base_max_daily_loss
+        self.max_portfolio_exposure = self.base_max_portfolio_exposure
+        self.max_single_stock_exposure = self.base_max_single_stock_exposure
+        
+        self.current_anomaly_level = 'low'
+        self.risk_adjustment_active = False
+        
+        logger.info(
+            "Risk parameters reset to base values",
+            user_id=self.user_id
+        )
+    self.user_id = user_id
+    self.risk_params = user_risk_params or {}
+
+    # Default risk parameters
+    self.max_position_size = self.risk_params.get(
+        "max_position_size", settings.MAX_POSITION_SIZE
+    )
+    self.max_daily_loss = self.risk_params.get(
+        "max_daily_loss", settings.MAX_DAILY_LOSS
+    )
+    self.max_portfolio_exposure = self.risk_params.get(
+        "max_portfolio_exposure", 0.95
+    )  # 95% max exposure
+    self.max_single_stock_exposure = self.risk_params.get(
+        "max_single_stock_exposure", 0.20
+    )  # 20% max per stock
+    self.stop_loss_percentage = self.risk_params.get(
+        "stop_loss_percentage", 0.05
+    )  # 5% stop loss
+    self.take_profit_percentage = self.risk_params.get(
+        "take_profit_percentage", 0.15
+    )  # 15% take profit
+
+    # Store original risk parameters for dynamic adjustment
+    self.base_max_position_size = self.max_position_size
+    self.base_max_daily_loss = self.max_daily_loss
+    self.base_max_portfolio_exposure = self.max_portfolio_exposure
+    self.base_max_single_stock_exposure = self.max_single_stock_exposure
+
+    # Anomaly detection integration
+    self.anomaly_detector = None
+    self.anomaly_risk_adjustment_enabled = self.risk_params.get(
+        "anomaly_risk_adjustment_enabled", True
+    )
+    self.anomaly_risk_multipliers = {
+        'low': 1.0,
+        'medium': 1.2,
+        'high': 1.5,
+        'critical': 2.0
+    }
+    
+    # Risk state tracking
+    self.current_anomaly_level = 'low'
+    self.risk_adjustment_active = False
+    self.last_anomaly_check = None
+
+    logger.info(
+        "Risk manager initialized", 
+        user_id=user_id, 
+        risk_params=self.risk_params,
+        anomaly_adjustment_enabled=self.anomaly_risk_adjustment_enabled
+    )
 
     def validate_order(
-        self,
-        symbol: str,
-        quantity: float,
-        price: float,
-        side: str,
-        current_positions: List[Dict],
-        account_value: float,
-        daily_pnl: float,
-    ) -> Tuple[bool, str]:
-        """
-        Validate if an order meets risk management criteria
+    self,
+    symbol: str,
+    quantity: float,
+    price: float,
+    side: str,
+    current_positions: List[Dict],
+    account_value: float,
+    daily_pnl: float,
+    market_data: Optional[Union[pd.DataFrame, np.ndarray]] = None,
+) -> Tuple[bool, str]:
+    """
+    Validate if an order meets risk management criteria
 
-        Returns:
-            Tuple[bool, str]: (is_valid, reason)
-        """
-        try:
-            # Calculate order value
-            order_value = quantity * price
+    Args:
+        symbol: Stock symbol
+        quantity: Order quantity
+        price: Order price
+        side: Order side (BUY/SELL)
+        current_positions: Current portfolio positions
+        account_value: Total account value
+        daily_pnl: Daily P&L
+        market_data: Recent market data for anomaly analysis
 
-            # Check maximum position size
-            if order_value > self.max_position_size:
-                return (
-                    False,
-                    f"Order value ${order_value:.2f} exceeds maximum position size ${self.max_position_size:.2f}",
-                )
+    Returns:
+        Tuple[bool, str]: (is_valid, reason)
+    """
+    try:
+        # Update risk parameters based on current anomaly conditions
+        anomaly_update = self.update_risk_from_anomalies(market_data)
+        
+        # Calculate order value
+        order_value = quantity * price
 
-            # Check daily loss limit
-            if daily_pnl < -self.max_daily_loss:
-                return (
-                    False,
-                    f"Daily loss ${abs(daily_pnl):.2f} exceeds limit ${self.max_daily_loss:.2f}",
-                )
+        # Check maximum position size (now adjusted for anomalies)
+        if order_value > self.max_position_size:
+            reason = f"Order value ${order_value:.2f} exceeds maximum position size ${self.max_position_size:.2f}"
+            if self.risk_adjustment_active:
+                reason += f" (adjusted for {self.current_anomaly_level} anomaly level)"
+            return False, reason
 
-            # Check portfolio exposure
-            current_exposure = self._calculate_portfolio_exposure(
-                current_positions, account_value
-            )
-            new_exposure = current_exposure + (order_value / account_value)
+        # Check daily loss limit (now adjusted for anomalies)
+        if daily_pnl < -self.max_daily_loss:
+            reason = f"Daily loss ${abs(daily_pnl):.2f} exceeds limit ${self.max_daily_loss:.2f}"
+            if self.risk_adjustment_active:
+                reason += f" (tightened due to {self.current_anomaly_level} anomaly level)"
+            return False, reason
 
-            if new_exposure > self.max_portfolio_exposure:
-                return (
-                    False,
-                    f"Portfolio exposure {new_exposure:.2%} would exceed limit {self.max_portfolio_exposure:.2%}",
-                )
+        # Check portfolio exposure (now adjusted for anomalies)
+        current_exposure = self._calculate_portfolio_exposure(
+            current_positions, account_value
+        )
+        new_exposure = current_exposure + (order_value / account_value)
 
-            # Check single stock exposure
-            current_stock_exposure = self._calculate_stock_exposure(
-                symbol, current_positions, account_value
-            )
-            new_stock_exposure = current_stock_exposure + (order_value / account_value)
+        if new_exposure > self.max_portfolio_exposure:
+            reason = f"Portfolio exposure {new_exposure:.2%} would exceed limit {self.max_portfolio_exposure:.2%}"
+            if self.risk_adjustment_active:
+                reason += f" (reduced due to {self.current_anomaly_level} anomaly level)"
+            return False, reason
 
-            if new_stock_exposure > self.max_single_stock_exposure:
-                return (
-                    False,
-                    f"Stock exposure {new_stock_exposure:.2%} would exceed limit {self.max_single_stock_exposure:.2%}",
-                )
+        # Check single stock exposure (now adjusted for anomalies)
+        current_stock_exposure = self._calculate_stock_exposure(
+            symbol, current_positions, account_value
+        )
+        new_stock_exposure = current_stock_exposure + (order_value / account_value)
 
-            # Check if we have enough buying power
-            if (
-                side.upper() == "BUY" and order_value > account_value * 0.95
-            ):  # Leave 5% buffer
-                return False, "Insufficient buying power for order"
+        if new_stock_exposure > self.max_single_stock_exposure:
+            reason = f"Stock exposure {new_stock_exposure:.2%} would exceed limit {self.max_single_stock_exposure:.2%}"
+            if self.risk_adjustment_active:
+                reason += f" (reduced due to {self.current_anomaly_level} anomaly level)"
+            return False, reason
 
-            logger.info(
-                "Order validation passed",
-                symbol=symbol,
-                quantity=quantity,
-                price=price,
-                side=side,
-                order_value=order_value,
-            )
+        # Additional anomaly-specific checks
+        if anomaly_update.get('anomaly_system_active', False):
+            # Block new positions during critical anomalies
+            if self.current_anomaly_level == 'critical' and side.upper() == 'BUY':
+                return False, "New buy orders blocked due to critical market anomalies detected"
+            
+            # Reduce position sizes during high anomaly periods
+            if self.current_anomaly_level in ['high', 'critical']:
+                recommended_adjustment = anomaly_update.get('recommended_position_adjustment', 0.0)
+                if recommended_adjustment < -0.1:  # More than 10% reduction recommended
+                    max_recommended_value = order_value * (1 + recommended_adjustment)
+                    if order_value > max_recommended_value:
+                        return False, f"Order size should be reduced by {abs(recommended_adjustment)*100:.0f}% due to detected market anomalies"
 
-            return True, "Order passes risk management checks"
+        # Check if we have enough buying power
+        if (
+            side.upper() == "BUY" and order_value > account_value * 0.95
+        ):  # Leave 5% buffer
+            return False, "Insufficient buying power for order"
 
-        except Exception as e:
-            logger.error("Error validating order", error=str(e), symbol=symbol)
-            return False, f"Risk validation error: {str(e)}"
+        # Log successful validation with anomaly context
+        logger.info(
+            "Order validation passed",
+            symbol=symbol,
+            quantity=quantity,
+            price=price,
+            side=side,
+            order_value=order_value,
+            anomaly_level=self.current_anomaly_level,
+            risk_adjustment_active=self.risk_adjustment_active,
+            anomaly_adjustments=anomaly_update.get('risk_adjustments_made', False)
+        )
+
+        success_message = "Order passes risk management checks"
+        if self.risk_adjustment_active:
+            success_message += f" (risk parameters adjusted for {self.current_anomaly_level} anomaly conditions)"
+
+        return True, success_message
+
+    except Exception as e:
+        logger.error("Error validating order", error=str(e), symbol=symbol)
+        return False, f"Risk validation error: {str(e)}"
 
     def calculate_position_size(
         self,
@@ -340,7 +592,7 @@ class RiskManager:
     def get_risk_summary(
         self, positions: List[Dict], account_value: float, daily_pnl: float
     ) -> Dict:
-        """Get comprehensive risk summary"""
+        """Get comprehensive risk summary including anomaly detection status"""
         try:
             portfolio_exposure = self._calculate_portfolio_exposure(
                 positions, account_value
@@ -354,6 +606,39 @@ class RiskManager:
                     symbol_exposures[symbol] = self._calculate_stock_exposure(
                         symbol, positions, account_value
                     )
+
+            # Get anomaly detection status if available
+            anomaly_status = {}
+            if self.anomaly_detector and self.anomaly_risk_adjustment_enabled:
+                try:
+                    anomaly_data = self.anomaly_detector.get_risk_integration_data()
+                    anomaly_status = {
+                        'anomaly_system_active': anomaly_data.get('anomaly_system_active', False),
+                        'current_anomaly_level': self.current_anomaly_level,
+                        'risk_adjustment_active': self.risk_adjustment_active,
+                        'recent_anomaly_rate': anomaly_data.get('recent_anomaly_rate', 0.0),
+                        'active_alerts': anomaly_data.get('active_alerts', 0),
+                        'last_detection_time': anomaly_data.get('last_detection_time'),
+                        'recommended_position_adjustment': anomaly_data.get('recommended_position_adjustment', 0.0),
+                        'current_risk_multiplier': anomaly_data.get('current_risk_multiplier', 1.0),
+                        'last_anomaly_check': self.last_anomaly_check.isoformat() if self.last_anomaly_check else None
+                    }
+
+                    # Add risk parameter adjustments if active
+                    if self.risk_adjustment_active:
+                        anomaly_status['risk_adjustments'] = self._get_current_risk_adjustments()
+
+                except Exception as e:
+                    logger.warning("Error getting anomaly status for risk summary", error=str(e))
+                    anomaly_status = {
+                        'anomaly_system_active': False,
+                        'error': str(e)
+                    }
+            else:
+                anomaly_status = {
+                    'anomaly_system_active': False,
+                    'reason': 'Anomaly detection not configured or disabled'
+                }
 
             return {
                 "daily_pnl": daily_pnl,
@@ -378,6 +663,13 @@ class RiskManager:
                     "stop_loss_percentage": self.stop_loss_percentage,
                     "take_profit_percentage": self.take_profit_percentage,
                 },
+                "base_risk_parameters": {
+                    "max_position_size": self.base_max_position_size,
+                    "max_daily_loss": self.base_max_daily_loss,
+                    "max_portfolio_exposure": self.base_max_portfolio_exposure,
+                    "max_single_stock_exposure": self.base_max_single_stock_exposure,
+                },
+                "anomaly_detection": anomaly_status,
             }
 
         except Exception as e:
