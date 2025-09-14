@@ -407,6 +407,241 @@ class PrometheusMetrics:
             "trading_system_info", "Trading system information", registry=self.registry
         )
 
+        # UNSUPERVISED LEARNING METRICS - Advanced AI System Monitoring
+
+        # Pattern Memory Metrics
+        self.pattern_memory_total_patterns = Gauge(
+            "unsupervised_pattern_memory_total_patterns",
+            "Total patterns stored in pattern memory",
+            ["symbol", "pattern_type"],
+            registry=self.registry,
+        )
+
+        self.pattern_memory_cache_hit_rate = Gauge(
+            "unsupervised_pattern_memory_cache_hit_rate",
+            "Pattern memory cache hit rate (0-1)",
+            registry=self.registry,
+        )
+
+        self.pattern_similarity_search_latency = Histogram(
+            "unsupervised_pattern_similarity_search_latency_seconds",
+            "Pattern similarity search latency in seconds",
+            ["search_type", "pattern_count_bucket"],
+            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0],
+            registry=self.registry,
+        )
+
+        self.pattern_compression_ratio = Gauge(
+            "unsupervised_pattern_compression_ratio",
+            "Pattern compression ratio using VAE (higher is better)",
+            registry=self.registry,
+        )
+
+        # Market Regime Detection Metrics
+        self.regime_detection_accuracy = Gauge(
+            "unsupervised_regime_detection_accuracy",
+            "Market regime detection accuracy (0-1)",
+            ["regime_type"],
+            registry=self.registry,
+        )
+
+        self.regime_transition_detection_latency = Histogram(
+            "unsupervised_regime_transition_detection_latency_seconds",
+            "Regime transition detection latency in seconds",
+            buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
+            registry=self.registry,
+        )
+
+        self.regime_stability_score = Gauge(
+            "unsupervised_regime_stability_score",
+            "Current market regime stability score (0-1)",
+            registry=self.registry,
+        )
+
+        self.regime_confidence_score = Gauge(
+            "unsupervised_regime_confidence_score",
+            "Market regime detection confidence (0-1)",
+            ["detected_regime"],
+            registry=self.registry,
+        )
+
+        # Anomaly Detection Metrics
+        self.anomaly_detection_accuracy = Gauge(
+            "unsupervised_anomaly_detection_accuracy",
+            "Anomaly detection accuracy vs labeled data (0-1)",
+            ["anomaly_type"],
+            registry=self.registry,
+        )
+
+        self.anomaly_detection_latency = Histogram(
+            "unsupervised_anomaly_detection_latency_seconds",
+            "Anomaly detection computation latency in seconds",
+            ["detector_type"],
+            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5],
+            registry=self.registry,
+        )
+
+        self.anomaly_score_distribution = Histogram(
+            "unsupervised_anomaly_score_distribution",
+            "Distribution of anomaly scores",
+            ["symbol"],
+            buckets=[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+            registry=self.registry,
+        )
+
+        self.anomaly_alerts_total = Counter(
+            "unsupervised_anomaly_alerts_total",
+            "Total anomaly alerts generated",
+            ["symbol", "anomaly_type", "severity"],
+            registry=self.registry,
+        )
+
+        # Clustering Quality Metrics
+        self.clustering_silhouette_score = Gauge(
+            "unsupervised_clustering_silhouette_score",
+            "Clustering silhouette score (-1 to 1, higher is better)",
+            ["clustering_algorithm", "data_type"],
+            registry=self.registry,
+        )
+
+        self.clustering_inertia = Gauge(
+            "unsupervised_clustering_inertia",
+            "K-means clustering inertia (lower is better)",
+            ["data_type"],
+            registry=self.registry,
+        )
+
+        self.clustering_iterations_to_convergence = Gauge(
+            "unsupervised_clustering_iterations_to_convergence",
+            "Iterations required for clustering convergence",
+            ["clustering_algorithm"],
+            registry=self.registry,
+        )
+
+        self.cluster_stability_score = Gauge(
+            "unsupervised_cluster_stability_score",
+            "Cluster stability across different runs (0-1)",
+            ["clustering_algorithm"],
+            registry=self.registry,
+        )
+
+        # Experience Clustering Metrics
+        self.experience_clusters_total = Gauge(
+            "unsupervised_experience_clusters_total",
+            "Total experience clusters identified",
+            ["agent_type", "cluster_type"],
+            registry=self.registry,
+        )
+
+        self.experience_cluster_purity = Gauge(
+            "unsupervised_experience_cluster_purity",
+            "Experience cluster purity score (0-1)",
+            ["agent_type", "cluster_id"],
+            registry=self.registry,
+        )
+
+        self.experience_replay_effectiveness = Gauge(
+            "unsupervised_experience_replay_effectiveness",
+            "Experience replay learning effectiveness (0-1)",
+            ["agent_type"],
+            registry=self.registry,
+        )
+
+        # Strategy Evolution Metrics
+        self.strategy_evolution_generation = Gauge(
+            "unsupervised_strategy_evolution_generation",
+            "Current strategy evolution generation",
+            ["agent_type"],
+            registry=self.registry,
+        )
+
+        self.strategy_variant_performance = Gauge(
+            "unsupervised_strategy_variant_performance",
+            "Strategy variant performance score (0-1)",
+            ["agent_type", "variant_id"],
+            registry=self.registry,
+        )
+
+        self.ab_test_statistical_significance = Gauge(
+            "unsupervised_ab_test_statistical_significance",
+            "A/B test statistical significance (0-1)",
+            ["test_id", "metric_type"],
+            registry=self.registry,
+        )
+
+        self.strategy_improvement_rate = Gauge(
+            "unsupervised_strategy_improvement_rate",
+            "Strategy improvement rate per evolution cycle",
+            ["agent_type"],
+            registry=self.registry,
+        )
+
+        # Market Basket Analysis Metrics
+        self.association_rules_confidence = Gauge(
+            "unsupervised_association_rules_confidence",
+            "Market basket association rules confidence (0-1)",
+            ["rule_id", "symbol_pair"],
+            registry=self.registry,
+        )
+
+        self.association_rules_lift = Gauge(
+            "unsupervised_association_rules_lift",
+            "Market basket association rules lift score",
+            ["rule_id", "symbol_pair"],
+            registry=self.registry,
+        )
+
+        self.correlation_network_density = Gauge(
+            "unsupervised_correlation_network_density",
+            "Market correlation network density (0-1)",
+            registry=self.registry,
+        )
+
+        # Learning Performance Metrics
+        self.unsupervised_learning_accuracy = Gauge(
+            "unsupervised_learning_accuracy_score",
+            "Overall unsupervised learning accuracy (0-1)",
+            ["learning_type"],
+            registry=self.registry,
+        )
+
+        self.unsupervised_prediction_accuracy = Gauge(
+            "unsupervised_prediction_accuracy",
+            "Prediction accuracy using unsupervised insights (0-1)",
+            ["prediction_type", "time_horizon"],
+            registry=self.registry,
+        )
+
+        self.unsupervised_feature_importance = Gauge(
+            "unsupervised_feature_importance_score",
+            "Feature importance scores from unsupervised learning (0-1)",
+            ["feature_name", "symbol"],
+            registry=self.registry,
+        )
+
+        # System Resource Usage for Unsupervised Learning
+        self.unsupervised_memory_usage = Gauge(
+            "unsupervised_memory_usage_bytes",
+            "Memory usage by unsupervised learning components",
+            ["component_name"],
+            registry=self.registry,
+        )
+
+        self.unsupervised_cpu_usage = Gauge(
+            "unsupervised_cpu_usage_percent",
+            "CPU usage by unsupervised learning components (0-100)",
+            ["component_name"],
+            registry=self.registry,
+        )
+
+        self.unsupervised_model_training_time = Histogram(
+            "unsupervised_model_training_time_seconds",
+            "Time to train unsupervised models",
+            ["model_type", "data_size_bucket"],
+            buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 300.0],
+            registry=self.registry,
+        )
+
     def update_health_metrics(self, health_status: "SystemHealthStatus"):
         """Update health-related metrics"""
         from .health_checks import HealthStatus
@@ -766,6 +1001,116 @@ class PrometheusMetrics:
         except Exception as e:
             logger.warning("Failed to collect strategy agent metrics", error=str(e))
 
+    # Unsupervised Learning Metrics Update Methods
+    def update_pattern_memory_metrics(
+        self,
+        symbol: str,
+        pattern_type: str,
+        total_patterns: int,
+        cache_hit_rate: float,
+        compression_ratio: float,
+        memory_usage_mb: float,
+        retrieval_latency_ms: float,
+    ):
+        """Update pattern memory performance metrics"""
+        self.pattern_memory_total_patterns.labels(
+            symbol=symbol, pattern_type=pattern_type
+        ).set(total_patterns)
+
+        self.pattern_memory_cache_hit_rate.set(cache_hit_rate)
+
+        self.pattern_compression_ratio.set(compression_ratio)
+
+        self.unsupervised_memory_usage.labels(component="pattern_memory").set(memory_usage_mb)
+
+        self.pattern_similarity_search_latency.labels(
+            search_type="retrieval", pattern_count_bucket="standard"
+        ).observe(retrieval_latency_ms / 1000.0)  # Convert to seconds
+
+    def update_regime_detection_metrics(
+        self,
+        detected_regime: str,
+        regime_stability: float,
+        prediction_accuracy: float,
+        detection_latency_ms: float,
+    ):
+        """Update market regime detection metrics"""
+        self.regime_detection_accuracy.labels(regime_type=detected_regime).set(prediction_accuracy)
+
+        self.regime_stability_score.set(regime_stability)
+
+        self.regime_confidence_score.labels(detected_regime=detected_regime).set(prediction_accuracy)
+
+        self.regime_transition_detection_latency.observe(detection_latency_ms / 1000.0)  # Convert to seconds
+
+    def update_anomaly_detection_metrics(
+        self,
+        symbol: str,
+        anomaly_type: str,
+        anomaly_score: float,
+        detection_accuracy: float,
+        detection_latency_ms: float,
+        is_anomaly: bool,
+        severity: str = "medium",
+    ):
+        """Update anomaly detection metrics"""
+        self.anomaly_detection_accuracy.labels(anomaly_type=anomaly_type).set(detection_accuracy)
+
+        self.anomaly_detection_latency.labels(detector_type=anomaly_type).observe(detection_latency_ms / 1000.0)
+
+        self.anomaly_score_distribution.labels(symbol=symbol).observe(anomaly_score)
+
+        if is_anomaly:
+            self.anomaly_alerts_total.labels(
+                symbol=symbol, anomaly_type=anomaly_type, severity=severity
+            ).inc()
+
+    def update_unsupervised_learning_accuracy(self, learning_type: str, accuracy: float):
+        """Update overall unsupervised learning accuracy"""
+        self.unsupervised_learning_accuracy.labels(learning_type=learning_type).set(accuracy)
+
+    def update_prediction_accuracy(self, prediction_type: str, time_horizon: str, accuracy: float):
+        """Update prediction accuracy metrics"""
+        self.unsupervised_prediction_accuracy.labels(
+            prediction_type=prediction_type, time_horizon=time_horizon
+        ).set(accuracy)
+
+    def update_feature_importance(self, feature_name: str, symbol: str, importance: float):
+        """Update feature importance scores"""
+        self.unsupervised_feature_importance.labels(
+            feature_name=feature_name, symbol=symbol
+        ).set(importance)
+
+    def update_model_training_time(self, model_type: str, data_size_bucket: str, training_time_seconds: float):
+        """Update unsupervised model training time"""
+        self.unsupervised_model_training_time.labels(
+            model_type=model_type, data_size_bucket=data_size_bucket
+        ).observe(training_time_seconds)
+
+    def update_unsupervised_resource_metrics(
+        self,
+        component_name: str,
+        cpu_usage_percent: float,
+        memory_usage_bytes: float,
+    ):
+        """Update resource usage for unsupervised components"""
+        self.unsupervised_cpu_usage.labels(component=component_name).set(cpu_usage_percent)
+        self.unsupervised_memory_usage.labels(component=component_name).set(memory_usage_bytes)
+
+    async def collect_unsupervised_metrics(self):
+        """Collect metrics from all unsupervised learning components"""
+        try:
+            if not UNSUPERVISED_AVAILABLE:
+                logger.debug("Unsupervised components not available, skipping metrics collection")
+                return
+
+            # Basic resource monitoring for now
+            # Individual components will update their own metrics when called
+            logger.debug("Unsupervised metrics collection completed")
+
+        except Exception as e:
+            logger.warning("Failed to collect unsupervised metrics", error=str(e))
+
 
 class MetricsCollector:
     """Collects and manages system metrics"""
@@ -792,6 +1137,9 @@ class MetricsCollector:
 
             # Update Prometheus metrics
             self.prometheus_metrics.update_health_metrics(health_status)
+
+            # Collect unsupervised learning metrics
+            await self.prometheus_metrics.collect_unsupervised_metrics()
 
             # Collect additional metrics
             metrics = {

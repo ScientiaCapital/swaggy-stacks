@@ -12,6 +12,10 @@ from typing import Any, Callable, Dict, List, Optional
 
 import structlog
 
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 logger = structlog.get_logger(__name__)
 
 
@@ -60,6 +64,38 @@ class FeedbackLearning:
     performance_predictors: Dict[str, float]
     confidence_score: float
 
+@dataclass
+class ExperienceCluster:
+    """Clustered execution experiences for pattern learning"""
+    
+    cluster_id: int
+    cluster_type: str  # success, failure, mixed
+    execution_count: int
+    success_rate: float
+    avg_execution_time: float
+    common_parameters: Dict[str, Any]
+    common_contexts: Dict[str, Any]
+    pattern_features: List[float]
+    centroid: List[float]
+    confidence_score: float
+    last_updated: datetime
+
+
+@dataclass
+class StrategyEvolution:
+    """Strategy evolution insights from clustered experiences"""
+    
+    agent_type: str
+    tool_name: str
+    evolved_parameters: Dict[str, Any]
+    confidence_adjustment: float
+    timing_optimization: Dict[str, Any]
+    context_preferences: Dict[str, float]
+    success_predictors: Dict[str, float]
+    evolution_score: float
+    validation_metrics: Dict[str, float]
+    last_evolved: datetime
+
 
 class ToolFeedbackTracker:
     """Track and analyze tool execution feedback for agent performance optimization"""
@@ -81,12 +117,20 @@ class ToolFeedbackTracker:
         self.performance_metrics: Dict[str, ToolPerformanceMetrics] = {}
         self.learning_insights: Dict[str, FeedbackLearning] = {}
 
+        # Enhanced clustering and evolution components
+        self.experience_clusters: Dict[str, List[ExperienceCluster]] = {}
+        self.strategy_evolutions: Dict[str, StrategyEvolution] = {}
+        self.cluster_scaler = StandardScaler()
+        self.cluster_model = None
+        self.evolution_history: deque[Dict[str, Any]] = deque(maxlen=1000)
+
         # Feedback callbacks
         self.feedback_callbacks: List[Callable[[ToolExecution], None]] = []
         self.performance_callbacks: List[Callable[[ToolPerformanceMetrics], None]] = []
 
         # Analysis state
         self.last_analysis_time: Optional[datetime] = None
+        self.last_clustering_time: Optional[datetime] = None
         self.analysis_task: Optional[asyncio.Task] = None
 
     def add_feedback_callback(self, callback: Callable[[ToolExecution], None]):
@@ -562,6 +606,332 @@ class ToolFeedbackTracker:
                 pass
             logger.info("Stopped continuous tool feedback analysis")
 
+    async def cluster_execution_patterns(self, tool_key: str, min_executions: int = 50) -> List[ExperienceCluster]:
+        """Cluster execution patterns for a specific tool to identify success/failure patterns"""
+        if tool_key not in self.executions_by_tool:
+            return []
+        
+        executions = list(self.executions_by_tool[tool_key])
+        if len(executions) < min_executions:
+            logger.info(f"Insufficient executions for clustering {tool_key}: {len(executions)}")
+            return []
+        
+        try:
+            # Extract features from executions
+            features = []
+            for exec in executions:
+                feature_vector = self._extract_execution_features(exec)
+                features.append(feature_vector)
+            
+            if not features or len(features[0]) == 0:
+                return []
+            
+            features_array = np.array(features)
+            
+            # Normalize features
+            features_scaled = self.cluster_scaler.fit_transform(features_array)
+            
+            # Apply PCA for dimensionality reduction if needed
+            if features_scaled.shape[1] > 10:
+                pca = PCA(n_components=min(10, features_scaled.shape[1]))
+                features_scaled = pca.fit_transform(features_scaled)
+            
+            # Determine optimal number of clusters (2-5 clusters)
+            n_clusters = min(5, max(2, len(executions) // 20))
+            
+            # Perform K-means clustering
+            kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+            cluster_labels = kmeans.fit_predict(features_scaled)
+            
+            # Create cluster objects
+            clusters = []
+            for cluster_id in range(n_clusters):
+                cluster_executions = [exec for i, exec in enumerate(executions) if cluster_labels[i] == cluster_id]
+                
+                if not cluster_executions:
+                    continue
+                
+                # Calculate cluster statistics
+                success_count = sum(1 for exec in cluster_executions if exec.success)
+                success_rate = success_count / len(cluster_executions)
+                
+                # Determine cluster type
+                if success_rate >= 0.8:
+                    cluster_type = "success"
+                elif success_rate <= 0.3:
+                    cluster_type = "failure"
+                else:
+                    cluster_type = "mixed"
+                
+                # Extract common parameters and contexts
+                common_params = self._extract_common_patterns(
+                    [exec.input_params for exec in cluster_executions]
+                )
+                common_contexts = self._extract_common_patterns(
+                    [exec.context for exec in cluster_executions]
+                )
+                
+                # Calculate average execution time
+                avg_time = np.mean([exec.execution_time_ms for exec in cluster_executions])
+                
+                # Get cluster centroid
+                cluster_indices = [i for i, label in enumerate(cluster_labels) if label == cluster_id]
+                cluster_features = features_scaled[cluster_indices]
+                centroid = np.mean(cluster_features, axis=0).tolist()
+                
+                # Calculate confidence score based on cluster coherence
+                cluster_variance = np.var(cluster_features, axis=0)
+                confidence_score = max(0.1, 1.0 - np.mean(cluster_variance))
+                
+                cluster = ExperienceCluster(
+                    cluster_id=cluster_id,
+                    cluster_type=cluster_type,
+                    execution_count=len(cluster_executions),
+                    success_rate=success_rate,
+                    avg_execution_time=avg_time,
+                    common_parameters=common_params,
+                    common_contexts=common_contexts,
+                    pattern_features=np.mean([self._extract_execution_features(exec) for exec in cluster_executions], axis=0).tolist(),
+                    centroid=centroid,
+                    confidence_score=confidence_score,
+                    last_updated=datetime.now()
+                )
+                
+                clusters.append(cluster)
+            
+            # Store clusters
+            self.experience_clusters[tool_key] = clusters
+            self.last_clustering_time = datetime.now()
+            
+            logger.info(f"Clustered {len(executions)} executions into {len(clusters)} patterns for {tool_key}")
+            return clusters
+            
+        except Exception as e:
+            logger.error(f"Failed to cluster patterns for {tool_key}", error=str(e))
+            return []
+
+    def _extract_execution_features(self, execution: ToolExecution) -> List[float]:
+        """Extract numerical features from execution for clustering"""
+        features = []
+        
+        # Basic features
+        features.append(1.0 if execution.success else 0.0)
+        features.append(execution.execution_time_ms / 1000.0)  # Convert to seconds
+        features.append(execution.timestamp.hour)  # Hour of day
+        features.append(execution.timestamp.weekday())  # Day of week
+        
+        # Parameter features (extract numerical values)
+        param_features = []
+        for key, value in execution.input_params.items():
+            if isinstance(value, (int, float)):
+                param_features.append(float(value))
+            elif isinstance(value, bool):
+                param_features.append(1.0 if value else 0.0)
+            elif isinstance(value, str):
+                param_features.append(float(len(value)))  # String length as feature
+        
+        # Pad or truncate parameter features to fixed size
+        max_param_features = 10
+        if len(param_features) > max_param_features:
+            param_features = param_features[:max_param_features]
+        else:
+            param_features.extend([0.0] * (max_param_features - len(param_features)))
+        
+        features.extend(param_features)
+        
+        # Context features
+        context_features = []
+        context = execution.context
+        
+        # Market condition encoding
+        if "market_condition" in context:
+            market_conditions = ["bullish", "bearish", "neutral", "volatile"]
+            condition = context["market_condition"]
+            for i, mc in enumerate(market_conditions):
+                context_features.append(1.0 if condition == mc else 0.0)
+        else:
+            context_features.extend([0.0] * 4)
+        
+        # Symbol features (hash-based encoding)
+        if "symbol" in context:
+            symbol_hash = hash(context["symbol"]) % 100
+            context_features.append(float(symbol_hash))
+        else:
+            context_features.append(0.0)
+        
+        features.extend(context_features)
+        
+        return features
+
+    def _extract_common_patterns(self, data_list: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Extract common patterns from a list of dictionaries"""
+        if not data_list:
+            return {}
+        
+        common_patterns = {}
+        
+        # Find keys that appear in most dictionaries
+        all_keys = set()
+        for data in data_list:
+            all_keys.update(data.keys())
+        
+        for key in all_keys:
+            values = [data.get(key) for data in data_list if key in data]
+            if len(values) >= len(data_list) * 0.5:  # Appears in at least 50% of entries
+                # For categorical values, find most common
+                if all(isinstance(v, str) for v in values):
+                    value_counts = {}
+                    for v in values:
+                        value_counts[v] = value_counts.get(v, 0) + 1
+                    most_common = max(value_counts.items(), key=lambda x: x[1])
+                    if most_common[1] >= len(values) * 0.6:  # Appears in 60% of cases
+                        common_patterns[key] = most_common[0]
+                
+                # For numerical values, calculate statistics
+                elif all(isinstance(v, (int, float)) for v in values):
+                    common_patterns[key] = {
+                        "mean": np.mean(values),
+                        "median": np.median(values),
+                        "std": np.std(values),
+                        "frequency": len(values) / len(data_list)
+                    }
+        
+        return common_patterns
+
+    async def evolve_strategy_parameters(self, tool_key: str) -> Optional[StrategyEvolution]:
+        """Evolve strategy parameters based on clustered execution patterns"""
+        if tool_key not in self.experience_clusters:
+            # Try to cluster first
+            await self.cluster_execution_patterns(tool_key)
+            if tool_key not in self.experience_clusters:
+                return None
+        
+        clusters = self.experience_clusters[tool_key]
+        if not clusters:
+            return None
+        
+        try:
+            agent_type, tool_name = tool_key.split("_", 1)
+            
+            # Find the most successful cluster
+            success_clusters = [c for c in clusters if c.cluster_type == "success"]
+            if not success_clusters:
+                return None
+            
+            best_cluster = max(success_clusters, key=lambda c: c.success_rate * c.confidence_score)
+            
+            # Extract evolved parameters from best cluster
+            evolved_parameters = {}
+            for key, pattern in best_cluster.common_parameters.items():
+                if isinstance(pattern, dict) and "mean" in pattern:
+                    # For numerical parameters, use the mean from successful cluster
+                    evolved_parameters[key] = pattern["mean"]
+                elif isinstance(pattern, (str, int, float, bool)):
+                    # For categorical parameters, use the most common value
+                    evolved_parameters[key] = pattern
+            
+            # Calculate confidence adjustment based on success rate difference
+            baseline_success_rate = np.mean([c.success_rate for c in clusters])
+            confidence_adjustment = (best_cluster.success_rate - baseline_success_rate) * 0.5
+            
+            # Extract timing optimization insights
+            timing_optimization = {}
+            best_time_features = best_cluster.pattern_features
+            if len(best_time_features) >= 4:  # Hour and day features
+                timing_optimization["preferred_hour"] = int(best_time_features[2])
+                timing_optimization["preferred_day"] = int(best_time_features[3])
+                timing_optimization["avg_execution_time"] = best_cluster.avg_execution_time
+            
+            # Extract context preferences
+            context_preferences = {}
+            for key, pattern in best_cluster.common_contexts.items():
+                if isinstance(pattern, str):
+                    context_preferences[key] = 1.0  # Strong preference
+                elif isinstance(pattern, dict) and "frequency" in pattern:
+                    context_preferences[key] = pattern["frequency"]
+            
+            # Calculate success predictors from cluster analysis
+            success_predictors = {
+                "execution_time_importance": 1.0 / (1.0 + best_cluster.avg_execution_time / 1000.0),
+                "context_importance": len(context_preferences) / max(1, len(best_cluster.common_contexts)),
+                "parameter_importance": len(evolved_parameters) / max(1, len(best_cluster.common_parameters)),
+                "cluster_confidence": best_cluster.confidence_score,
+            }
+            
+            # Calculate overall evolution score
+            evolution_score = (
+                best_cluster.success_rate * 0.4 +
+                best_cluster.confidence_score * 0.3 +
+                (best_cluster.execution_count / 100.0) * 0.2 +
+                (1.0 - min(1.0, best_cluster.avg_execution_time / 5000.0)) * 0.1
+            )
+            
+            # Validation metrics
+            validation_metrics = {
+                "cluster_count": len(clusters),
+                "best_cluster_size": best_cluster.execution_count,
+                "improvement_potential": best_cluster.success_rate - baseline_success_rate,
+                "stability_score": best_cluster.confidence_score,
+            }
+            
+            strategy_evolution = StrategyEvolution(
+                agent_type=agent_type,
+                tool_name=tool_name,
+                evolved_parameters=evolved_parameters,
+                confidence_adjustment=confidence_adjustment,
+                timing_optimization=timing_optimization,
+                context_preferences=context_preferences,
+                success_predictors=success_predictors,
+                evolution_score=evolution_score,
+                validation_metrics=validation_metrics,
+                last_evolved=datetime.now()
+            )
+            
+            # Store evolution
+            self.strategy_evolutions[tool_key] = strategy_evolution
+            
+            # Track evolution history
+            self.evolution_history.append({
+                "tool_key": tool_key,
+                "evolution_score": evolution_score,
+                "success_rate_improvement": best_cluster.success_rate - baseline_success_rate,
+                "timestamp": datetime.now().isoformat()
+            })
+            
+            logger.info(f"Evolved strategy for {tool_key}", 
+                       evolution_score=evolution_score,
+                       success_rate_improvement=best_cluster.success_rate - baseline_success_rate)
+            
+            return strategy_evolution
+            
+        except Exception as e:
+            logger.error(f"Failed to evolve strategy for {tool_key}", error=str(e))
+            return None
+
+    def get_strategy_evolution(self, tool_key: str) -> Optional[StrategyEvolution]:
+        """Get the latest strategy evolution for a tool"""
+        return self.strategy_evolutions.get(tool_key)
+
+    def get_experience_clusters(self, tool_key: str) -> List[ExperienceCluster]:
+        """Get experience clusters for a tool"""
+        return self.experience_clusters.get(tool_key, [])
+
+    async def run_continuous_evolution(self, evolution_interval_hours: int = 6):
+        """Run continuous strategy evolution based on clustering insights"""
+        try:
+            # Cluster patterns for all tools with sufficient data
+            for tool_key in self.executions_by_tool.keys():
+                executions = list(self.executions_by_tool[tool_key])
+                if len(executions) >= 50:  # Minimum for clustering
+                    await self.cluster_execution_patterns(tool_key)
+                    await self.evolve_strategy_parameters(tool_key)
+            
+            logger.info("Continuous strategy evolution completed", 
+                       tools_evolved=len(self.strategy_evolutions))
+            
+        except Exception as e:
+            logger.error("Error in continuous strategy evolution", error=str(e))
+
     def get_health_check(self) -> Dict[str, Any]:
         """Get health status of the feedback tracker"""
         return {
@@ -571,11 +941,18 @@ class ToolFeedbackTracker:
             "agents_tracked": len(self.executions_by_agent),
             "performance_metrics_available": len(self.performance_metrics),
             "learning_insights_available": len(self.learning_insights),
+            "experience_clusters_available": len(self.experience_clusters),
+            "strategy_evolutions_available": len(self.strategy_evolutions),
+            "evolution_history_count": len(self.evolution_history),
             "last_analysis": (
                 self.last_analysis_time.isoformat() if self.last_analysis_time else None
             ),
+            "last_clustering": (
+                self.last_clustering_time.isoformat() if self.last_clustering_time else None
+            ),
             "continuous_analysis_running": self.analysis_task is not None
             and not self.analysis_task.done(),
+            "self_learning_enabled": True,
             "timestamp": datetime.now().isoformat(),
         }
 

@@ -9,12 +9,24 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
 import structlog
+import numpy as np
 
 from .market_analyst_service import MarketAnalysis, MarketAnalystService
 from .ollama_client import OllamaClient
 from .performance_coach_service import PerformanceCoachService, TradeReview
 from .risk_advisor_service import RiskAdvisorService, RiskAssessment
 from .strategy_optimizer_service import StrategyOptimizerService, StrategySignal
+
+# Enhanced imports for unsupervised learning integration
+try:
+    from ..ml.unsupervised.pattern_memory import PatternMemory
+    from ..ml.unsupervised.pattern_mining import MarketBasketAnalyzer
+    from ..ml.unsupervised.market_regime import MarketRegimeDetector
+    from ..ml.unsupervised.anomaly_detector import AnomalyDetector
+    UNSUPERVISED_AVAILABLE = True
+except ImportError as e:
+    UNSUPERVISED_AVAILABLE = False
+    structlog.get_logger().warning("Unsupervised learning modules not available", error=str(e))
 
 logger = structlog.get_logger()
 
@@ -34,6 +46,7 @@ class AITradingCoordinator:
         self,
         ollama_base_url: str = "http://localhost:11434",
         enable_streaming: bool = True,
+        enable_unsupervised: bool = True,
     ):
         self.ollama_client = OllamaClient(ollama_base_url)
 
@@ -42,6 +55,24 @@ class AITradingCoordinator:
         self.risk_advisor = RiskAdvisorService(self.ollama_client)
         self.strategy_optimizer = StrategyOptimizerService(self.ollama_client)
         self.performance_coach = PerformanceCoachService(self.ollama_client)
+
+        # Initialize unsupervised learning components
+        self.enable_unsupervised = enable_unsupervised and UNSUPERVISED_AVAILABLE
+        if self.enable_unsupervised:
+            try:
+                self.pattern_memory = PatternMemory()
+                self.basket_analyzer = MarketBasketAnalyzer()
+                self.regime_detector = MarketRegimeDetector()
+                self.anomaly_detector = AnomalyDetector()
+                logger.info("Unsupervised learning components initialized successfully")
+            except Exception as e:
+                logger.warning("Failed to initialize unsupervised components", error=str(e))
+                self.enable_unsupervised = False
+        else:
+            self.pattern_memory = None
+            self.basket_analyzer = None
+            self.regime_detector = None
+            self.anomaly_detector = None
 
         # Real-time streaming configuration
         self.enable_streaming = enable_streaming
@@ -54,7 +85,8 @@ class AITradingCoordinator:
         self.tool_feedback: Dict[str, List[Dict[str, Any]]] = {}
         self.active_decisions: Dict[str, Dict[str, Any]] = {}
 
-        logger.info("AITradingCoordinator initialized with specialized services")
+        logger.info("AITradingCoordinator initialized with specialized services",
+                   unsupervised_enabled=self.enable_unsupervised)
 
     def add_decision_callback(self, callback: Callable):
         """Add callback for real-time decision streaming"""
@@ -294,7 +326,7 @@ class AITradingCoordinator:
         current_positions: List[Dict],
         markov_analysis: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """Run comprehensive analysis using all agent services"""
+        """Run comprehensive analysis using all agent services and unsupervised insights"""
         try:
             logger.info("Starting comprehensive AI analysis", symbol=symbol)
             correlation_id = f"analysis_{symbol}_{datetime.now().timestamp()}"
@@ -306,6 +338,66 @@ class AITradingCoordinator:
                 "status": "in_progress",
             }
 
+            # Generate unsupervised insights if enabled
+            unsupervised_insights = {}
+            enhanced_market_context = {
+                "regime": "trending",
+                "volatility": "normal",
+                "trend_strength": "moderate",
+            }
+
+            if self.enable_unsupervised:
+                try:
+                    # Detect market regime
+                    if self.regime_detector:
+                        regime_result = self.regime_detector.detect_regime(market_data, technical_indicators)
+                        enhanced_market_context.update({
+                            "regime": regime_result.get("current_regime", "trending"),
+                            "regime_confidence": regime_result.get("confidence", 0.5),
+                            "volatility": regime_result.get("volatility_regime", "normal"),
+                        })
+                        unsupervised_insights["regime_analysis"] = regime_result
+
+                    # Check for anomalies
+                    if self.anomaly_detector:
+                        anomaly_scores = self.anomaly_detector.detect_anomalies(market_data, technical_indicators)
+                        unsupervised_insights["anomaly_detection"] = anomaly_scores
+
+                        # Adjust market context based on anomalies
+                        max_anomaly_score = max(anomaly_scores.get("scores", [0]))
+                        if max_anomaly_score > 0.8:
+                            enhanced_market_context["anomaly_alert"] = "high"
+                        elif max_anomaly_score > 0.6:
+                            enhanced_market_context["anomaly_alert"] = "medium"
+
+                    # Find similar patterns
+                    if self.pattern_memory:
+                        current_pattern = np.array([
+                            technical_indicators.get("rsi", 50),
+                            technical_indicators.get("macd", 0),
+                            technical_indicators.get("bb_position", 0.5),
+                            market_data.get("price_change_pct", 0),
+                            market_data.get("volume_ratio", 1.0),
+                        ])
+
+                        similar_patterns = await self.pattern_memory.find_similar_patterns(
+                            current_pattern, symbol, top_k=5
+                        )
+                        unsupervised_insights["similar_patterns"] = similar_patterns
+
+                    # Analyze market correlations
+                    if self.basket_analyzer and len(current_positions) > 1:
+                        correlation_rules = self.basket_analyzer.generate_association_rules(
+                            [pos.get("symbol") for pos in current_positions]
+                        )
+                        unsupervised_insights["correlation_analysis"] = correlation_rules
+
+                    logger.info("Unsupervised insights generated", symbol=symbol,
+                              insights_count=len(unsupervised_insights))
+
+                except Exception as e:
+                    logger.warning("Failed to generate unsupervised insights", symbol=symbol, error=str(e))
+
             # Run streaming market analysis
             market_analysis = await self.stream_market_analysis(
                 symbol=symbol,
@@ -315,7 +407,20 @@ class AITradingCoordinator:
 
             # Calculate proposed position size
             account_value = account_info.get("equity", 100000)
-            proposed_position_size = account_value * 0.02  # 2% of account
+            base_position_size = account_value * 0.02  # 2% of account
+
+            # Adjust position size based on anomaly detection
+            if unsupervised_insights.get("anomaly_detection", {}).get("max_score", 0) > 0.7:
+                proposed_position_size = base_position_size * 0.5  # Reduce size during anomalies
+            else:
+                proposed_position_size = base_position_size
+
+            # Enhanced volatility calculation with regime context
+            market_volatility = {
+                "atr": technical_indicators.get("atr", 0),
+                "hist_vol": market_data.get("volatility", 0),
+                "regime_vol": enhanced_market_context.get("volatility", "normal"),
+            }
 
             # Run streaming risk assessment
             risk_assessment = await self.stream_risk_assessment(
@@ -323,29 +428,22 @@ class AITradingCoordinator:
                 position_size=proposed_position_size,
                 account_value=account_value,
                 current_positions=current_positions,
-                market_volatility={
-                    "atr": technical_indicators.get("atr", 0),
-                    "hist_vol": market_data.get("volatility", 0),
-                },
+                market_volatility=market_volatility,
                 proposed_trade={"stop_loss_percent": 0.05, "take_profit_percent": 0.10},
             )
 
-            # Generate streaming optimized signal
+            # Generate streaming optimized signal with enhanced context
             strategy_signal = await self.stream_strategy_signal(
                 symbol=symbol,
                 markov_analysis=markov_analysis,
                 technical_indicators=technical_indicators,
-                market_context={
-                    "regime": "trending",
-                    "volatility": "normal",
-                    "trend_strength": "moderate",
-                },
+                market_context=enhanced_market_context,
                 performance_history=[],
             )
 
-            # Synthesize final recommendation
+            # Synthesize final recommendation with unsupervised insights
             final_recommendation = self._synthesize_recommendation(
-                market_analysis, risk_assessment, strategy_signal
+                market_analysis, risk_assessment, strategy_signal, unsupervised_insights
             )
 
             # Compile comprehensive result
@@ -356,9 +454,26 @@ class AITradingCoordinator:
                 "market_analysis": asdict(market_analysis),
                 "risk_assessment": asdict(risk_assessment),
                 "strategy_signal": asdict(strategy_signal),
+                "unsupervised_insights": unsupervised_insights,
+                "enhanced_market_context": enhanced_market_context,
                 "final_recommendation": final_recommendation,
                 "agent_performance": self.get_all_agent_stats(),
+                "unsupervised_enabled": self.enable_unsupervised,
             }
+
+            # Store pattern for future learning if enabled
+            if self.enable_unsupervised and self.pattern_memory:
+                try:
+                    outcome_pattern = {
+                        "symbol": symbol,
+                        "features": current_pattern.tolist() if 'current_pattern' in locals() else [],
+                        "recommendation": final_recommendation,
+                        "confidence": strategy_signal.confidence,
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                    await self.pattern_memory.store_pattern(outcome_pattern, symbol)
+                except Exception as e:
+                    logger.warning("Failed to store pattern for learning", error=str(e))
 
             # Update active decision status
             self.active_decisions[correlation_id].update(
@@ -372,7 +487,8 @@ class AITradingCoordinator:
             # Stream final coordinated decision
             await self._stream_coordinated_decision(symbol, result)
 
-            logger.info("Comprehensive analysis completed", symbol=symbol)
+            logger.info("Comprehensive analysis completed", symbol=symbol,
+                       unsupervised_insights_used=bool(unsupervised_insights))
             return result
 
         except Exception as e:
@@ -394,6 +510,7 @@ class AITradingCoordinator:
                 "correlation_id": correlation_id,
                 "error": str(e),
                 "final_recommendation": "HOLD",
+                "unsupervised_enabled": self.enable_unsupervised,
             }
 
     async def _stream_coordinated_decision(
@@ -429,15 +546,50 @@ class AITradingCoordinator:
         market_analysis: MarketAnalysis,
         risk_assessment: RiskAssessment,
         strategy_signal: StrategySignal,
+        unsupervised_insights: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """Synthesize final recommendation from all agent services"""
+        """Synthesize final recommendation from all agent services and unsupervised insights"""
         # Risk trumps everything
         if risk_assessment.risk_level == "high":
             return "HOLD"
 
-        # Need high confidence for action
-        if market_analysis.confidence < 0.6 or strategy_signal.confidence < 0.6:
+        # Check for high anomaly alerts - override normal signals
+        if unsupervised_insights and unsupervised_insights.get("anomaly_detection", {}).get("max_score", 0) > 0.8:
+            logger.info("High anomaly detected - forcing HOLD recommendation")
             return "HOLD"
+
+        # Check regime stability - avoid trading during regime transitions
+        if unsupervised_insights:
+            regime_analysis = unsupervised_insights.get("regime_analysis", {})
+            regime_confidence = regime_analysis.get("confidence", 1.0)
+            if regime_confidence < 0.5:
+                logger.info("Low regime confidence - forcing HOLD recommendation")
+                return "HOLD"
+
+        # Adjust confidence thresholds based on similar patterns
+        base_confidence_threshold = 0.6
+        if unsupervised_insights and "similar_patterns" in unsupervised_insights:
+            similar_patterns = unsupervised_insights["similar_patterns"]
+            if len(similar_patterns) > 0:
+                # If we have strong historical evidence, lower the threshold
+                avg_success_rate = np.mean([p.get("success_rate", 0.5) for p in similar_patterns])
+                if avg_success_rate > 0.7:
+                    base_confidence_threshold = 0.5  # More aggressive with good patterns
+                elif avg_success_rate < 0.3:
+                    base_confidence_threshold = 0.8  # More conservative with bad patterns
+
+        # Need sufficient confidence for action
+        if market_analysis.confidence < base_confidence_threshold or strategy_signal.confidence < base_confidence_threshold:
+            return "HOLD"
+
+        # Check correlation rules if available
+        if unsupervised_insights and "correlation_analysis" in unsupervised_insights:
+            correlation_rules = unsupervised_insights["correlation_analysis"]
+            # If strong negative correlations exist with current positions, be more cautious
+            for rule in correlation_rules:
+                if rule.get("confidence", 0) > 0.8 and rule.get("lift", 1) < 0.5:
+                    logger.info("Strong negative correlation detected - adjusting to HOLD")
+                    return "HOLD"
 
         # If both market and strategy agree, follow their recommendation
         if market_analysis.sentiment == "bullish" and strategy_signal.action == "BUY":
@@ -451,12 +603,56 @@ class AITradingCoordinator:
 
     def get_all_agent_stats(self) -> Dict[str, Dict[str, Any]]:
         """Get execution statistics for all agent services"""
-        return {
+        stats = {
             "market_analyst": self.market_analyst.get_agent_stats(),
             "risk_advisor": self.risk_advisor.get_agent_stats(),
             "strategy_optimizer": self.strategy_optimizer.get_agent_stats(),
             "performance_coach": self.performance_coach.get_agent_stats(),
         }
+
+        # Add unsupervised learning stats if enabled
+        if self.enable_unsupervised:
+            stats["unsupervised"] = self._get_unsupervised_stats()
+
+        return stats
+
+    def _get_unsupervised_stats(self) -> Dict[str, Any]:
+        """Get statistics from unsupervised learning components"""
+        stats = {
+            "enabled": self.enable_unsupervised,
+            "components_available": UNSUPERVISED_AVAILABLE,
+        }
+
+        if self.enable_unsupervised:
+            try:
+                if self.pattern_memory:
+                    stats["pattern_memory"] = {
+                        "total_patterns": getattr(self.pattern_memory, 'pattern_count', 0),
+                        "cache_hit_rate": getattr(self.pattern_memory, 'cache_hit_rate', 0.0),
+                    }
+
+                if self.regime_detector:
+                    stats["regime_detector"] = {
+                        "last_regime": getattr(self.regime_detector, 'current_regime', 'unknown'),
+                        "regime_confidence": getattr(self.regime_detector, 'regime_confidence', 0.0),
+                    }
+
+                if self.anomaly_detector:
+                    stats["anomaly_detector"] = {
+                        "detection_count": getattr(self.anomaly_detector, 'detection_count', 0),
+                        "avg_anomaly_score": getattr(self.anomaly_detector, 'avg_score', 0.0),
+                    }
+
+                if self.basket_analyzer:
+                    stats["basket_analyzer"] = {
+                        "rules_generated": getattr(self.basket_analyzer, 'rules_count', 0),
+                        "avg_confidence": getattr(self.basket_analyzer, 'avg_confidence', 0.0),
+                    }
+
+            except Exception as e:
+                stats["error"] = str(e)
+
+        return stats
 
     def get_decision_history(
         self, symbol: str, limit: int = 50
