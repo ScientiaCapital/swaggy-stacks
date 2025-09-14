@@ -45,3 +45,13 @@ def get_redis():
 def get_db_session():
     """Get a database session for non-FastAPI contexts"""
     return SessionLocal()
+
+
+async def init_db():
+    """Initialize database tables"""
+    # Import all models to ensure they are registered with Base
+    from app.models import user, trade, strategy, market_data, pattern_performance
+
+    # Create all tables
+    Base.metadata.create_all(bind=engine)
+    print("Database tables initialized successfully")

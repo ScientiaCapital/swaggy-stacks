@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.api import api_router
 from app.core.config import settings
-from app.core.database import engine
+from app.core.database import engine, init_db
 from app.core.exceptions import TradingSystemException
 from app.core.middleware import ErrorDiagnosticMiddleware
 
@@ -104,7 +104,7 @@ async def startup_event():
     logger.info("Starting Advanced Markov Trading System MVP")
 
     # Initialize database
-    # await init_db()
+    await init_db()
 
     # Start background tasks
     # await start_background_tasks()

@@ -387,10 +387,6 @@ dev-debug.log
 *.sw?
 # OS specific
 
-# Task files
-# tasks.json
-# tasks/
-
 # Private Trading Configurations (NEVER SHARE)
 backend/app/core/private_config.py
 **/private_*.py
@@ -438,3 +434,7 @@ backend/.claude/
 backend/.cursor/
 backend/.roo/
 backend/.roomodes
+
+# Task files
+# tasks.json
+# tasks/ 

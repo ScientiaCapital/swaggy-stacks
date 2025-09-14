@@ -1,14 +1,14 @@
-# Core Framework
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.5.0
-pydantic-settings==2.1.0
+# Core Framework - Python 3.13 Compatible
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pydantic>=2.10.0
+pydantic-settings>=2.6.0
 
-# Database
-sqlalchemy==2.0.23
-alembic==1.13.1
-psycopg2-binary==2.9.9
-redis==5.0.1
+# Database - Python 3.13 Compatible
+sqlalchemy>=2.0.36
+alembic>=1.14.0
+psycopg2-binary>=2.9.10
+redis>=5.2.0
 
 # LangChain/LangGraph for Multi-Agent System - Compatible versions
 langchain==0.0.350
@@ -57,10 +57,10 @@ httpx==0.25.2
 requests==2.31.0
 websockets==12.0
 
-# Monitoring & Logging
-prometheus-client==0.19.0
-structlog==23.2.0
-sentry-sdk[fastapi]==1.38.0
+# Monitoring & Logging - Python 3.13 Compatible
+prometheus-client>=0.21.0
+structlog>=24.5.0
+sentry-sdk[fastapi]>=2.18.0
 
 # Development & Testing
 pytest==7.4.3
@@ -81,11 +81,4 @@ colorama==0.4.4
 python-dateutil==2.8.2
 typing-extensions==4.8.0
 
-# Testing and Development
-pytest==8.4.1
-pytest-asyncio==0.21.2
-pytest-cov==4.1.0
-black==23.3.0
-isort==5.11.5
-flake8==5.0.4
-mypy==1.4.1
+# Note: Testing dependencies are above to avoid duplicates

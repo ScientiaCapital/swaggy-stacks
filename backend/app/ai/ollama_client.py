@@ -72,21 +72,21 @@ class OllamaClient:
         "glm_risk": ModelConfig(
             name="glm-4-9b-chat", 
             context_length=8192,
-            memory_usage_mb=7200,  # 7.2GB for GLM-4-9B
+            memory_usage_mb=7200,  # 7200MB for GLM-4-9B
             use_case="risk_management_chinese",
             temperature=0.1,
         ),
         "qwen_quant": ModelConfig(
             name="qwen2.5-7b",
             context_length=32768,
-            memory_usage_mb=6800,  # 6.8GB for Qwen2.5-7B
+            memory_usage_mb=6800,  # 6800MB for Qwen2.5-7B
             use_case="quantitative_analysis_chinese", 
             temperature=0.3,
         ),
         "deepseek_lite": ModelConfig(
             name="deepseek-coder:6.7b",
             context_length=16384,
-            memory_usage_mb=6200,  # 6.2GB for DeepSeek Coder 6.7B
+            memory_usage_mb=6200,  # 6200MB for DeepSeek Coder 6.7B
             use_case="strategy_coding_chinese",
             temperature=0.2,
         ),
@@ -316,13 +316,8 @@ class OllamaClient:
             Evaluate trades for potential risks and suggest appropriate safeguards. Prioritize downside protection.""",
             "strategist": """You are a quantitative strategist who develops algorithmic trading strategies. 
             Generate Python code and mathematical models for trading systems. Focus on statistical edge and risk-adjusted returns.""",
-            "chat": """You are an intelligent trading assistant. Help users understand their trading system, 
+            "chat": """You are an intelligent trading assistant. Help users understand their trading system,
             explain market conditions, and provide guidance in plain English. Be helpful but honest about limitations.""",
-            
-            - Performance attribution and strategy diagnostics
-            - High-frequency trading and low-latency system design
-            - Portfolio management and rebalancing algorithms
-            Write robust, production-ready code with comprehensive error handling and logging.""",
         }
 
         return prompts.get(model_key, prompts["chat"])
@@ -409,10 +404,10 @@ class OllamaClient:
     def get_memory_budget_status(self, max_memory_mb: int = 7500) -> Dict[str, Any]:
         """
         Get memory budget status for M1 Mac optimization
-        
+
         Args:
-            max_memory_mb: Maximum allowed memory (default 7.5GB for 8GB Mac)
-            
+            max_memory_mb: Maximum allowed memory (default 7500 MB for 8GB Mac)
+
         Returns:
             Dictionary with memory status information
         """
