@@ -4,18 +4,17 @@ Backtesting API endpoints
 
 import asyncio
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, validator
 from sqlalchemy.orm import Session
 
 from app.api.v1.dependencies import get_current_user
 from app.backtesting.engine import BacktestEngine
 from app.core.database import get_db
-from app.core.exceptions import BacktestingError
 from app.models.user import User
 from app.monitoring.metrics import PrometheusMetrics
 from app.rag.agents.strategy_agent import StrategyAgent
@@ -40,21 +39,21 @@ class BacktestRequest(BaseModel):
     max_trades_per_signal: int = Field(1, ge=1, le=10)
     risk_params: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
-    @validator('start_date', 'end_date')
+    @validator("start_date", "end_date")
     def validate_date_format(cls, v):
         try:
-            datetime.strptime(v, '%Y-%m-%d')
+            datetime.strptime(v, "%Y-%m-%d")
             return v
         except ValueError:
-            raise ValueError('Date must be in YYYY-MM-DD format')
+            raise ValueError("Date must be in YYYY-MM-DD format")
 
-    @validator('end_date')
+    @validator("end_date")
     def validate_end_after_start(cls, v, values):
-        if 'start_date' in values:
-            start = datetime.strptime(values['start_date'], '%Y-%m-%d')
-            end = datetime.strptime(v, '%Y-%m-%d')
+        if "start_date" in values:
+            start = datetime.strptime(values["start_date"], "%Y-%m-%d")
+            end = datetime.strptime(v, "%Y-%m-%d")
             if end <= start:
-                raise ValueError('End date must be after start date')
+                raise ValueError("End date must be after start date")
         return v
 
 
@@ -85,8 +84,7 @@ class PatternDetectionRequest(BaseModel):
     timeframe: str = Field("1D", description="Timeframe (1D, 1H, etc.)")
     lookback_days: int = Field(30, ge=1, le=365, description="Days to look back")
     pattern_types: List[str] = Field(
-        default_factory=lambda: ["all"],
-        description="Pattern types to detect"
+        default_factory=lambda: ["all"], description="Pattern types to detect"
     )
 
 
@@ -107,7 +105,9 @@ class PatternPerformanceRequest(BaseModel):
     pattern_type: str = Field(..., description="Pattern type to analyze")
     symbols: Optional[List[str]] = Field(default=None, description="Symbols to analyze")
     timeframe: str = Field("1D", description="Timeframe")
-    lookback_months: int = Field(12, ge=1, le=60, description="Months of historical data")
+    lookback_months: int = Field(
+        12, ge=1, le=60, description="Months of historical data"
+    )
 
 
 class PatternPerformanceResponse(BaseModel):
@@ -131,11 +131,12 @@ class StrategyOptimizationRequest(BaseModel):
     start_date: str = Field(..., description="Optimization period start")
     end_date: str = Field(..., description="Optimization period end")
     parameters: Dict[str, Dict[str, Any]] = Field(
-        ...,
-        description="Parameters to optimize with ranges"
+        ..., description="Parameters to optimize with ranges"
     )
     optimization_metric: str = Field("sharpe_ratio", description="Metric to optimize")
-    max_iterations: int = Field(100, ge=10, le=1000, description="Max optimization iterations")
+    max_iterations: int = Field(
+        100, ge=10, le=1000, description="Max optimization iterations"
+    )
 
 
 class StrategyOptimizationResponse(BaseModel):
@@ -163,7 +164,7 @@ async def run_backtest(
     try:
         backtest_id = str(uuid.uuid4())
         start_time = datetime.now()
-        metrics = PrometheusMetrics()
+        PrometheusMetrics()
 
         # Create initial response
         response_data = {
@@ -173,7 +174,7 @@ async def run_backtest(
             "symbols": backtest_request.symbols,
             "strategies": backtest_request.strategies,
             "initial_capital": backtest_request.initial_capital,
-            "message": "Backtest started successfully"
+            "message": "Backtest started successfully",
         }
 
         # Store initial result
@@ -181,10 +182,7 @@ async def run_backtest(
 
         # Add background task to run backtest
         background_tasks.add_task(
-            _execute_backtest_task,
-            backtest_id,
-            backtest_request,
-            current_user.id
+            _execute_backtest_task, backtest_id, backtest_request, current_user.id
         )
 
         logger.info(
@@ -192,14 +190,16 @@ async def run_backtest(
             backtest_id=backtest_id,
             user_id=current_user.id,
             symbols=backtest_request.symbols,
-            strategies=backtest_request.strategies
+            strategies=backtest_request.strategies,
         )
 
         return BacktestResponse(**response_data)
 
     except Exception as e:
         logger.error("Error initiating backtest", error=str(e), user_id=current_user.id)
-        raise HTTPException(status_code=500, detail=f"Failed to start backtest: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to start backtest: {str(e)}"
+        )
 
 
 @router.get("/results/{backtest_id}", response_model=BacktestResponse)
@@ -218,7 +218,7 @@ async def get_backtest_results(
             "Backtest results retrieved",
             backtest_id=backtest_id,
             user_id=current_user.id,
-            status=result.get("status", "unknown")
+            status=result.get("status", "unknown"),
         )
 
         return BacktestResponse(**result)
@@ -226,7 +226,9 @@ async def get_backtest_results(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Error retrieving backtest results", error=str(e), user_id=current_user.id)
+        logger.error(
+            "Error retrieving backtest results", error=str(e), user_id=current_user.id
+        )
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -240,7 +242,7 @@ async def detect_patterns(
         start_time = datetime.now()
 
         # Initialize pattern detection tools
-        pattern_tool = PatternTool()
+        PatternTool()
         strategy_agent = StrategyAgent()
 
         # Mock market data (in production, fetch from market data service)
@@ -259,28 +261,30 @@ async def detect_patterns(
 
         # Use candlestick strategy for pattern detection
         candlestick_analysis = strategy_agent.analyze_market_with_strategy(
-            market_data=mock_market_data,
-            strategy="candlestick"
+            market_data=mock_market_data, strategy="candlestick"
         )
 
         if candlestick_analysis and "patterns" in candlestick_analysis:
             detected_patterns.extend(candlestick_analysis["patterns"])
-            confidence_scores["candlestick"] = candlestick_analysis.get("confidence", 0.0)
+            confidence_scores["candlestick"] = candlestick_analysis.get(
+                "confidence", 0.0
+            )
 
         # Use technical strategy for additional patterns
         technical_analysis = strategy_agent.analyze_market_with_strategy(
-            market_data=mock_market_data,
-            strategy="technical"
+            market_data=mock_market_data, strategy="technical"
         )
 
         if technical_analysis and "signals" in technical_analysis:
             for signal in technical_analysis["signals"]:
-                detected_patterns.append({
-                    "name": f"Technical_{signal.get('indicator', 'Unknown')}",
-                    "type": "technical",
-                    "strength": signal.get("strength", 0.0),
-                    "direction": signal.get("signal", "neutral"),
-                })
+                detected_patterns.append(
+                    {
+                        "name": f"Technical_{signal.get('indicator', 'Unknown')}",
+                        "type": "technical",
+                        "strength": signal.get("strength", 0.0),
+                        "direction": signal.get("signal", "neutral"),
+                    }
+                )
             confidence_scores["technical"] = technical_analysis.get("confidence", 0.0)
 
         analysis_time = (datetime.now() - start_time).total_seconds()
@@ -291,7 +295,7 @@ async def detect_patterns(
             patterns_found=len(detected_patterns),
             patterns=detected_patterns,
             analysis_timestamp=datetime.now().isoformat(),
-            confidence_scores=confidence_scores
+            confidence_scores=confidence_scores,
         )
 
         logger.info(
@@ -299,20 +303,24 @@ async def detect_patterns(
             symbol=pattern_request.symbol,
             patterns_found=len(detected_patterns),
             analysis_time=analysis_time,
-            user_id=current_user.id
+            user_id=current_user.id,
         )
 
         return response
 
     except Exception as e:
         logger.error("Pattern detection error", error=str(e), user_id=current_user.id)
-        raise HTTPException(status_code=500, detail=f"Pattern detection failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Pattern detection failed: {str(e)}"
+        )
 
 
 @router.get("/patterns/performance", response_model=PatternPerformanceResponse)
 async def get_pattern_performance(
     pattern_type: str = Query(..., description="Pattern type to analyze"),
-    symbols: Optional[List[str]] = Query(default=None, description="Symbols to analyze"),
+    symbols: Optional[List[str]] = Query(
+        default=None, description="Symbols to analyze"
+    ),
     timeframe: str = Query("1D", description="Timeframe"),
     lookback_months: int = Query(12, ge=1, le=60, description="Months of data"),
     current_user: User = Depends(get_current_user),
@@ -353,7 +361,7 @@ async def get_pattern_performance(
             avg_duration_hours=avg_duration_hours,
             best_performers=best_performers,
             worst_performers=worst_performers,
-            monthly_breakdown=monthly_breakdown
+            monthly_breakdown=monthly_breakdown,
         )
 
         analysis_time = (datetime.now() - start_time).total_seconds()
@@ -362,14 +370,18 @@ async def get_pattern_performance(
             "Pattern performance analysis completed",
             pattern_type=pattern_type,
             analysis_time=analysis_time,
-            user_id=current_user.id
+            user_id=current_user.id,
         )
 
         return response
 
     except Exception as e:
-        logger.error("Pattern performance analysis error", error=str(e), user_id=current_user.id)
-        raise HTTPException(status_code=500, detail=f"Pattern performance analysis failed: {str(e)}")
+        logger.error(
+            "Pattern performance analysis error", error=str(e), user_id=current_user.id
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Pattern performance analysis failed: {str(e)}"
+        )
 
 
 @router.post("/optimize", response_model=StrategyOptimizationResponse)
@@ -381,7 +393,7 @@ async def optimize_strategy(
     """Optimize strategy parameters using backtesting"""
     try:
         optimization_id = str(uuid.uuid4())
-        start_time = datetime.now()
+        datetime.now()
 
         # Create initial response
         response_data = {
@@ -393,7 +405,7 @@ async def optimize_strategy(
             "best_metric_value": 0.0,
             "optimization_results": [],
             "total_combinations_tested": 0,
-            "optimization_time_seconds": 0.0
+            "optimization_time_seconds": 0.0,
         }
 
         # Add background task for optimization
@@ -401,7 +413,7 @@ async def optimize_strategy(
             _execute_optimization_task,
             optimization_id,
             optimization_request,
-            current_user.id
+            current_user.id,
         )
 
         logger.info(
@@ -409,27 +421,29 @@ async def optimize_strategy(
             optimization_id=optimization_id,
             user_id=current_user.id,
             symbol=optimization_request.symbol,
-            strategy=optimization_request.strategy
+            strategy=optimization_request.strategy,
         )
 
         return StrategyOptimizationResponse(**response_data)
 
     except Exception as e:
-        logger.error("Strategy optimization error", error=str(e), user_id=current_user.id)
-        raise HTTPException(status_code=500, detail=f"Strategy optimization failed: {str(e)}")
+        logger.error(
+            "Strategy optimization error", error=str(e), user_id=current_user.id
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Strategy optimization failed: {str(e)}"
+        )
 
 
 async def _execute_backtest_task(
-    backtest_id: str,
-    request: BacktestRequest,
-    user_id: int
+    backtest_id: str, request: BacktestRequest, user_id: int
 ):
     """Background task to execute backtest"""
     try:
         start_time = datetime.now()
 
         # Initialize backtest engine
-        backtest_engine = BacktestEngine()
+        BacktestEngine()
 
         # Mock execution (in production, use real market data)
         await asyncio.sleep(2)  # Simulate processing time
@@ -451,39 +465,41 @@ async def _execute_backtest_task(
 
         # Update stored results
         completion_time = datetime.now()
-        _backtest_results[backtest_id].update({
-            "status": "completed",
-            "completed_at": completion_time.isoformat(),
-            "final_value": final_value,
-            "total_return": total_return,
-            "max_drawdown": -0.08,
-            "sharpe_ratio": 1.34,
-            "win_rate": 15/23,
-            "total_trades": 23,
-            "results": results,
-            "message": "Backtest completed successfully"
-        })
+        _backtest_results[backtest_id].update(
+            {
+                "status": "completed",
+                "completed_at": completion_time.isoformat(),
+                "final_value": final_value,
+                "total_return": total_return,
+                "max_drawdown": -0.08,
+                "sharpe_ratio": 1.34,
+                "win_rate": 15 / 23,
+                "total_trades": 23,
+                "results": results,
+                "message": "Backtest completed successfully",
+            }
+        )
 
         logger.info(
             "Backtest completed",
             backtest_id=backtest_id,
             user_id=user_id,
-            execution_time=(completion_time - start_time).total_seconds()
+            execution_time=(completion_time - start_time).total_seconds(),
         )
 
     except Exception as e:
-        _backtest_results[backtest_id].update({
-            "status": "failed",
-            "completed_at": datetime.now().isoformat(),
-            "message": f"Backtest failed: {str(e)}"
-        })
+        _backtest_results[backtest_id].update(
+            {
+                "status": "failed",
+                "completed_at": datetime.now().isoformat(),
+                "message": f"Backtest failed: {str(e)}",
+            }
+        )
         logger.error("Backtest execution failed", error=str(e), backtest_id=backtest_id)
 
 
 async def _execute_optimization_task(
-    optimization_id: str,
-    request: StrategyOptimizationRequest,
-    user_id: int
+    optimization_id: str, request: StrategyOptimizationRequest, user_id: int
 ):
     """Background task to execute strategy optimization"""
     try:
@@ -497,13 +513,21 @@ async def _execute_optimization_task(
             "lookback_period": 20,
             "threshold": 0.02,
             "stop_loss": 0.05,
-            "take_profit": 0.10
+            "take_profit": 0.10,
         }
 
         optimization_results = [
             {"parameters": best_params, "metric_value": 1.45, "total_return": 0.18},
-            {"parameters": {"lookback_period": 15, "threshold": 0.03}, "metric_value": 1.22, "total_return": 0.14},
-            {"parameters": {"lookback_period": 25, "threshold": 0.015}, "metric_value": 1.35, "total_return": 0.16},
+            {
+                "parameters": {"lookback_period": 15, "threshold": 0.03},
+                "metric_value": 1.22,
+                "total_return": 0.14,
+            },
+            {
+                "parameters": {"lookback_period": 25, "threshold": 0.015},
+                "metric_value": 1.35,
+                "total_return": 0.16,
+            },
         ]
 
         completion_time = datetime.now()
@@ -519,15 +543,19 @@ async def _execute_optimization_task(
             "best_metric_value": 1.45,
             "optimization_results": optimization_results,
             "total_combinations_tested": len(optimization_results),
-            "optimization_time_seconds": execution_time
+            "optimization_time_seconds": execution_time,
         }
 
         logger.info(
             "Strategy optimization completed",
             optimization_id=optimization_id,
             user_id=user_id,
-            execution_time=execution_time
+            execution_time=execution_time,
         )
 
     except Exception as e:
-        logger.error("Optimization execution failed", error=str(e), optimization_id=optimization_id)
+        logger.error(
+            "Optimization execution failed",
+            error=str(e),
+            optimization_id=optimization_id,
+        )

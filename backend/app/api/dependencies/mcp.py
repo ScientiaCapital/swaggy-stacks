@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import Depends, HTTPException, status
 
-from app.core.exceptions import MCPConnectionError, MCPError
+from app.core.exceptions import MCPConnectionError
 from app.core.logging import get_logger
 from app.mcp.orchestrator import MCPOrchestrator, MCPServerType, get_mcp_orchestrator
 

@@ -2,7 +2,7 @@
 Technical Analysis Indicators
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict
 
 import numpy as np
 import pandas as pd
@@ -38,7 +38,7 @@ class TechnicalIndicators:
                 )
 
             # Convert to numpy arrays for TA-Lib
-            open_prices = data["open"].values
+            data["open"].values
             high_prices = data["high"].values
             low_prices = data["low"].values
             close_prices = data["close"].values

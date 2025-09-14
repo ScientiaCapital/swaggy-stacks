@@ -4,9 +4,24 @@ Models for tracking pattern and LLM performance metrics
 """
 
 from datetime import datetime
-from sqlalchemy import Column, String, Float, Integer, Boolean, JSON, Text, Index, DateTime
 
-from .base_models import BasePerformanceModel, TimestampMixin, UUIDMixin, SymbolMixin, MarketConditionsMixin
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    Index,
+    Integer,
+    String,
+    Text,
+)
+
+from .base_models import (
+    BasePerformanceModel,
+    MarketConditionsMixin,
+    SymbolMixin,
+)
 
 
 class PatternPerformance(BasePerformanceModel, SymbolMixin, MarketConditionsMixin):
@@ -50,10 +65,19 @@ class PatternPerformance(BasePerformanceModel, SymbolMixin, MarketConditionsMixi
 
     # Indexes for performance
     __table_args__ = (
-        Index('idx_pattern_symbol_time', 'pattern_type', 'symbol', 'detection_timestamp'),
-        Index('idx_llm_performance', 'detected_by_llm', 'pattern_score', 'alpha_generated'),
-        Index('idx_alpha_tracking', 'alpha_generated', 'verification_timestamp'),
-        Index('idx_pattern_success', 'pattern_type', 'prediction_accuracy', 'alpha_generated'),
+        Index(
+            "idx_pattern_symbol_time", "pattern_type", "symbol", "detection_timestamp"
+        ),
+        Index(
+            "idx_llm_performance", "detected_by_llm", "pattern_score", "alpha_generated"
+        ),
+        Index("idx_alpha_tracking", "alpha_generated", "verification_timestamp"),
+        Index(
+            "idx_pattern_success",
+            "pattern_type",
+            "prediction_accuracy",
+            "alpha_generated",
+        ),
     )
 
 
@@ -104,7 +128,13 @@ class LLMPerformanceMetrics(BasePerformanceModel):
 
     # Indexes
     __table_args__ = (
-        Index('idx_llm_task_date', 'llm_model', 'task_type', 'measurement_date'),
-        Index('idx_alpha_performance', 'total_alpha_generated', 'success_rate'),
-        Index('idx_routing_metrics', 'llm_model', 'task_type', 'success_rate', 'avg_execution_time'),
+        Index("idx_llm_task_date", "llm_model", "task_type", "measurement_date"),
+        Index("idx_alpha_performance", "total_alpha_generated", "success_rate"),
+        Index(
+            "idx_routing_metrics",
+            "llm_model",
+            "task_type",
+            "success_rate",
+            "avg_execution_time",
+        ),
     )

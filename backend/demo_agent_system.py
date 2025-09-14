@@ -57,9 +57,16 @@ async def demo_real_time_analysis():
     )
     
     print(f"🎯 Final Decision: {result['final_recommendation']}")
-    print(f"📝 Market Analysis: {result['market_analysis']['sentiment']} (confidence: {result['market_analysis']['confidence']:.2f})")
-    print(f"⚠️  Risk Assessment: {result['risk_assessment']['risk_level']} (confidence: {result['risk_assessment']['confidence']:.2f})")
-    print(f"🔄 Strategy Signal: {result['strategy_signal']['action']} (confidence: {result['strategy_signal']['confidence']:.2f})")
+    market_conf = result['market_analysis']['confidence']
+    risk_conf = result['risk_assessment']['confidence']
+    strategy_conf = result['strategy_signal']['confidence']
+
+    print(f"📝 Market Analysis: {result['market_analysis']['sentiment']} "
+          f"(confidence: {market_conf:.2f})")
+    print(f"⚠️  Risk Assessment: {result['risk_assessment']['risk_level']} "
+          f"(confidence: {risk_conf:.2f})")
+    print(f"🔄 Strategy Signal: {result['strategy_signal']['action']} "
+          f"(confidence: {strategy_conf:.2f})")
     
     return result
 
@@ -101,7 +108,8 @@ async def demo_multi_agent_consensus():
     if consensus_result:
         print(f"✅ Consensus Result: {consensus_result['final_decision']}")
         print(f"🎯 Confidence: {consensus_result['confidence']:.2f}")
-        print(f"👥 Participating Agents: {', '.join(consensus_result['participating_agents'])}")
+        agents = ', '.join(consensus_result['participating_agents'])
+        print(f"👥 Participating Agents: {agents}")
         print(f"💭 Reasoning: {consensus_result['reasoning']}")
     else:
         print("⏰ Consensus timed out or is still processing")
@@ -161,7 +169,10 @@ async def demo_agent_testing():
     
     # Show agent performance
     for agent_type, performance in test_results["performance_reports"].items():
-        print(f"🤖 {agent_type}: {performance['success_rate']:.1%} success rate, {performance['average_response_time_ms']:.0f}ms avg response")
+        success_rate = performance['success_rate']
+        avg_time = performance['average_response_time_ms']
+        print(f"🤖 {agent_type}: {success_rate:.1%} success rate, "
+              f"{avg_time:.0f}ms avg response")
     
     return test_results
 

@@ -3,19 +3,12 @@ Comprehensive Risk Management Module
 Integrates with existing TradingManager and risk_manager.py patterns
 """
 
-import math
+from datetime import datetime
+from typing import Any, Dict, List, Tuple
+
 import numpy as np
-from datetime import datetime, timedelta
-from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
-
 import structlog
-from sqlalchemy.orm import Session
 
-from app.core.config import settings
-from app.core.database import get_db
-from app.core.exceptions import RiskManagementError
-from app.models.trade import Trade
 from app.monitoring.metrics import PrometheusMetrics
 from app.trading.risk_manager import RiskManager
 
@@ -31,7 +24,9 @@ class PositionSizer:
         self.max_position_size = self.config.get("max_position_size", 50000.0)
         self.kelly_lookback_trades = self.config.get("kelly_lookback_trades", 50)
         self.kelly_max_fraction = self.config.get("kelly_max_fraction", 0.25)  # 25% max
-        self.fixed_fraction_default = self.config.get("fixed_fraction_default", 0.02)  # 2%
+        self.fixed_fraction_default = self.config.get(
+            "fixed_fraction_default", 0.02
+        )  # 2%
 
     def kelly_criterion(
         self,
@@ -39,7 +34,7 @@ class PositionSizer:
         win_rate: float,
         avg_win: float,
         avg_loss: float,
-        confidence_multiplier: float = 1.0
+        confidence_multiplier: float = 1.0,
     ) -> Tuple[float, Dict[str, Any]]:
         """
         Calculate position size using Kelly Criterion
@@ -82,7 +77,7 @@ class PositionSizer:
                 "odds_ratio": b,
                 "win_rate": win_rate,
                 "confidence_multiplier": confidence_multiplier,
-                "method": "kelly_criterion"
+                "method": "kelly_criterion",
             }
 
             logger.info(
@@ -90,7 +85,7 @@ class PositionSizer:
                 position_size=position_size,
                 kelly_fraction=kelly_fraction,
                 win_rate=win_rate,
-                odds_ratio=b
+                odds_ratio=b,
             )
 
             return position_size, details
@@ -104,7 +99,7 @@ class PositionSizer:
         self,
         account_value: float,
         fraction: float = None,
-        confidence_multiplier: float = 1.0
+        confidence_multiplier: float = 1.0,
     ) -> Tuple[float, Dict[str, Any]]:
         """Fixed fractional position sizing"""
         try:
@@ -121,13 +116,13 @@ class PositionSizer:
                 "fraction": fraction,
                 "adjusted_fraction": adjusted_fraction,
                 "confidence_multiplier": confidence_multiplier,
-                "method": "fixed_fractional"
+                "method": "fixed_fractional",
             }
 
             logger.info(
                 "Fixed fractional position sizing",
                 position_size=position_size,
-                fraction=fraction
+                fraction=fraction,
             )
 
             return position_size, details
@@ -141,7 +136,7 @@ class PositionSizer:
         account_value: float,
         base_fraction: float,
         volatility: float,
-        target_volatility: float = 0.20
+        target_volatility: float = 0.20,
     ) -> Tuple[float, Dict[str, Any]]:
         """Volatility-adjusted position sizing"""
         try:
@@ -165,14 +160,14 @@ class PositionSizer:
                 "target_volatility": target_volatility,
                 "volatility_multiplier": volatility_multiplier,
                 "adjusted_fraction": adjusted_fraction,
-                "method": "volatility_adjusted"
+                "method": "volatility_adjusted",
             }
 
             logger.info(
                 "Volatility-adjusted position sizing",
                 position_size=position_size,
                 volatility=volatility,
-                multiplier=volatility_multiplier
+                multiplier=volatility_multiplier,
             )
 
             return position_size, details
@@ -192,24 +187,32 @@ class StopLossManager:
         self.min_stop_distance = self.config.get("min_stop_distance", 0.02)  # 2%
         self.max_stop_distance = self.config.get("max_stop_distance", 0.10)  # 10%
 
-    def calculate_atr(self, highs: List[float], lows: List[float], closes: List[float]) -> float:
+    def calculate_atr(
+        self, highs: List[float], lows: List[float], closes: List[float]
+    ) -> float:
         """Calculate Average True Range"""
         try:
-            if len(highs) < self.atr_periods or len(lows) < self.atr_periods or len(closes) < self.atr_periods:
+            if (
+                len(highs) < self.atr_periods
+                or len(lows) < self.atr_periods
+                or len(closes) < self.atr_periods
+            ):
                 return 0.0
 
             true_ranges = []
 
             for i in range(1, len(closes)):
                 high_low = highs[i] - lows[i]
-                high_close = abs(highs[i] - closes[i-1])
-                low_close = abs(lows[i] - closes[i-1])
+                high_close = abs(highs[i] - closes[i - 1])
+                low_close = abs(lows[i] - closes[i - 1])
 
                 true_range = max(high_low, high_close, low_close)
                 true_ranges.append(true_range)
 
             # Calculate ATR as simple moving average of true ranges
-            atr = sum(true_ranges[-self.atr_periods:]) / min(len(true_ranges), self.atr_periods)
+            atr = sum(true_ranges[-self.atr_periods :]) / min(
+                len(true_ranges), self.atr_periods
+            )
 
             logger.debug("ATR calculated", atr=atr, periods=self.atr_periods)
             return atr
@@ -225,7 +228,7 @@ class StopLossManager:
         highs: List[float],
         lows: List[float],
         closes: List[float],
-        multiplier: float = None
+        multiplier: float = None,
     ) -> Tuple[float, Dict[str, Any]]:
         """Calculate ATR-based stop loss"""
         try:
@@ -234,7 +237,9 @@ class StopLossManager:
 
             if atr == 0:
                 # Fallback to percentage-based
-                return self.percentage_based_stop_loss(entry_price, side, self.min_stop_distance)
+                return self.percentage_based_stop_loss(
+                    entry_price, side, self.min_stop_distance
+                )
 
             stop_distance = atr * multiplier
 
@@ -253,7 +258,7 @@ class StopLossManager:
                 "atr": atr,
                 "multiplier": multiplier,
                 "stop_distance": stop_distance,
-                "price_pct_distance": price_pct_distance
+                "price_pct_distance": price_pct_distance,
             }
 
             logger.info(
@@ -261,20 +266,19 @@ class StopLossManager:
                 entry_price=entry_price,
                 stop_price=stop_price,
                 atr=atr,
-                side=side
+                side=side,
             )
 
             return stop_price, details
 
         except Exception as e:
             logger.error("Error calculating ATR-based stop loss", error=str(e))
-            return self.percentage_based_stop_loss(entry_price, side, self.min_stop_distance)
+            return self.percentage_based_stop_loss(
+                entry_price, side, self.min_stop_distance
+            )
 
     def percentage_based_stop_loss(
-        self,
-        entry_price: float,
-        side: str,
-        percentage: float
+        self, entry_price: float, side: str, percentage: float
     ) -> Tuple[float, Dict[str, Any]]:
         """Calculate percentage-based stop loss"""
         try:
@@ -283,74 +287,91 @@ class StopLossManager:
             else:  # SELL
                 stop_price = entry_price * (1 + percentage)
 
-            details = {
-                "method": "percentage_based",
-                "percentage": percentage
-            }
+            details = {"method": "percentage_based", "percentage": percentage}
 
             logger.info(
                 "Percentage-based stop loss calculated",
                 entry_price=entry_price,
                 stop_price=stop_price,
                 percentage=percentage,
-                side=side
+                side=side,
             )
 
             return stop_price, details
 
         except Exception as e:
             logger.error("Error calculating percentage-based stop loss", error=str(e))
-            return entry_price * (0.95 if side.upper() == "BUY" else 1.05), {"method": "fallback"}
+            return entry_price * (0.95 if side.upper() == "BUY" else 1.05), {
+                "method": "fallback"
+            }
 
     def pattern_based_stop_loss(
-        self,
-        entry_price: float,
-        side: str,
-        support_resistance_levels: List[float]
+        self, entry_price: float, side: str, support_resistance_levels: List[float]
     ) -> Tuple[float, Dict[str, Any]]:
         """Calculate pattern-based stop loss using support/resistance levels"""
         try:
             if not support_resistance_levels:
-                return self.percentage_based_stop_loss(entry_price, side, self.min_stop_distance)
+                return self.percentage_based_stop_loss(
+                    entry_price, side, self.min_stop_distance
+                )
 
             if side.upper() == "BUY":
                 # Find nearest support level below entry price
-                valid_levels = [level for level in support_resistance_levels if level < entry_price]
+                valid_levels = [
+                    level for level in support_resistance_levels if level < entry_price
+                ]
                 if valid_levels:
-                    stop_price = max(valid_levels) - (entry_price * 0.005)  # Small buffer
+                    stop_price = max(valid_levels) - (
+                        entry_price * 0.005
+                    )  # Small buffer
                 else:
-                    return self.percentage_based_stop_loss(entry_price, side, self.min_stop_distance)
+                    return self.percentage_based_stop_loss(
+                        entry_price, side, self.min_stop_distance
+                    )
             else:  # SELL
                 # Find nearest resistance level above entry price
-                valid_levels = [level for level in support_resistance_levels if level > entry_price]
+                valid_levels = [
+                    level for level in support_resistance_levels if level > entry_price
+                ]
                 if valid_levels:
-                    stop_price = min(valid_levels) + (entry_price * 0.005)  # Small buffer
+                    stop_price = min(valid_levels) + (
+                        entry_price * 0.005
+                    )  # Small buffer
                 else:
-                    return self.percentage_based_stop_loss(entry_price, side, self.min_stop_distance)
+                    return self.percentage_based_stop_loss(
+                        entry_price, side, self.min_stop_distance
+                    )
 
             # Validate stop distance
             stop_distance_pct = abs(stop_price - entry_price) / entry_price
-            if stop_distance_pct < self.min_stop_distance or stop_distance_pct > self.max_stop_distance:
-                return self.percentage_based_stop_loss(entry_price, side, self.min_stop_distance)
+            if (
+                stop_distance_pct < self.min_stop_distance
+                or stop_distance_pct > self.max_stop_distance
+            ):
+                return self.percentage_based_stop_loss(
+                    entry_price, side, self.min_stop_distance
+                )
 
             details = {
                 "method": "pattern_based",
                 "support_resistance_levels": support_resistance_levels,
-                "stop_distance_pct": stop_distance_pct
+                "stop_distance_pct": stop_distance_pct,
             }
 
             logger.info(
                 "Pattern-based stop loss calculated",
                 entry_price=entry_price,
                 stop_price=stop_price,
-                side=side
+                side=side,
             )
 
             return stop_price, details
 
         except Exception as e:
             logger.error("Error calculating pattern-based stop loss", error=str(e))
-            return self.percentage_based_stop_loss(entry_price, side, self.min_stop_distance)
+            return self.percentage_based_stop_loss(
+                entry_price, side, self.min_stop_distance
+            )
 
 
 class PortfolioRiskManager:
@@ -367,19 +388,25 @@ class PortfolioRiskManager:
         self,
         positions: List[Dict[str, Any]],
         price_history: Dict[str, List[float]],
-        portfolio_value: float
+        portfolio_value: float,
     ) -> Tuple[float, Dict[str, Any]]:
         """Calculate Value at Risk using historical simulation"""
         try:
             if not positions or not price_history:
-                return 0.0, {"method": "historical_simulation", "error": "insufficient_data"}
+                return 0.0, {
+                    "method": "historical_simulation",
+                    "error": "insufficient_data",
+                }
 
             # Calculate position weights
             weights = {}
             total_value = sum(pos.get("market_value", 0) for pos in positions)
 
             if total_value == 0:
-                return 0.0, {"method": "historical_simulation", "error": "zero_portfolio_value"}
+                return 0.0, {
+                    "method": "historical_simulation",
+                    "error": "zero_portfolio_value",
+                }
 
             for pos in positions:
                 symbol = pos.get("symbol")
@@ -392,14 +419,17 @@ class PortfolioRiskManager:
 
             min_length = min(len(price_history[symbol]) for symbol in symbols)
             if min_length < 30:  # Need at least 30 days
-                return 0.0, {"method": "historical_simulation", "error": "insufficient_history"}
+                return 0.0, {
+                    "method": "historical_simulation",
+                    "error": "insufficient_history",
+                }
 
             for i in range(1, min(min_length, self.var_lookback_days + 1)):
                 daily_returns = []
                 for symbol in symbols:
                     prices = price_history[symbol]
                     if len(prices) > i:
-                        daily_return = (prices[-i] - prices[-i-1]) / prices[-i-1]
+                        daily_return = (prices[-i] - prices[-i - 1]) / prices[-i - 1]
                         daily_returns.append(daily_return * weights[symbol])
 
                 if daily_returns:
@@ -407,12 +437,19 @@ class PortfolioRiskManager:
                     returns_matrix.append(portfolio_return)
 
             if len(returns_matrix) < 10:
-                return 0.0, {"method": "historical_simulation", "error": "insufficient_return_data"}
+                return 0.0, {
+                    "method": "historical_simulation",
+                    "error": "insufficient_return_data",
+                }
 
             # Calculate VaR
             returns_matrix.sort()
             var_index = int((1 - self.var_confidence_level) * len(returns_matrix))
-            var_return = returns_matrix[var_index] if var_index < len(returns_matrix) else returns_matrix[0]
+            var_return = (
+                returns_matrix[var_index]
+                if var_index < len(returns_matrix)
+                else returns_matrix[0]
+            )
 
             # Convert to dollar amount
             var_dollar = abs(var_return * portfolio_value)
@@ -423,14 +460,14 @@ class PortfolioRiskManager:
                 "lookback_days": len(returns_matrix),
                 "var_return_pct": var_return,
                 "var_dollar": var_dollar,
-                "portfolio_positions": len(positions)
+                "portfolio_positions": len(positions),
             }
 
             logger.info(
                 "Portfolio VaR calculated",
                 var_dollar=var_dollar,
                 var_pct=var_return,
-                confidence=self.var_confidence_level
+                confidence=self.var_confidence_level,
             )
 
             return var_dollar, details
@@ -440,9 +477,7 @@ class PortfolioRiskManager:
             return 0.0, {"method": "historical_simulation", "error": str(e)}
 
     def calculate_correlation_matrix(
-        self,
-        price_history: Dict[str, List[float]],
-        symbols: List[str]
+        self, price_history: Dict[str, List[float]], symbols: List[str]
     ) -> Tuple[np.ndarray, Dict[str, Any]]:
         """Calculate correlation matrix for portfolio positions"""
         try:
@@ -451,13 +486,15 @@ class PortfolioRiskManager:
 
             # Prepare returns data
             returns_data = {}
-            min_length = float('inf')
+            min_length = float("inf")
 
             for symbol in symbols:
                 if symbol in price_history and len(price_history[symbol]) > 1:
                     prices = price_history[symbol]
-                    returns = [(prices[i] - prices[i-1]) / prices[i-1]
-                             for i in range(1, len(prices))]
+                    returns = [
+                        (prices[i] - prices[i - 1]) / prices[i - 1]
+                        for i in range(1, len(prices))
+                    ]
                     returns_data[symbol] = returns
                     min_length = min(min_length, len(returns))
 
@@ -479,15 +516,19 @@ class PortfolioRiskManager:
             details = {
                 "symbols": valid_symbols,
                 "correlation_periods": min_length,
-                "max_correlation": float(np.max(correlation_matrix[correlation_matrix < 1.0])),
+                "max_correlation": float(
+                    np.max(correlation_matrix[correlation_matrix < 1.0])
+                ),
                 "min_correlation": float(np.min(correlation_matrix)),
-                "avg_correlation": float(np.mean(correlation_matrix[correlation_matrix < 1.0]))
+                "avg_correlation": float(
+                    np.mean(correlation_matrix[correlation_matrix < 1.0])
+                ),
             }
 
             logger.info(
                 "Correlation matrix calculated",
                 symbols_count=len(valid_symbols),
-                max_correlation=details["max_correlation"]
+                max_correlation=details["max_correlation"],
             )
 
             return correlation_matrix, details
@@ -500,7 +541,7 @@ class PortfolioRiskManager:
         self,
         positions: List[Dict[str, Any]],
         price_history: Dict[str, List[float]],
-        new_symbol: str = None
+        new_symbol: str = None,
     ) -> Tuple[bool, List[str]]:
         """Check if adding a new position would violate correlation limits"""
         try:
@@ -511,7 +552,9 @@ class PortfolioRiskManager:
             if len(symbols) < 2:
                 return True, []
 
-            correlation_matrix, details = self.calculate_correlation_matrix(price_history, symbols)
+            correlation_matrix, details = self.calculate_correlation_matrix(
+                price_history, symbols
+            )
 
             if correlation_matrix.size == 0:
                 return True, ["Unable to calculate correlations - insufficient data"]
@@ -533,7 +576,7 @@ class PortfolioRiskManager:
                 "Correlation limits check",
                 is_valid=is_valid,
                 violations_count=len(violations),
-                max_correlation=details.get("max_correlation", 0)
+                max_correlation=details.get("max_correlation", 0),
             )
 
             return is_valid, violations
@@ -543,9 +586,7 @@ class PortfolioRiskManager:
             return True, [f"Correlation check error: {str(e)}"]
 
     def calculate_sector_exposure(
-        self,
-        positions: List[Dict[str, Any]],
-        sector_mappings: Dict[str, str]
+        self, positions: List[Dict[str, Any]], sector_mappings: Dict[str, str]
     ) -> Dict[str, float]:
         """Calculate exposure by sector"""
         try:
@@ -568,7 +609,7 @@ class PortfolioRiskManager:
             logger.info(
                 "Sector exposure calculated",
                 sectors=list(sector_exposures.keys()),
-                exposures=sector_exposures
+                exposures=sector_exposures,
             )
 
             return sector_exposures
@@ -589,7 +630,9 @@ class IntegratedRiskManager:
         self.base_risk_manager = RiskManager(user_id, config.get("base_risk", {}))
         self.position_sizer = PositionSizer(config.get("position_sizing", {}))
         self.stop_loss_manager = StopLossManager(config.get("stop_loss", {}))
-        self.portfolio_risk_manager = PortfolioRiskManager(config.get("portfolio_risk", {}))
+        self.portfolio_risk_manager = PortfolioRiskManager(
+            config.get("portfolio_risk", {})
+        )
 
         # Metrics
         self.metrics = PrometheusMetrics()
@@ -602,7 +645,7 @@ class IntegratedRiskManager:
         strategy_confidence: float = 0.7,
         historical_performance: Dict[str, float] = None,
         volatility: float = None,
-        method: str = "kelly"
+        method: str = "kelly",
     ) -> Tuple[float, Dict[str, Any]]:
         """Calculate optimal position size using specified method"""
         try:
@@ -618,7 +661,7 @@ class IntegratedRiskManager:
                     win_rate=win_rate,
                     avg_win=avg_win,
                     avg_loss=abs(avg_loss),
-                    confidence_multiplier=strategy_confidence
+                    confidence_multiplier=strategy_confidence,
                 )
 
             elif method == "volatility" and volatility:
@@ -626,13 +669,13 @@ class IntegratedRiskManager:
                 position_size, details = self.position_sizer.volatility_adjusted(
                     account_value=account_value,
                     base_fraction=base_fraction,
-                    volatility=volatility
+                    volatility=volatility,
                 )
 
             else:  # Default to fixed fractional
                 position_size, details = self.position_sizer.fixed_fractional(
                     account_value=account_value,
-                    confidence_multiplier=strategy_confidence
+                    confidence_multiplier=strategy_confidence,
                 )
 
             # Apply base risk manager constraints
@@ -643,13 +686,15 @@ class IntegratedRiskManager:
             shares = int(final_position_size / entry_price)
             final_dollar_amount = shares * entry_price
 
-            details.update({
-                "symbol": symbol,
-                "entry_price": entry_price,
-                "shares": shares,
-                "final_dollar_amount": final_dollar_amount,
-                "base_limit_applied": final_position_size != position_size
-            })
+            details.update(
+                {
+                    "symbol": symbol,
+                    "entry_price": entry_price,
+                    "shares": shares,
+                    "final_dollar_amount": final_dollar_amount,
+                    "base_limit_applied": final_position_size != position_size,
+                }
+            )
 
             # Record metrics
             calculation_time = (datetime.now() - start_time).total_seconds()
@@ -663,7 +708,7 @@ class IntegratedRiskManager:
                 position_size=final_dollar_amount,
                 shares=shares,
                 method=method,
-                user_id=self.user_id
+                user_id=self.user_id,
             )
 
             return final_dollar_amount, details
@@ -673,7 +718,7 @@ class IntegratedRiskManager:
                 "Error calculating optimal position size",
                 error=str(e),
                 symbol=symbol,
-                user_id=self.user_id
+                user_id=self.user_id,
             )
             # Fallback to base risk manager
             fallback_size = self.base_risk_manager.calculate_position_size(
@@ -687,7 +732,7 @@ class IntegratedRiskManager:
         entry_price: float,
         side: str,
         market_data: Dict[str, Any] = None,
-        method: str = "atr"
+        method: str = "atr",
     ) -> Tuple[float, Dict[str, Any]]:
         """Calculate stop loss using specified method"""
         try:
@@ -719,10 +764,12 @@ class IntegratedRiskManager:
                 "Error calculating comprehensive stop loss",
                 error=str(e),
                 symbol=symbol,
-                user_id=self.user_id
+                user_id=self.user_id,
             )
             # Fallback to base risk manager
-            fallback_stop = self.base_risk_manager.calculate_stop_loss(entry_price, side)
+            fallback_stop = self.base_risk_manager.calculate_stop_loss(
+                entry_price, side
+            )
             return fallback_stop, {"method": "fallback", "error": str(e)}
 
     def comprehensive_risk_assessment(
@@ -731,7 +778,7 @@ class IntegratedRiskManager:
         account_value: float,
         daily_pnl: float,
         price_history: Dict[str, List[float]] = None,
-        sector_mappings: Dict[str, str] = None
+        sector_mappings: Dict[str, str] = None,
     ) -> Dict[str, Any]:
         """Perform comprehensive portfolio risk assessment"""
         try:
@@ -746,26 +793,31 @@ class IntegratedRiskManager:
             var_dollar = 0.0
             var_details = {}
             if price_history:
-                var_dollar, var_details = self.portfolio_risk_manager.calculate_portfolio_var(
-                    positions, price_history, account_value
+                var_dollar, var_details = (
+                    self.portfolio_risk_manager.calculate_portfolio_var(
+                        positions, price_history, account_value
+                    )
                 )
 
             # Correlation analysis
             correlation_valid = True
             correlation_violations = []
             if price_history and len(positions) > 1:
-                symbols = [pos.get("symbol") for pos in positions if pos.get("symbol")]
-                correlation_valid, correlation_violations = \
+                [pos.get("symbol") for pos in positions if pos.get("symbol")]
+                correlation_valid, correlation_violations = (
                     self.portfolio_risk_manager.check_correlation_limits(
                         positions, price_history
                     )
+                )
 
             # Sector exposure analysis
             sector_exposures = {}
             sector_violations = []
             if sector_mappings:
-                sector_exposures = self.portfolio_risk_manager.calculate_sector_exposure(
-                    positions, sector_mappings
+                sector_exposures = (
+                    self.portfolio_risk_manager.calculate_sector_exposure(
+                        positions, sector_mappings
+                    )
                 )
 
                 # Check sector limits
@@ -781,22 +833,27 @@ class IntegratedRiskManager:
                 **base_risk,
                 "var_analysis": {
                     "var_dollar": var_dollar,
-                    "var_pct_of_portfolio": var_dollar / account_value if account_value > 0 else 0,
-                    **var_details
+                    "var_pct_of_portfolio": (
+                        var_dollar / account_value if account_value > 0 else 0
+                    ),
+                    **var_details,
                 },
                 "correlation_analysis": {
                     "correlation_compliant": correlation_valid,
-                    "correlation_violations": correlation_violations
+                    "correlation_violations": correlation_violations,
                 },
                 "sector_analysis": {
                     "sector_exposures": sector_exposures,
-                    "sector_violations": sector_violations
+                    "sector_violations": sector_violations,
                 },
                 "risk_score": self._calculate_risk_score(
-                    base_risk, var_dollar, account_value,
-                    correlation_violations, sector_violations
+                    base_risk,
+                    var_dollar,
+                    account_value,
+                    correlation_violations,
+                    sector_violations,
                 ),
-                "assessment_timestamp": datetime.now().isoformat()
+                "assessment_timestamp": datetime.now().isoformat(),
             }
 
             # Record metrics
@@ -809,7 +866,7 @@ class IntegratedRiskManager:
                 "Comprehensive risk assessment completed",
                 risk_score=comprehensive_assessment["risk_score"],
                 var_dollar=var_dollar,
-                user_id=self.user_id
+                user_id=self.user_id,
             )
 
             return comprehensive_assessment
@@ -818,12 +875,14 @@ class IntegratedRiskManager:
             logger.error(
                 "Error in comprehensive risk assessment",
                 error=str(e),
-                user_id=self.user_id
+                user_id=self.user_id,
             )
             # Fallback to base risk assessment
             return {
-                **self.base_risk_manager.get_risk_summary(positions, account_value, daily_pnl),
-                "error": f"Comprehensive assessment failed: {str(e)}"
+                **self.base_risk_manager.get_risk_summary(
+                    positions, account_value, daily_pnl
+                ),
+                "error": f"Comprehensive assessment failed: {str(e)}",
             }
 
     def _calculate_risk_score(
@@ -832,7 +891,7 @@ class IntegratedRiskManager:
         var_dollar: float,
         account_value: float,
         correlation_violations: List[str],
-        sector_violations: List[str]
+        sector_violations: List[str],
     ) -> float:
         """Calculate overall portfolio risk score (0-100, higher = riskier)"""
         try:

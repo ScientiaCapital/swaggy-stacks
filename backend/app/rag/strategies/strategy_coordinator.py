@@ -5,8 +5,8 @@ Coordinates strategy analysis, learning, and optimization
 """
 
 import logging
-from typing import Dict, List, Optional, Any
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from app.rag.strategies.strategy_engines import StrategyEngineManager, StrategySignal
 from app.services.backtest_service import BacktestService
@@ -22,23 +22,29 @@ class StrategyCoordinator:
     for strategy analysis, backtesting integration, and parameter optimization
     """
 
-    def __init__(self,
-                 agent_id: str = "default",
-                 strategy_config: Dict[str, Any] = None,
-                 backtest_service: BacktestService = None):
+    def __init__(
+        self,
+        agent_id: str = "default",
+        strategy_config: Dict[str, Any] = None,
+        backtest_service: BacktestService = None,
+    ):
         self.agent_id = agent_id
         self.config = strategy_config or {}
 
         # Initialize strategy engine manager
-        self.strategy_manager = StrategyEngineManager(self.config.get('strategies', {}))
+        self.strategy_manager = StrategyEngineManager(self.config.get("strategies", {}))
 
         # Initialize backtest service for learning
         self.backtest_service = backtest_service or BacktestService()
 
         # Configuration options
-        self.consensus_method = self.config.get('consensus_method', 'confidence_weighted')
-        self.min_confidence = self.config.get('min_confidence', 0.6)
-        self.use_backtesting_feedback = self.config.get('use_backtesting_feedback', True)
+        self.consensus_method = self.config.get(
+            "consensus_method", "confidence_weighted"
+        )
+        self.min_confidence = self.config.get("min_confidence", 0.6)
+        self.use_backtesting_feedback = self.config.get(
+            "use_backtesting_feedback", True
+        )
 
         logger.info(f"StrategyCoordinator initialized for agent {agent_id}")
 
@@ -46,7 +52,7 @@ class StrategyCoordinator:
         self,
         symbol: str,
         market_data: Dict[str, Any] = None,
-        use_consensus: bool = True
+        use_consensus: bool = True,
     ) -> Optional[StrategySignal]:
         """
         Analyze a symbol using available strategies
@@ -70,12 +76,16 @@ class StrategyCoordinator:
                 )
             else:
                 # Get signals from all strategies
-                signals = await self.strategy_manager.analyze_all_strategies(symbol, market_data)
+                signals = await self.strategy_manager.analyze_all_strategies(
+                    symbol, market_data
+                )
                 signal = signals[0] if signals else None
 
             # Filter by minimum confidence
             if signal and signal.confidence >= self.min_confidence:
-                logger.info(f"Generated {signal.strategy} signal for {symbol}: {signal.direction} @ {signal.confidence:.2f}")
+                logger.info(
+                    f"Generated {signal.strategy} signal for {symbol}: {signal.direction} @ {signal.confidence:.2f}"
+                )
                 return signal
 
             return None
@@ -92,12 +102,15 @@ class StrategyCoordinator:
         stop_loss: float,
         take_profit: float,
         confidence: float,
-        rationale: str = ""
+        rationale: str = "",
     ) -> Dict[str, Any]:
         """Submit trading idea to backtest service for learning"""
         try:
             if not self.use_backtesting_feedback:
-                return {"status": "disabled", "message": "Backtesting feedback disabled"}
+                return {
+                    "status": "disabled",
+                    "message": "Backtesting feedback disabled",
+                }
 
             result = await self.backtest_service.submit_trading_idea(
                 agent_id=self.agent_id,
@@ -107,7 +120,7 @@ class StrategyCoordinator:
                 stop_loss=stop_loss,
                 take_profit=take_profit,
                 confidence=confidence,
-                rationale=rationale
+                rationale=rationale,
             )
 
             return result
@@ -117,8 +130,7 @@ class StrategyCoordinator:
             return {"status": "error", "error": str(e)}
 
     async def get_pattern_learning_insights(
-        self,
-        pattern_name: str = None
+        self, pattern_name: str = None
     ) -> Dict[str, Any]:
         """Get pattern learning insights from backtest service"""
         try:
@@ -136,7 +148,7 @@ class StrategyCoordinator:
         self,
         strategy_name: str,
         optimization_metric: str = "sharpe_ratio",
-        max_iterations: int = 50
+        max_iterations: int = 50,
     ) -> Dict[str, Any]:
         """Optimize parameters for a specific strategy"""
         try:
@@ -155,7 +167,7 @@ class StrategyCoordinator:
                 strategy_name=strategy_name,
                 parameter_ranges=parameter_space,
                 optimization_metric=optimization_metric,
-                max_iterations=max_iterations
+                max_iterations=max_iterations,
             )
 
             return result
@@ -167,12 +179,17 @@ class StrategyCoordinator:
     async def get_learning_summary(self) -> Dict[str, Any]:
         """Get comprehensive learning summary for this agent"""
         try:
-            summary = await self.backtest_service.get_agent_learning_summary(self.agent_id)
+            summary = await self.backtest_service.get_agent_learning_summary(
+                self.agent_id
+            )
 
             # Add strategy-specific information
-            summary["available_strategies"] = list(self.strategy_manager.strategies.keys())
+            summary["available_strategies"] = list(
+                self.strategy_manager.strategies.keys()
+            )
             summary["enabled_strategies"] = [
-                name for name, strategy in self.strategy_manager.strategies.items()
+                name
+                for name, strategy in self.strategy_manager.strategies.items()
                 if strategy.enabled
             ]
             summary["consensus_method"] = self.consensus_method
@@ -185,9 +202,7 @@ class StrategyCoordinator:
             return {"error": str(e)}
 
     async def analyze_multiple_symbols(
-        self,
-        symbols: List[str],
-        use_consensus: bool = True
+        self, symbols: List[str], use_consensus: bool = True
     ) -> Dict[str, Optional[StrategySignal]]:
         """Analyze multiple symbols and return signals"""
         results = {}
@@ -203,25 +218,28 @@ class StrategyCoordinator:
         return results
 
     async def get_strategy_performance_comparison(
-        self,
-        days_back: int = 30
+        self, days_back: int = 30
     ) -> Dict[str, Any]:
         """Compare performance across different strategies"""
         try:
             # Get overall pattern performance
-            pattern_performance = await self.backtest_service.get_pattern_performance(days_back=days_back)
+            pattern_performance = await self.backtest_service.get_pattern_performance(
+                days_back=days_back
+            )
 
             # Organize by strategy
             strategy_comparison = {}
             for strategy_name in self.strategy_manager.strategies.keys():
-                if strategy_name in pattern_performance.get('patterns', {}):
-                    strategy_comparison[strategy_name] = pattern_performance['patterns'][strategy_name]
+                if strategy_name in pattern_performance.get("patterns", {}):
+                    strategy_comparison[strategy_name] = pattern_performance[
+                        "patterns"
+                    ][strategy_name]
 
             return {
                 "comparison_period": days_back,
                 "strategies": strategy_comparison,
                 "total_strategies": len(strategy_comparison),
-                "generated_at": datetime.utcnow().isoformat()
+                "generated_at": datetime.utcnow().isoformat(),
             }
 
         except Exception as e:
@@ -235,7 +253,8 @@ class StrategyCoordinator:
     def get_enabled_strategies(self) -> List[str]:
         """Get list of enabled strategy names"""
         return [
-            name for name, strategy in self.strategy_manager.strategies.items()
+            name
+            for name, strategy in self.strategy_manager.strategies.items()
             if strategy.enabled
         ]
 
@@ -257,7 +276,9 @@ class StrategyCoordinator:
             return True
         return False
 
-    def update_strategy_config(self, strategy_name: str, config: Dict[str, Any]) -> bool:
+    def update_strategy_config(
+        self, strategy_name: str, config: Dict[str, Any]
+    ) -> bool:
         """Update configuration for a specific strategy"""
         strategy = self.strategy_manager.get_strategy(strategy_name)
         if strategy:
@@ -268,12 +289,14 @@ class StrategyCoordinator:
 
     def set_consensus_method(self, method: str):
         """Set consensus method for multi-strategy analysis"""
-        valid_methods = ['confidence_weighted', 'majority_vote', 'simple_average']
+        valid_methods = ["confidence_weighted", "majority_vote", "simple_average"]
         if method in valid_methods:
             self.consensus_method = method
             logger.info(f"Consensus method set to: {method}")
         else:
-            logger.warning(f"Invalid consensus method: {method}. Valid options: {valid_methods}")
+            logger.warning(
+                f"Invalid consensus method: {method}. Valid options: {valid_methods}"
+            )
 
     def set_minimum_confidence(self, min_confidence: float):
         """Set minimum confidence threshold for signals"""
@@ -281,7 +304,9 @@ class StrategyCoordinator:
             self.min_confidence = min_confidence
             logger.info(f"Minimum confidence set to: {min_confidence}")
         else:
-            logger.warning(f"Invalid confidence level: {min_confidence}. Must be between 0.0 and 1.0")
+            logger.warning(
+                f"Invalid confidence level: {min_confidence}. Must be between 0.0 and 1.0"
+            )
 
     # Private helper methods
     async def _fetch_market_data(self, symbol: str) -> Dict[str, Any]:
@@ -294,24 +319,24 @@ class StrategyCoordinator:
 
             base_price = 100.0
             return {
-                'symbol': symbol,
-                'current_price': base_price * random.uniform(0.95, 1.05),
-                'recent_high': base_price * random.uniform(1.05, 1.15),
-                'recent_low': base_price * random.uniform(0.85, 0.95),
-                'volume': random.randint(500000, 2000000),
-                'avg_volume': random.randint(800000, 1200000),
-                'volatility': random.uniform(0.15, 0.35),
-                'timestamp': datetime.utcnow().isoformat()
+                "symbol": symbol,
+                "current_price": base_price * random.uniform(0.95, 1.05),
+                "recent_high": base_price * random.uniform(1.05, 1.15),
+                "recent_low": base_price * random.uniform(0.85, 0.95),
+                "volume": random.randint(500000, 2000000),
+                "avg_volume": random.randint(800000, 1200000),
+                "volatility": random.uniform(0.15, 0.35),
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Error fetching market data for {symbol}: {e}")
             return {
-                'symbol': symbol,
-                'current_price': 100.0,
-                'recent_high': 105.0,
-                'recent_low': 95.0,
-                'volume': 1000000,
-                'avg_volume': 1000000,
-                'volatility': 0.2
+                "symbol": symbol,
+                "current_price": 100.0,
+                "recent_high": 105.0,
+                "recent_low": 95.0,
+                "volume": 1000000,
+                "avg_volume": 1000000,
+                "volatility": 0.2,
             }

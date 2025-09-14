@@ -3,15 +3,14 @@ AI Trading endpoints for Swaggy Stacks Trading System
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 import structlog
 import yfinance as yf
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.ai.trading_agents import AIAgentCoordinator
-from app.core.exceptions import TradingError
 
 logger = structlog.get_logger()
 

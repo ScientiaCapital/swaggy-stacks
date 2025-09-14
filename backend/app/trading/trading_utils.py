@@ -3,9 +3,9 @@ Trading Utilities
 Common functions used across trading modules to eliminate redundancy
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -336,10 +336,9 @@ def calculate_position_size(
 
     if risk_per_share > 0:
         risk_based_quantity = risk_amount / risk_per_share
-        risk_based_value = risk_based_quantity * entry_price
+        risk_based_quantity * entry_price
     else:
         risk_based_quantity = 0
-        risk_based_value = 0
 
     # Maximum position sizing
     max_position_value = account_value * max_position_pct

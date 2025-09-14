@@ -77,7 +77,9 @@ class RealAITradingSystem:
                 )
                 logger.info("Real Alpaca connection established", paper=True)
             except Exception as e:
-                logger.warning("Alpaca connection failed, using paper mode", error=str(e))
+                logger.warning(
+                    "Alpaca connection failed, using paper mode", error=str(e)
+                )
         
         logger.info("Real AI Trading System initialized")
     
@@ -113,8 +115,14 @@ class RealAITradingSystem:
             rsi = 100 - (100 / (1 + (avg_gain / avg_loss))) if avg_loss > 0 else 50
             
             # Volatility
-            returns = [(closes[i] - closes[i-1]) / closes[i-1] for i in range(1, len(closes))]
-            volatility = (sum(r**2 for r in returns) / len(returns)) ** 0.5 if returns else 0
+            returns = [
+                (closes[i] - closes[i-1]) / closes[i-1]
+                for i in range(1, len(closes))
+            ]
+            volatility = (
+                (sum(r**2 for r in returns) / len(returns)) ** 0.5
+                if returns else 0
+            )
             
             market_data = {
                 'symbol': symbol,
@@ -123,8 +131,15 @@ class RealAITradingSystem:
                 'open': float(hist['Open'].iloc[-1]),
                 'high': float(hist['High'].iloc[-1]),
                 'low': float(hist['Low'].iloc[-1]),
-                'previous_close': float(hist['Close'].iloc[-2]) if len(hist) > 1 else float(current_price),
-                'change_percent': ((current_price - hist['Close'].iloc[-2]) / hist['Close'].iloc[-2] * 100) if len(hist) > 1 else 0,
+                'previous_close': (
+                    float(hist['Close'].iloc[-2])
+                    if len(hist) > 1 else float(current_price)
+                ),
+                'change_percent': (
+                    ((current_price - hist['Close'].iloc[-2]) /
+                     hist['Close'].iloc[-2] * 100)
+                    if len(hist) > 1 else 0
+                ),
                 'technical_indicators': {
                     'sma_20': sma_20,
                     'sma_50': sma_50,
@@ -158,9 +173,11 @@ class RealAITradingSystem:
                 volume_data=[market_data['volume']]
             )
             
-            logger.info("Markov analysis completed", 
-                       symbol=symbol, 
-                       state=markov_state.get('current_state', 'unknown'))
+            logger.info(
+                "Markov analysis completed",
+                symbol=symbol,
+                state=markov_state.get('current_state', 'unknown')
+            )
             
             return markov_state.get('current_state', 'neutral')
             

@@ -2,7 +2,6 @@
 GitHub automation service for CI/CD workflows and release coordination
 """
 
-import asyncio
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -215,7 +214,7 @@ class GitHubAutomationService:
                         "per_page": 1,
                     },
                 )
-            except:
+            except Exception:
                 return False
 
             # Check for open issues with deployment-blocking labels
@@ -255,7 +254,7 @@ class GitHubAutomationService:
                 )
                 if existing_release:
                     raise MCPError(f"Release with tag {config.tag_name} already exists")
-            except:
+            except Exception:
                 # Tag doesn't exist, which is what we want
                 pass
 
@@ -436,7 +435,7 @@ class GitHubAutomationService:
                         {"owner": self.owner, "repo": self.repo, "per_page": 1},
                     )
                     health_status["checks"]["repository_access"] = "ok"
-                except:
+                except Exception:
                     health_status["status"] = "degraded"
                     health_status["checks"]["repository_access"] = "failed"
             else:

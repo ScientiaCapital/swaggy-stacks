@@ -2,13 +2,11 @@
 Risk management system for the trading engine
 """
 
-from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
 
 import structlog
 
 from app.core.config import settings
-from app.core.exceptions import RiskManagementError
 
 logger = structlog.get_logger()
 

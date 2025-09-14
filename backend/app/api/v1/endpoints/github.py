@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.api.dependencies.mcp import get_github_service
-from app.core.exceptions import ConfigurationError, MCPError
+from app.core.exceptions import MCPError
 from app.services.github_automation import (
     GitHubAutomationService,
     PullRequestConfig,
@@ -95,7 +95,7 @@ async def github_webhook(
 ):
     """Handle GitHub webhook events"""
     try:
-        payload_body = await request.body()
+        await request.body()
 
         # For production, you would verify the webhook signature
         # webhook_secret = "your_webhook_secret"
@@ -182,7 +182,7 @@ async def handle_push_event(
 ):
     """Handle push webhook events"""
     ref = payload.ref
-    commits = payload.commits or []
+    payload.commits or []
 
     # Trigger workflows based on branch
     if ref == "refs/heads/main":

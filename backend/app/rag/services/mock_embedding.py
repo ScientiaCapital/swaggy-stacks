@@ -66,7 +66,7 @@ class MockEmbeddingService(EmbeddingServiceInterface):
 
         for text in texts:
             cache_key = self._get_cache_key(text)
-            
+
             # Check cache
             if cache_key in self.cache:
                 embedding = self.cache[cache_key]
@@ -77,11 +77,13 @@ class MockEmbeddingService(EmbeddingServiceInterface):
                 embedding = self._generate_mock_embedding(text)
                 self.cache[cache_key] = embedding
                 cache_hit = False
-                
+
                 # Clean cache if too large
                 if len(self.cache) > self.cache_size:
                     # Remove oldest entries (simple FIFO)
-                    keys_to_remove = list(self.cache.keys())[: len(self.cache) - self.cache_size + 1]
+                    keys_to_remove = list(self.cache.keys())[
+                        : len(self.cache) - self.cache_size + 1
+                    ]
                     for k in keys_to_remove:
                         del self.cache[k]
 
@@ -115,16 +117,16 @@ class MockEmbeddingService(EmbeddingServiceInterface):
         # Use hash of text as seed for reproducible results
         text_hash = hashlib.md5(text.encode()).hexdigest()
         seed = int(text_hash[:8], 16)
-        
+
         # Generate deterministic random embedding
         np.random.seed(seed)
         embedding = np.random.normal(0, 1, self.target_dim).astype(np.float32)
-        
+
         # Normalize to unit vector (common for embeddings)
         norm = np.linalg.norm(embedding)
         if norm > 0:
             embedding = embedding / norm
-            
+
         return embedding
 
     def _get_cache_key(self, text: str) -> str:
@@ -157,7 +159,9 @@ class MockEmbeddingService(EmbeddingServiceInterface):
         """Get mock performance statistics"""
         cache_hit_rate = 0.0
         if self.stats["total_embeddings"] > 0:
-            cache_hit_rate = (self.stats["cache_hits"] / self.stats["total_embeddings"]) * 100
+            cache_hit_rate = (
+                self.stats["cache_hits"] / self.stats["total_embeddings"]
+            ) * 100
 
         return {
             "service_type": "mock",

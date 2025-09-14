@@ -5,7 +5,7 @@ Trading API endpoints
 from typing import List, Optional
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -282,4 +282,3 @@ async def cancel_order(
 def get_current_user():
     """Placeholder for user authentication"""
     # This would be implemented with JWT token validation
-    pass

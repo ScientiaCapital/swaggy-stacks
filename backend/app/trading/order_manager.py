@@ -2,10 +2,8 @@
 Order management system for stop-losses, take-profits, and trailing stops
 """
 
-import asyncio
 from datetime import datetime, timedelta
-from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 import structlog
 
@@ -220,7 +218,7 @@ class OrderManager:
                     continue
 
                 monitor_info = self.monitored_positions[symbol]
-                entry_price = monitor_info["entry_price"]
+                monitor_info["entry_price"]
                 stop_loss_price = monitor_info["stop_loss_price"]
                 take_profit_price = monitor_info["take_profit_price"]
                 side = monitor_info["side"]

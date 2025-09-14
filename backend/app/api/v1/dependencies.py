@@ -3,12 +3,11 @@ Shared API Dependencies
 Common dependencies used across all API endpoints to eliminate redundancy
 """
 
-import asyncio
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import Depends, Header, HTTPException, Query, Request, status
+from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -27,6 +26,7 @@ StrategyAgent = None
 if settings.ML_FEATURES_ENABLED:
     try:
         from app.rag.agents.strategy_agent import StrategyAgent
+
         logger.info("ML features enabled - StrategyAgent available")
     except ImportError as e:
         logger.warning(f"ML features enabled but StrategyAgent unavailable: {e}")
@@ -127,12 +127,14 @@ async def get_strategy_agent(
     """Get configured strategy agent (returns None if ML features disabled)"""
     # Check if ML features are enabled and agent is available
     if StrategyAgent is None:
-        logger.info("StrategyAgent not available - ML features disabled or import failed")
+        logger.info(
+            "StrategyAgent not available - ML features disabled or import failed"
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="AI strategy features are not available. Set ML_FEATURES_ENABLED=true and ensure ML dependencies are installed.",
         )
-    
+
     try:
         # Default strategies if none specified
         default_strategies = ["markov", "wyckoff", "fibonacci"]

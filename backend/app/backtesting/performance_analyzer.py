@@ -6,11 +6,12 @@ Handles advanced performance metrics, risk calculations, and result analysis
 
 import logging
 import time
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-import pandas as pd
+
 import numpy as np
-from dataclasses import dataclass, asdict
+import pandas as pd
 
 from app.backtesting.portfolio_manager import PortfolioManager, TradeRecord
 
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class BacktestResult:
     """Comprehensive backtest results"""
+
     backtest_id: str
     config: Dict[str, Any]
     symbols: List[str]
@@ -61,7 +63,9 @@ class PerformanceAnalyzer:
 
     def __init__(self, risk_free_rate: float = 0.02):
         self.risk_free_rate = risk_free_rate
-        logger.info(f"PerformanceAnalyzer initialized with {risk_free_rate:.2%} risk-free rate")
+        logger.info(
+            f"PerformanceAnalyzer initialized with {risk_free_rate:.2%} risk-free rate"
+        )
 
     def calculate_comprehensive_metrics(
         self,
@@ -72,7 +76,7 @@ class PerformanceAnalyzer:
         start_date: datetime,
         end_date: datetime,
         execution_start_time: float,
-        config: Dict[str, Any] = None
+        config: Dict[str, Any] = None,
     ) -> BacktestResult:
         """Calculate comprehensive backtest performance metrics"""
         try:
@@ -81,36 +85,56 @@ class PerformanceAnalyzer:
             portfolio_history = portfolio_manager.get_portfolio_history()
             trade_history = portfolio_manager.get_trade_history()
 
-            if 'error' in portfolio_metrics:
-                logger.error(f"Portfolio metrics calculation failed: {portfolio_metrics['error']}")
-                return self._create_error_result(backtest_id, symbols, str(portfolio_metrics['error']))
+            if "error" in portfolio_metrics:
+                logger.error(
+                    f"Portfolio metrics calculation failed: {portfolio_metrics['error']}"
+                )
+                return self._create_error_result(
+                    backtest_id, symbols, str(portfolio_metrics["error"])
+                )
 
             # Extract portfolio value series
-            portfolio_values = [snapshot['total_value'] for snapshot in portfolio_history]
+            portfolio_values = [
+                snapshot["total_value"] for snapshot in portfolio_history
+            ]
             if len(portfolio_values) < 2:
                 logger.error("Insufficient portfolio history for analysis")
-                return self._create_error_result(backtest_id, symbols, "Insufficient data")
+                return self._create_error_result(
+                    backtest_id, symbols, "Insufficient data"
+                )
 
             # Calculate returns
             returns_series = pd.Series(portfolio_values).pct_change().dropna()
 
             # Core performance metrics
-            total_return = portfolio_metrics['total_return']
+            total_return = portfolio_metrics["total_return"]
             trading_days = len(returns_series)
-            annualized_return = (1 + total_return) ** (252 / trading_days) - 1 if trading_days > 0 else 0
+            annualized_return = (
+                (1 + total_return) ** (252 / trading_days) - 1
+                if trading_days > 0
+                else 0
+            )
 
             # Risk metrics
-            volatility = returns_series.std() * np.sqrt(252) if len(returns_series) > 1 else 0
+            volatility = (
+                returns_series.std() * np.sqrt(252) if len(returns_series) > 1 else 0
+            )
 
-            sharpe_ratio = self._calculate_sharpe_ratio(returns_series, self.risk_free_rate)
-            sortino_ratio = self._calculate_sortino_ratio(returns_series, self.risk_free_rate)
+            sharpe_ratio = self._calculate_sharpe_ratio(
+                returns_series, self.risk_free_rate
+            )
+            sortino_ratio = self._calculate_sortino_ratio(
+                returns_series, self.risk_free_rate
+            )
             max_drawdown = self._calculate_max_drawdown(portfolio_values)
             calmar_ratio = annualized_return / max_drawdown if max_drawdown > 0 else 0
 
             var_95 = self._calculate_var(returns_series, confidence_level=0.95)
 
             # Market comparison metrics (simplified)
-            alpha_generated, beta = self._calculate_alpha_beta(returns_series, market_data, symbols)
+            alpha_generated, beta = self._calculate_alpha_beta(
+                returns_series, market_data, symbols
+            )
 
             # Execution metrics
             execution_time = time.time() - execution_start_time
@@ -120,7 +144,7 @@ class PerformanceAnalyzer:
 
             # Serialize datetime objects
             for trade_dict in trade_dicts:
-                trade_dict['timestamp'] = trade_dict['timestamp'].isoformat()
+                trade_dict["timestamp"] = trade_dict["timestamp"].isoformat()
 
             result = BacktestResult(
                 backtest_id=backtest_id,
@@ -128,10 +152,10 @@ class PerformanceAnalyzer:
                 symbols=symbols,
                 start_date=start_date,
                 end_date=end_date,
-                total_trades=portfolio_metrics['total_trades'],
-                winning_trades=portfolio_metrics['winning_trades'],
-                losing_trades=portfolio_metrics['losing_trades'],
-                win_rate=portfolio_metrics['win_rate'],
+                total_trades=portfolio_metrics["total_trades"],
+                winning_trades=portfolio_metrics["winning_trades"],
+                losing_trades=portfolio_metrics["losing_trades"],
+                win_rate=portfolio_metrics["win_rate"],
                 total_return=total_return,
                 annualized_return=annualized_return,
                 sharpe_ratio=sharpe_ratio,
@@ -145,11 +169,13 @@ class PerformanceAnalyzer:
                 portfolio_value_history=portfolio_history,
                 trade_history=trade_dicts,
                 execution_time_seconds=execution_time,
-                memory_used_mb=0.0  # Could implement memory tracking
+                memory_used_mb=0.0,  # Could implement memory tracking
             )
 
-            logger.info(f"Performance analysis completed for {backtest_id}: "
-                       f"{total_return:.2%} return, {sharpe_ratio:.2f} Sharpe, {max_drawdown:.2%} max drawdown")
+            logger.info(
+                f"Performance analysis completed for {backtest_id}: "
+                f"{total_return:.2%} return, {sharpe_ratio:.2f} Sharpe, {max_drawdown:.2%} max drawdown"
+            )
 
             return result
 
@@ -157,7 +183,9 @@ class PerformanceAnalyzer:
             logger.error(f"Comprehensive metrics calculation failed: {e}")
             return self._create_error_result(backtest_id, symbols, str(e))
 
-    def _calculate_sharpe_ratio(self, returns: pd.Series, risk_free_rate: float) -> float:
+    def _calculate_sharpe_ratio(
+        self, returns: pd.Series, risk_free_rate: float
+    ) -> float:
         """Calculate Sharpe ratio"""
         try:
             if len(returns) < 2:
@@ -173,7 +201,9 @@ class PerformanceAnalyzer:
             logger.warning(f"Sharpe ratio calculation failed: {e}")
             return 0.0
 
-    def _calculate_sortino_ratio(self, returns: pd.Series, risk_free_rate: float) -> float:
+    def _calculate_sortino_ratio(
+        self, returns: pd.Series, risk_free_rate: float
+    ) -> float:
         """Calculate Sortino ratio (downside deviation)"""
         try:
             if len(returns) < 2:
@@ -183,7 +213,7 @@ class PerformanceAnalyzer:
             downside_returns = excess_returns[excess_returns < 0]
 
             if len(downside_returns) == 0 or downside_returns.std() == 0:
-                return float('inf') if excess_returns.mean() > 0 else 0.0
+                return float("inf") if excess_returns.mean() > 0 else 0.0
 
             downside_deviation = downside_returns.std() * np.sqrt(252)
             return (excess_returns.mean() * 252) / downside_deviation
@@ -206,7 +236,9 @@ class PerformanceAnalyzer:
             logger.warning(f"Max drawdown calculation failed: {e}")
             return 0.0
 
-    def _calculate_var(self, returns: pd.Series, confidence_level: float = 0.95) -> float:
+    def _calculate_var(
+        self, returns: pd.Series, confidence_level: float = 0.95
+    ) -> float:
         """Calculate Value at Risk"""
         try:
             if len(returns) < 10:
@@ -217,7 +249,12 @@ class PerformanceAnalyzer:
             logger.warning(f"VaR calculation failed: {e}")
             return 0.0
 
-    def _calculate_alpha_beta(self, portfolio_returns: pd.Series, market_data: Dict[str, pd.DataFrame], symbols: List[str]) -> tuple:
+    def _calculate_alpha_beta(
+        self,
+        portfolio_returns: pd.Series,
+        market_data: Dict[str, pd.DataFrame],
+        symbols: List[str],
+    ) -> tuple:
         """Calculate alpha and beta vs market (simplified benchmark)"""
         try:
             if len(portfolio_returns) < 10 or not market_data:
@@ -229,9 +266,11 @@ class PerformanceAnalyzer:
             for symbol in symbols[:3]:  # Use first 3 symbols as benchmark
                 if symbol in market_data:
                     symbol_data = market_data[symbol]
-                    symbol_returns = symbol_data['Close'].pct_change().dropna()
+                    symbol_returns = symbol_data["Close"].pct_change().dropna()
                     if len(symbol_returns) > 0:
-                        benchmark_returns.append(symbol_returns.tail(len(portfolio_returns)))
+                        benchmark_returns.append(
+                            symbol_returns.tail(len(portfolio_returns))
+                        )
 
             if not benchmark_returns:
                 return 0.0, 1.0
@@ -256,7 +295,9 @@ class PerformanceAnalyzer:
             # Calculate alpha (simplified)
             portfolio_mean = port_returns.mean() * 252
             benchmark_mean = bench_returns.mean() * 252
-            alpha = portfolio_mean - (self.risk_free_rate + beta * (benchmark_mean - self.risk_free_rate))
+            alpha = portfolio_mean - (
+                self.risk_free_rate + beta * (benchmark_mean - self.risk_free_rate)
+            )
 
             return alpha, beta
 
@@ -264,7 +305,9 @@ class PerformanceAnalyzer:
             logger.warning(f"Alpha/Beta calculation failed: {e}")
             return 0.0, 1.0
 
-    def calculate_correlation_matrix(self, symbols: List[str], market_data: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
+    def calculate_correlation_matrix(
+        self, symbols: List[str], market_data: Dict[str, pd.DataFrame]
+    ) -> Dict[str, Any]:
         """Calculate correlation matrix for portfolio symbols"""
         try:
             if len(symbols) < 2:
@@ -274,7 +317,7 @@ class PerformanceAnalyzer:
             returns_data = {}
             for symbol in symbols:
                 if symbol in market_data:
-                    returns = market_data[symbol]['Close'].pct_change().dropna()
+                    returns = market_data[symbol]["Close"].pct_change().dropna()
                     if len(returns) > 20:  # Minimum data requirement
                         returns_data[symbol] = returns
 
@@ -287,10 +330,16 @@ class PerformanceAnalyzer:
 
             # Convert to dictionary format
             result = {
-                'correlation_matrix': correlation_matrix.to_dict(),
-                'average_correlation': correlation_matrix.values[np.triu_indices_from(correlation_matrix.values, 1)].mean(),
-                'max_correlation': correlation_matrix.values[np.triu_indices_from(correlation_matrix.values, 1)].max(),
-                'min_correlation': correlation_matrix.values[np.triu_indices_from(correlation_matrix.values, 1)].min()
+                "correlation_matrix": correlation_matrix.to_dict(),
+                "average_correlation": correlation_matrix.values[
+                    np.triu_indices_from(correlation_matrix.values, 1)
+                ].mean(),
+                "max_correlation": correlation_matrix.values[
+                    np.triu_indices_from(correlation_matrix.values, 1)
+                ].max(),
+                "min_correlation": correlation_matrix.values[
+                    np.triu_indices_from(correlation_matrix.values, 1)
+                ].min(),
             }
 
             return result
@@ -299,7 +348,9 @@ class PerformanceAnalyzer:
             logger.warning(f"Correlation matrix calculation failed: {e}")
             return {}
 
-    def calculate_performance_attribution(self, symbols: List[str], trade_history: List[TradeRecord]) -> Dict[str, float]:
+    def calculate_performance_attribution(
+        self, symbols: List[str], trade_history: List[TradeRecord]
+    ) -> Dict[str, float]:
         """Calculate performance attribution by symbol"""
         try:
             attribution = {}
@@ -312,14 +363,16 @@ class PerformanceAnalyzer:
 
                 # Simple P&L calculation for this symbol
                 symbol_pnl = 0.0
-                buy_trades = [t for t in symbol_trades if t.action == 'BUY']
-                sell_trades = [t for t in symbol_trades if t.action == 'SELL']
+                buy_trades = [t for t in symbol_trades if t.action == "BUY"]
+                sell_trades = [t for t in symbol_trades if t.action == "SELL"]
 
                 # Match buys and sells (simplified FIFO)
                 for sell in sell_trades:
                     for buy in buy_trades:
                         if buy.timestamp <= sell.timestamp:
-                            pnl = (sell.price - buy.price) * min(buy.quantity, sell.quantity)
+                            pnl = (sell.price - buy.price) * min(
+                                buy.quantity, sell.quantity
+                            )
                             symbol_pnl += pnl
 
                 attribution[symbol] = symbol_pnl
@@ -330,7 +383,9 @@ class PerformanceAnalyzer:
             logger.warning(f"Performance attribution calculation failed: {e}")
             return {}
 
-    def _create_error_result(self, backtest_id: str, symbols: List[str], error_message: str) -> BacktestResult:
+    def _create_error_result(
+        self, backtest_id: str, symbols: List[str], error_message: str
+    ) -> BacktestResult:
         """Create error result when analysis fails"""
         return BacktestResult(
             backtest_id=backtest_id,
@@ -355,59 +410,72 @@ class PerformanceAnalyzer:
             portfolio_value_history=[],
             trade_history=[],
             execution_time_seconds=0.0,
-            memory_used_mb=0.0
+            memory_used_mb=0.0,
         )
 
     def compare_strategies(self, results: Dict[str, BacktestResult]) -> Dict[str, Any]:
         """Compare multiple strategy results"""
         try:
             if len(results) < 2:
-                return {'error': 'Need at least 2 strategies to compare'}
+                return {"error": "Need at least 2 strategies to compare"}
 
             comparison = {
-                'strategy_count': len(results),
-                'metrics_comparison': {},
-                'rankings': {},
-                'summary': {}
+                "strategy_count": len(results),
+                "metrics_comparison": {},
+                "rankings": {},
+                "summary": {},
             }
 
             # Extract key metrics for each strategy
-            metrics = ['total_return', 'sharpe_ratio', 'max_drawdown', 'win_rate', 'volatility']
+            metrics = [
+                "total_return",
+                "sharpe_ratio",
+                "max_drawdown",
+                "win_rate",
+                "volatility",
+            ]
 
             for metric in metrics:
-                comparison['metrics_comparison'][metric] = {
-                    strategy: getattr(result, metric) for strategy, result in results.items()
+                comparison["metrics_comparison"][metric] = {
+                    strategy: getattr(result, metric)
+                    for strategy, result in results.items()
                 }
 
             # Rank strategies by different metrics
             for metric in metrics:
-                if metric == 'max_drawdown':  # Lower is better
-                    ranking = sorted(results.items(), key=lambda x: getattr(x[1], metric))
+                if metric == "max_drawdown":  # Lower is better
+                    ranking = sorted(
+                        results.items(), key=lambda x: getattr(x[1], metric)
+                    )
                 else:  # Higher is better
-                    ranking = sorted(results.items(), key=lambda x: getattr(x[1], metric), reverse=True)
+                    ranking = sorted(
+                        results.items(),
+                        key=lambda x: getattr(x[1], metric),
+                        reverse=True,
+                    )
 
-                comparison['rankings'][metric] = [strategy for strategy, _ in ranking]
+                comparison["rankings"][metric] = [strategy for strategy, _ in ranking]
 
             # Overall best strategy (weighted score)
             strategy_scores = {}
             for strategy, result in results.items():
                 score = (
-                    result.total_return * 0.3 +
-                    result.sharpe_ratio * 0.3 +
-                    result.win_rate * 0.2 +
-                    (1 - result.max_drawdown) * 0.2  # Invert drawdown
+                    result.total_return * 0.3
+                    + result.sharpe_ratio * 0.3
+                    + result.win_rate * 0.2
+                    + (1 - result.max_drawdown) * 0.2  # Invert drawdown
                 )
                 strategy_scores[strategy] = score
 
             best_strategy = max(strategy_scores.items(), key=lambda x: x[1])
-            comparison['summary'] = {
-                'best_overall_strategy': best_strategy[0],
-                'best_overall_score': best_strategy[1],
-                'strategy_scores': strategy_scores
+            comparison["summary"] = {
+                "best_overall_strategy": best_strategy[0],
+                "best_overall_score": best_strategy[1],
+                "strategy_scores": strategy_scores,
             }
 
             return comparison
 
         except Exception as e:
             logger.error(f"Strategy comparison failed: {e}")
-            return {'error': str(e)}
+            return {"error": str(e)}

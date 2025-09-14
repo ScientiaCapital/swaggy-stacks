@@ -3,7 +3,6 @@ Trade model for the trading system
 """
 
 from sqlalchemy import (
-    Boolean,
     Column,
     DateTime,
     ForeignKey,

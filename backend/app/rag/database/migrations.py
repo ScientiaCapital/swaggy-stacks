@@ -9,7 +9,7 @@ import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import asyncpg
 
@@ -105,7 +105,6 @@ class RAGDatabaseMigrator:
         # Extract and execute CREATE TABLE statements
         current_statement = ""
         in_table_creation = False
-        in_function_creation = False
 
         for line in schema_sql.split("\n"):
             line = line.strip()
@@ -144,18 +143,18 @@ class RAGDatabaseMigrator:
         """Create vector indexes for similarity search"""
         vector_indexes = [
             """
-            CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_agent_patterns_embedding 
-            ON agent_patterns USING ivfflat (pattern_embedding vector_cosine_ops) 
+            CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_agent_patterns_embedding
+            ON agent_patterns USING ivfflat (pattern_embedding vector_cosine_ops)
             WITH (lists = 1000)
             """,
             """
-            CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_agent_decisions_context_embedding 
-            ON agent_decisions USING ivfflat (context_embedding vector_cosine_ops) 
+            CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_agent_decisions_context_embedding
+            ON agent_decisions USING ivfflat (context_embedding vector_cosine_ops)
             WITH (lists = 500)
             """,
             """
-            CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_market_knowledge_embedding 
-            ON market_knowledge USING ivfflat (embedding vector_cosine_ops) 
+            CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_market_knowledge_embedding
+            ON market_knowledge USING ivfflat (embedding vector_cosine_ops)
             WITH (lists = 2000)
             """,
         ]
@@ -215,7 +214,7 @@ class RAGDatabaseMigrator:
         # Create the performance summary view
         view_sql = """
         CREATE OR REPLACE VIEW agent_performance_summary AS
-        SELECT 
+        SELECT
             agent_type,
             strategy_name,
             COUNT(*) as total_decisions,
@@ -224,8 +223,8 @@ class RAGDatabaseMigrator:
             AVG(outcome_pnl) as avg_pnl,
             SUM(outcome_pnl) as total_pnl,
             MAX(created_at) as last_decision
-        FROM agent_decisions 
-        WHERE outcome IS NOT NULL 
+        FROM agent_decisions
+        WHERE outcome IS NOT NULL
         GROUP BY agent_type, strategy_name
         """
 
@@ -245,14 +244,14 @@ class RAGDatabaseMigrator:
         ) AS $$
         BEGIN
             RETURN QUERY
-            SELECT 
+            SELECT
                 ap.id,
                 ap.pattern_name,
                 1 - (ap.pattern_embedding <-> p_pattern_embedding) as similarity,
                 ap.success_rate,
                 ap.occurrence_count
             FROM agent_patterns ap
-            WHERE ap.agent_type = p_agent_type 
+            WHERE ap.agent_type = p_agent_type
             AND ap.is_active = TRUE
             AND 1 - (ap.pattern_embedding <-> p_pattern_embedding) >= p_similarity_threshold
             ORDER BY ap.pattern_embedding <-> p_pattern_embedding
@@ -268,13 +267,13 @@ class RAGDatabaseMigrator:
             p_pnl DECIMAL(18, 8)
         ) RETURNS VOID AS $$
         BEGIN
-            UPDATE agent_patterns 
+            UPDATE agent_patterns
             SET occurrence_count = occurrence_count + 1,
                 total_profit_loss = total_profit_loss + p_pnl,
-                success_rate = CASE 
-                    WHEN p_outcome = 'WIN' THEN 
+                success_rate = CASE
+                    WHEN p_outcome = 'WIN' THEN
                         (success_rate * (occurrence_count - 1) + 1.0) / occurrence_count
-                    ELSE 
+                    ELSE
                         (success_rate * (occurrence_count - 1)) / occurrence_count
                 END
             WHERE id = p_pattern_id;
@@ -312,7 +311,7 @@ class RAGDatabaseMigrator:
             await conn.execute(
                 """
                 INSERT INTO agent_patterns (
-                    agent_type, strategy_name, pattern_name, pattern_embedding, 
+                    agent_type, strategy_name, pattern_name, pattern_embedding,
                     success_rate, occurrence_count, is_active
                 )
                 VALUES ('test_agent', 'test_strategy', 'bullish_momentum', $1, 0.75, 100, TRUE)
@@ -343,9 +342,9 @@ class RAGDatabaseMigrator:
                 # Check tables exist
                 tables = await conn.fetch(
                     """
-                    SELECT table_name FROM information_schema.tables 
+                    SELECT table_name FROM information_schema.tables
                     WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-                    AND table_name IN ('agent_patterns', 'agent_decisions', 'market_knowledge', 
+                    AND table_name IN ('agent_patterns', 'agent_decisions', 'market_knowledge',
                                      'agent_performance', 'agent_learning_sessions', 'consensus_decisions')
                 """
                 )
@@ -354,7 +353,7 @@ class RAGDatabaseMigrator:
                 # Check vector indexes
                 vector_indexes = await conn.fetch(
                     """
-                    SELECT indexname FROM pg_indexes 
+                    SELECT indexname FROM pg_indexes
                     WHERE indexname LIKE '%embedding%'
                 """
                 )
@@ -366,9 +365,9 @@ class RAGDatabaseMigrator:
                 test_vector = [0.1] * 384 + [0.0] * 1152
                 result = await conn.fetchrow(
                     """
-                    SELECT id, content_text, embedding <-> $1 as distance 
-                    FROM market_knowledge 
-                    ORDER BY embedding <-> $1 
+                    SELECT id, content_text, embedding <-> $1 as distance
+                    FROM market_knowledge
+                    ORDER BY embedding <-> $1
                     LIMIT 1
                 """,
                     test_vector,
@@ -387,7 +386,7 @@ class RAGDatabaseMigrator:
                     validation_results["hypertables"] = [
                         ht["hypertable_name"] for ht in hypertables
                     ]
-                except:
+                except Exception:
                     validation_results["hypertables"] = []
 
                 # Test pattern similarity function

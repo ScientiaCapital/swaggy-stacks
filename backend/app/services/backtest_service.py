@@ -6,13 +6,13 @@ This replaces the original 1720-line BacktestService by delegating to specialize
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.monitoring.metrics import PrometheusMetrics
-from app.services.backtest_core_service import CoreBacktestService, TradingIdea
+from app.services.backtest_core_service import CoreBacktestService
 from app.services.indicator_performance_service import IndicatorPerformanceService
 from app.services.ml_model_service import MLModelService
 
@@ -38,7 +38,9 @@ class BacktestService:
         self.indicator_service = IndicatorPerformanceService(self.db, self.metrics)
         self.ml_service = MLModelService(self.db, self.metrics)
 
-        logger.info("RefactoredBacktestService initialized with specialized sub-services")
+        logger.info(
+            "RefactoredBacktestService initialized with specialized sub-services"
+        )
 
     # Core Backtesting Methods - Delegate to CoreBacktestService
     async def submit_trading_idea(
@@ -51,7 +53,7 @@ class BacktestService:
         take_profit: float,
         confidence: float,
         rationale: str = "",
-        timeframe: str = "1d"
+        timeframe: str = "1d",
     ) -> Dict[str, Any]:
         """Submit trading idea from AI agent for backtesting"""
         return await self.core_service.submit_trading_idea(
@@ -63,13 +65,11 @@ class BacktestService:
             confidence=confidence,
             rationale=rationale,
             timeframe=timeframe,
-            agent_id=agent_id
+            agent_id=agent_id,
         )
 
     async def get_pattern_performance(
-        self,
-        pattern_name: str = None,
-        days_back: int = 30
+        self, pattern_name: str = None, days_back: int = 30
     ) -> Dict[str, Any]:
         """Get performance analysis for trading patterns"""
         return await self.core_service.get_pattern_performance(pattern_name, days_back)
@@ -80,7 +80,7 @@ class BacktestService:
         strategy_name: str,
         parameter_ranges: Dict[str, tuple],
         optimization_metric: str = "sharpe_ratio",
-        max_iterations: int = 50
+        max_iterations: int = 50,
     ) -> Dict[str, Any]:
         """Optimize strategy parameters using backtesting"""
         return await self.core_service.optimize_strategy_parameters(
@@ -88,13 +88,11 @@ class BacktestService:
             symbol="TEST",  # Use test symbol for optimization
             parameter_ranges=parameter_ranges,
             optimization_metric=optimization_metric,
-            max_iterations=max_iterations
+            max_iterations=max_iterations,
         )
 
     async def get_agent_learning_summary(
-        self,
-        agent_id: str,
-        days_back: int = 30
+        self, agent_id: str, days_back: int = 30
     ) -> Dict[str, Any]:
         """Get learning and performance summary for trading agents"""
         return await self.core_service.get_agent_learning_summary(agent_id, days_back)
@@ -110,7 +108,7 @@ class BacktestService:
         current_price: float,
         market_condition: str = "normal",
         timeframe: str = "1d",
-        additional_data: Dict = None
+        additional_data: Dict = None,
     ) -> Dict[str, Any]:
         """Track performance of an indicator signal"""
         try:
@@ -123,13 +121,13 @@ class BacktestService:
                 current_price=current_price,
                 market_condition=market_condition,
                 timeframe=timeframe,
-                additional_data=additional_data
+                additional_data=additional_data,
             )
 
             return {
                 "status": "success",
                 "performance_id": performance.id if performance else None,
-                "indicator_name": indicator_name
+                "indicator_name": indicator_name,
             }
         except Exception as e:
             logger.error(f"Error tracking indicator performance: {e}")
@@ -140,7 +138,7 @@ class BacktestService:
         performance_id: int,
         exit_price: float,
         exit_timestamp: datetime = None,
-        outcome: str = None
+        outcome: str = None,
     ) -> Dict[str, Any]:
         """Update the final outcome of an indicator signal"""
         success = await self.indicator_service.update_indicator_signal_outcome(
@@ -150,7 +148,7 @@ class BacktestService:
         return {
             "status": "success" if success else "error",
             "performance_id": performance_id,
-            "outcome_updated": success
+            "outcome_updated": success,
         }
 
     async def get_indicator_performance_report(
@@ -158,7 +156,7 @@ class BacktestService:
         indicator_name: str = None,
         symbol: str = None,
         days_back: int = 30,
-        market_condition: str = None
+        market_condition: str = None,
     ) -> Dict[str, Any]:
         """Generate comprehensive performance report for indicators"""
         return await self.indicator_service.get_indicator_performance_report(
@@ -166,10 +164,7 @@ class BacktestService:
         )
 
     async def get_top_performing_indicators(
-        self,
-        limit: int = 10,
-        days_back: int = 30,
-        min_signals: int = 5
+        self, limit: int = 10, days_back: int = 30, min_signals: int = 5
     ) -> Dict[str, Any]:
         """Get top performing indicators based on win rate and P&L"""
         indicators = await self.indicator_service.get_top_performing_indicators(
@@ -179,13 +174,11 @@ class BacktestService:
         return {
             "status": "success",
             "top_indicators": indicators,
-            "period_days": days_back
+            "period_days": days_back,
         }
 
     async def get_indicator_market_condition_analysis(
-        self,
-        indicator_name: str,
-        days_back: int = 90
+        self, indicator_name: str, days_back: int = 90
     ) -> Dict[str, Any]:
         """Analyze indicator performance across different market conditions"""
         return await self.indicator_service.get_indicator_market_condition_analysis(
@@ -205,12 +198,17 @@ class BacktestService:
         prediction_value: float,
         confidence: float,
         features_used: Dict = None,
-        model_version: str = "1.0"
+        model_version: str = "1.0",
     ) -> Optional[int]:
         """Track a machine learning prediction"""
         prediction = await self.ml_service.track_ml_prediction(
-            model_name, symbol, prediction_type, prediction_value,
-            confidence, features_used, model_version
+            model_name,
+            symbol,
+            prediction_type,
+            prediction_value,
+            confidence,
+            features_used,
+            model_version,
         )
 
         return prediction.id if prediction else None
@@ -219,7 +217,7 @@ class BacktestService:
         self,
         prediction_id: int,
         actual_value: float,
-        outcome_timestamp: datetime = None
+        outcome_timestamp: datetime = None,
     ) -> bool:
         """Update the actual outcome of an ML prediction"""
         return await self.ml_service.update_ml_prediction_outcome(
@@ -227,10 +225,7 @@ class BacktestService:
         )
 
     async def get_ml_model_performance(
-        self,
-        model_name: str = None,
-        days_back: int = 30,
-        prediction_type: str = None
+        self, model_name: str = None, days_back: int = 30, prediction_type: str = None
     ) -> Dict[str, Any]:
         """Get performance metrics for ML models"""
         return await self.ml_service.get_ml_model_performance(
@@ -239,14 +234,15 @@ class BacktestService:
 
     # Convenience methods that combine services
     async def comprehensive_performance_report(
-        self,
-        days_back: int = 30
+        self, days_back: int = 30
     ) -> Dict[str, Any]:
         """Get comprehensive performance report across all services"""
         try:
             # Get reports from all services
-            indicator_report = await self.indicator_service.get_indicator_performance_report(
-                days_back=days_back
+            indicator_report = (
+                await self.indicator_service.get_indicator_performance_report(
+                    days_back=days_back
+                )
             )
 
             ml_report = await self.ml_service.get_ml_model_performance(
@@ -263,7 +259,7 @@ class BacktestService:
                 "indicator_performance": indicator_report,
                 "ml_model_performance": ml_report,
                 "pattern_performance": pattern_report,
-                "generated_at": datetime.utcnow().isoformat()
+                "generated_at": datetime.utcnow().isoformat(),
             }
 
         except Exception as e:
@@ -271,18 +267,24 @@ class BacktestService:
             return {
                 "report_type": "comprehensive",
                 "error": str(e),
-                "generated_at": datetime.utcnow().isoformat()
+                "generated_at": datetime.utcnow().isoformat(),
             }
 
     async def get_system_health_summary(self) -> Dict[str, Any]:
         """Get overall system health across all services"""
         try:
             health_summary = {
-                "core_service": {"status": "healthy", "active_ideas": len(self.core_service.trading_ideas)},
+                "core_service": {
+                    "status": "healthy",
+                    "active_ideas": len(self.core_service.trading_ideas),
+                },
                 "indicator_service": {"status": "healthy"},
-                "ml_service": {"status": "healthy", "models_initialized": self.ml_service.ml_pipeline is not None},
+                "ml_service": {
+                    "status": "healthy",
+                    "models_initialized": self.ml_service.ml_pipeline is not None,
+                },
                 "overall_status": "healthy",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
             return health_summary
@@ -292,7 +294,7 @@ class BacktestService:
             return {
                 "overall_status": "error",
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
     # Legacy compatibility methods (simplified)

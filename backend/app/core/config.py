@@ -3,7 +3,7 @@ Application configuration settings
 """
 
 import os
-from typing import List, Optional, Union
+from typing import List, Union
 
 from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings
@@ -84,11 +84,17 @@ class Settings(BaseSettings):
     DEBUG: bool = os.getenv("DEBUG", "True").lower() == "true"
 
     # ML Features
-    ML_FEATURES_ENABLED: bool = os.getenv("ML_FEATURES_ENABLED", "false").lower() == "true"
-    EMBEDDING_SERVICE_TYPE: str = os.getenv("EMBEDDING_SERVICE_TYPE", "auto")  # "local", "mock", "auto"
-    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+    ML_FEATURES_ENABLED: bool = (
+        os.getenv("ML_FEATURES_ENABLED", "false").lower() == "true"
+    )
+    EMBEDDING_SERVICE_TYPE: str = os.getenv(
+        "EMBEDDING_SERVICE_TYPE", "auto"
+    )  # "local", "mock", "auto"
+    EMBEDDING_MODEL: str = os.getenv(
+        "EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
+    )
     USE_MPS_DEVICE: bool = os.getenv("USE_MPS_DEVICE", "true").lower() == "true"
-    
+
     # Markov System Settings (Optional ML)
     MARKOV_LOOKBACK_PERIOD: int = int(os.getenv("MARKOV_LOOKBACK_PERIOD", "100"))
     MARKOV_N_STATES: int = int(os.getenv("MARKOV_N_STATES", "5"))

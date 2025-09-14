@@ -6,8 +6,8 @@ Eliminates duplicate AlpacaClient initialization across modules
 
 import asyncio
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime
+from typing import Dict, Optional
 
 import structlog
 
@@ -100,7 +100,9 @@ class TradingManager:
                 # Initialize integrated risk manager
                 risk_config = {
                     "base_risk": {
-                        "max_position_size": getattr(settings, "MAX_POSITION_SIZE", 10000),
+                        "max_position_size": getattr(
+                            settings, "MAX_POSITION_SIZE", 10000
+                        ),
                         "max_daily_loss": getattr(settings, "MAX_DAILY_LOSS", 500),
                     },
                     "position_sizing": {
@@ -115,7 +117,7 @@ class TradingManager:
                         "var_confidence_level": 0.95,
                         "max_correlation": 0.7,
                         "max_sector_exposure": 0.30,
-                    }
+                    },
                 }
 
                 self._integrated_risk_manager = IntegratedRiskManager(
@@ -202,7 +204,7 @@ class TradingManager:
         """
         start_time = datetime.now()
         metrics = PrometheusMetrics()
-        
+
         try:
             # Validate inputs
             if action not in ["BUY", "SELL"]:
@@ -221,9 +223,11 @@ class TradingManager:
                 current_positions=self.active_positions,
             )
             risk_check_latency = (datetime.now() - risk_check_start).total_seconds()
-            
+
             # Record risk check latency
-            metrics.record_risk_check_latency(risk_check_latency, symbol, action.lower())
+            metrics.record_risk_check_latency(
+                risk_check_latency, symbol, action.lower()
+            )
 
             if not risk_check["approved"]:
                 # Record failed trade execution
@@ -233,7 +237,7 @@ class TradingManager:
                     latency=execution_time,
                     symbol=symbol,
                     order_type=order_type,
-                    broker="alpaca"
+                    broker="alpaca",
                 )
                 raise RiskManagementError(f"Trade rejected: {risk_check['reason']}")
 
@@ -255,7 +259,7 @@ class TradingManager:
                 latency=execution_time,
                 symbol=symbol,
                 order_type=order_type,
-                broker="alpaca"
+                broker="alpaca",
             )
 
             # Update tracking
@@ -294,9 +298,9 @@ class TradingManager:
                 latency=execution_time,
                 symbol=symbol,
                 order_type=order_type,
-                broker="alpaca"
+                broker="alpaca",
             )
-            
+
             logger.error(
                 "Trade execution failed", symbol=symbol, action=action, error=str(e)
             )
@@ -311,9 +315,9 @@ class TradingManager:
         """
         Get comprehensive market analysis for a symbol
         """
-        start_time = datetime.now()
+        datetime.now()
         metrics = PrometheusMetrics()
-        
+
         try:
             # Get market data with latency tracking
             market_data_start = datetime.now()
@@ -355,27 +359,32 @@ class TradingManager:
 
             # Calculate portfolio metrics
             total_equity = float(account_info.get("equity", 0))
-            total_pnl = float(account_info.get("total_pl", 0))
+            float(account_info.get("total_pl", 0))
             daily_pnl = float(account_info.get("day_pl", 0))
-            
+
             # Calculate portfolio risk metrics
             total_exposure = sum(
                 pos.get("market_value", 0) for pos in self.active_positions.values()
             )
-            
-            exposure_ratio = total_exposure / self.account_size if self.account_size > 0 else 0
-            position_concentration = max(
-                (pos.get("market_value", 0) / self.account_size for pos in self.active_positions.values()),
-                default=0
+
+            exposure_ratio = (
+                total_exposure / self.account_size if self.account_size > 0 else 0
             )
-            
+            position_concentration = max(
+                (
+                    pos.get("market_value", 0) / self.account_size
+                    for pos in self.active_positions.values()
+                ),
+                default=0,
+            )
+
             # Record portfolio risk metrics
             metrics.update_portfolio_risk_metrics(
                 total_value=total_equity,
                 var_95=abs(daily_pnl) * 1.65,  # Simple VaR approximation
                 beta=1.0,  # Would calculate against benchmark
                 concentration_risk=position_concentration,
-                sector_exposures={}  # Would calculate from position sectors
+                sector_exposures={},  # Would calculate from position sectors
             )
 
             portfolio_data = {
@@ -391,7 +400,7 @@ class TradingManager:
                 "risk_status": await self._get_portfolio_risk_status(),
                 "last_updated": datetime.now().isoformat(),
             }
-            
+
             return portfolio_data
 
         except Exception as e:

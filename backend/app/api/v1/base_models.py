@@ -22,15 +22,11 @@ class BaseSymbolModel(BaseModel):
 class BaseTimestampedModel(BaseModel):
     """Base model with automatic timestamp"""
 
-    timestamp: datetime = Field(
-        default_factory=datetime.now,
-        description="Timestamp"
-    )
+    timestamp: datetime = Field(default_factory=datetime.now, description="Timestamp")
 
 
 class BaseResponseModel(BaseTimestampedModel):
     """Base response model with timestamp"""
-    pass
 
 
 class BaseMetricsModel(BaseModel):

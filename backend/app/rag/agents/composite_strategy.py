@@ -5,9 +5,8 @@ Combines multiple trading strategies using ensemble methods with StrategyPlugin 
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List
 
-import numpy as np
 from langchain.agents import Tool
 
 from app.monitoring.metrics import PrometheusMetrics
@@ -23,18 +22,23 @@ class CompositeStrategy:
         self.name = "composite"
 
         # Ensemble configuration
-        self.ensemble_method = config.get("ensemble_method", "weighted_voting")  # or "majority_voting", "confidence_weighted"
+        self.ensemble_method = config.get(
+            "ensemble_method", "weighted_voting"
+        )  # or "majority_voting", "confidence_weighted"
         self.min_strategies_agreement = config.get("min_strategies_agreement", 2)
         self.confidence_threshold = config.get("confidence_threshold", 0.65)
 
         # Strategy weights (can be dynamically adjusted based on performance)
-        self.strategy_weights = config.get("strategy_weights", {
-            "markov": 0.25,
-            "wyckoff": 0.20,
-            "fibonacci": 0.15,
-            "candlestick": 0.15,
-            "technical": 0.25
-        })
+        self.strategy_weights = config.get(
+            "strategy_weights",
+            {
+                "markov": 0.25,
+                "wyckoff": 0.20,
+                "fibonacci": 0.15,
+                "candlestick": 0.15,
+                "technical": 0.25,
+            },
+        )
 
         # Initialize sub-strategies
         self.strategies = {}
@@ -44,19 +48,27 @@ class CompositeStrategy:
         """Initialize all available sub-strategies"""
         try:
             # Import and initialize individual strategies
-            from app.rag.agents.strategy_agent import MarkovStrategy, WyckoffStrategy, FibonacciStrategy
             from app.rag.agents.candlestick_strategy import CandlestickStrategy
+            from app.rag.agents.strategy_agent import (
+                FibonacciStrategy,
+                MarkovStrategy,
+                WyckoffStrategy,
+            )
             from app.rag.agents.technical_strategy import TechnicalStrategy
 
             self.strategies = {
                 "markov": MarkovStrategy(self.config.get("markov_config", {})),
                 "wyckoff": WyckoffStrategy(self.config.get("wyckoff_config", {})),
                 "fibonacci": FibonacciStrategy(self.config.get("fibonacci_config", {})),
-                "candlestick": CandlestickStrategy(self.config.get("candlestick_config", {})),
+                "candlestick": CandlestickStrategy(
+                    self.config.get("candlestick_config", {})
+                ),
                 "technical": TechnicalStrategy(self.config.get("technical_config", {})),
             }
 
-            logger.info(f"✅ Composite strategy initialized with {len(self.strategies)} sub-strategies")
+            logger.info(
+                f"✅ Composite strategy initialized with {len(self.strategies)} sub-strategies"
+            )
 
         except Exception as e:
             logger.error(f"⚠️ Composite strategy initialization failed: {e}")
@@ -89,7 +101,7 @@ class CompositeStrategy:
 
         # Add tools from all sub-strategies
         for strategy_name, strategy in self.strategies.items():
-            if hasattr(strategy, 'get_tools'):
+            if hasattr(strategy, "get_tools"):
                 strategy_tools = strategy.get_tools()
                 # Prefix tool names to avoid conflicts
                 for tool in strategy_tools:
@@ -113,29 +125,35 @@ class CompositeStrategy:
             # Run analysis for each strategy
             for strategy_name, strategy in self.strategies.items():
                 try:
-                    if hasattr(strategy, 'analyze_market'):
+                    if hasattr(strategy, "analyze_market"):
                         analysis = strategy.analyze_market(market_data)
                         individual_analyses[strategy_name] = analysis
 
                         # Generate signal from analysis
-                        if hasattr(strategy, 'generate_signal') and "error" not in analysis:
+                        if (
+                            hasattr(strategy, "generate_signal")
+                            and "error" not in analysis
+                        ):
                             signal = strategy.generate_signal(analysis, market_data)
                             individual_signals[strategy_name] = signal
                         else:
                             individual_signals[strategy_name] = {
                                 "action": "HOLD",
                                 "confidence": 0.0,
-                                "reasoning": "Analysis failed or insufficient data"
+                                "reasoning": "Analysis failed or insufficient data",
                             }
 
                 except Exception as e:
                     logger.warning(f"{strategy_name} strategy analysis failed: {e}")
                     failed_strategies.append(strategy_name)
-                    individual_analyses[strategy_name] = {"error": "analysis_failed", "message": str(e)}
+                    individual_analyses[strategy_name] = {
+                        "error": "analysis_failed",
+                        "message": str(e),
+                    }
                     individual_signals[strategy_name] = {
                         "action": "HOLD",
                         "confidence": 0.0,
-                        "reasoning": f"Strategy failed: {str(e)}"
+                        "reasoning": f"Strategy failed: {str(e)}",
                     }
 
             # Calculate ensemble signal
@@ -168,7 +186,9 @@ class CompositeStrategy:
             logger.error(f"Composite strategy analysis failed for {symbol}: {str(e)}")
             return {"error": "composite_analysis_failed", "message": str(e)}
 
-    def generate_signal(self, analysis: Dict[str, Any], market_data: Dict[str, Any]) -> Dict[str, str]:
+    def generate_signal(
+        self, analysis: Dict[str, Any], market_data: Dict[str, Any]
+    ) -> Dict[str, str]:
         """Generate composite trading signal from ensemble analysis"""
         if "error" in analysis:
             return {
@@ -200,13 +220,16 @@ class CompositeStrategy:
         if strategy_agreement < 0.5:
             return {
                 "action": "HOLD",
-                "confidence": ensemble_confidence * 0.7,  # Reduce confidence for low agreement
+                "confidence": ensemble_confidence
+                * 0.7,  # Reduce confidence for low agreement
                 "reasoning": f"Low strategy agreement: {strategy_agreement:.1%}, reducing confidence",
             }
 
         # Generate detailed reasoning
         reasoning = f"Ensemble signal from {successful_strategies} strategies "
-        reasoning += f"(agreement: {strategy_agreement:.1%}, method: {self.ensemble_method})"
+        reasoning += (
+            f"(agreement: {strategy_agreement:.1%}, method: {self.ensemble_method})"
+        )
 
         return {
             "action": ensemble_signal,
@@ -216,7 +239,9 @@ class CompositeStrategy:
             "agreement_score": strategy_agreement,
         }
 
-    def _calculate_ensemble_signal(self, individual_signals: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    def _calculate_ensemble_signal(
+        self, individual_signals: Dict[str, Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """Calculate ensemble signal using configured method"""
         if self.ensemble_method == "weighted_voting":
             return self._weighted_voting_ensemble(individual_signals)
@@ -228,7 +253,9 @@ class CompositeStrategy:
             # Default to weighted voting
             return self._weighted_voting_ensemble(individual_signals)
 
-    def _weighted_voting_ensemble(self, signals: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    def _weighted_voting_ensemble(
+        self, signals: Dict[str, Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """Ensemble using predefined strategy weights"""
         action_scores = {"BUY": 0.0, "SELL": 0.0, "HOLD": 0.0}
         total_weight = 0.0
@@ -249,7 +276,7 @@ class CompositeStrategy:
             return {
                 "signal": "HOLD",
                 "confidence": 0.0,
-                "reasoning": "No valid strategy signals"
+                "reasoning": "No valid strategy signals",
             }
 
         # Normalize scores
@@ -267,10 +294,12 @@ class CompositeStrategy:
         return {
             "signal": dominant_action,
             "confidence": ensemble_confidence,
-            "reasoning": reasoning
+            "reasoning": reasoning,
         }
 
-    def _majority_voting_ensemble(self, signals: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    def _majority_voting_ensemble(
+        self, signals: Dict[str, Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """Ensemble using simple majority voting"""
         votes = {"BUY": 0, "SELL": 0, "HOLD": 0}
         valid_signals = 0
@@ -287,7 +316,7 @@ class CompositeStrategy:
             return {
                 "signal": "HOLD",
                 "confidence": 0.0,
-                "reasoning": "No valid strategy votes"
+                "reasoning": "No valid strategy votes",
             }
 
         # Find majority
@@ -302,10 +331,12 @@ class CompositeStrategy:
         return {
             "signal": dominant_action,
             "confidence": ensemble_confidence,
-            "reasoning": reasoning
+            "reasoning": reasoning,
         }
 
-    def _confidence_weighted_ensemble(self, signals: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    def _confidence_weighted_ensemble(
+        self, signals: Dict[str, Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """Ensemble weighted by individual strategy confidence"""
         action_scores = {"BUY": 0.0, "SELL": 0.0, "HOLD": 0.0}
         total_confidence = 0.0
@@ -325,7 +356,7 @@ class CompositeStrategy:
             return {
                 "signal": "HOLD",
                 "confidence": 0.0,
-                "reasoning": "No confident strategy signals"
+                "reasoning": "No confident strategy signals",
             }
 
         # Normalize by total confidence
@@ -340,13 +371,18 @@ class CompositeStrategy:
         return {
             "signal": dominant_action,
             "confidence": ensemble_confidence,
-            "reasoning": reasoning
+            "reasoning": reasoning,
         }
 
-    def _calculate_strategy_agreement(self, signals: Dict[str, Dict[str, Any]]) -> float:
+    def _calculate_strategy_agreement(
+        self, signals: Dict[str, Dict[str, Any]]
+    ) -> float:
         """Calculate agreement level between strategies"""
-        actions = [signal.get("action", "HOLD") for signal in signals.values()
-                  if signal.get("confidence", 0) > 0.3]
+        actions = [
+            signal.get("action", "HOLD")
+            for signal in signals.values()
+            if signal.get("confidence", 0) > 0.3
+        ]
 
         if len(actions) < 2:
             return 0.0
@@ -374,9 +410,12 @@ class CompositeStrategy:
             for strategy in self.strategy_weights:
                 if strategy in new_weights:
                     self.strategy_weights[strategy] = (
-                        (1 - smoothing_factor) * self.strategy_weights[strategy] +
-                        smoothing_factor * new_weights[strategy]
-                    )
+                        1 - smoothing_factor
+                    ) * self.strategy_weights[
+                        strategy
+                    ] + smoothing_factor * new_weights[
+                        strategy
+                    ]
 
             logger.info(f"Updated strategy weights: {self.strategy_weights}")
 
@@ -392,7 +431,7 @@ class CompositeStrategy:
             market_dict = {
                 "symbol": data_parts[0].strip(),
                 "current_price": float(data_parts[1].strip()),
-                "volume": float(data_parts[2].strip()) if len(data_parts) > 2 else 1000
+                "volume": float(data_parts[2].strip()) if len(data_parts) > 2 else 1000,
             }
 
             analysis = self.analyze_market(market_dict)
@@ -471,7 +510,11 @@ class CompositeStrategy:
             elif agreement >= 0.6:
                 validation_score += 0.2
 
-            quality_rating = "High" if validation_score >= 0.8 else "Medium" if validation_score >= 0.5 else "Low"
+            quality_rating = (
+                "High"
+                if validation_score >= 0.8
+                else "Medium" if validation_score >= 0.5 else "Low"
+            )
 
             return f"Signal quality: {quality_rating} (score: {validation_score:.2f})"
 

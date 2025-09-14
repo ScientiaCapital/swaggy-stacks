@@ -15,6 +15,7 @@ from .ollama_client import OllamaClient
 @dataclass
 class MarketAnalysis:
     """Market analysis result from AI agent"""
+
     symbol: str
     sentiment: str  # bullish, bearish, neutral
     confidence: float  # 0.0 to 1.0
@@ -51,19 +52,21 @@ class MarketAnalystService(BaseAIAgent):
             data_sections = {
                 "Market Data": {
                     "Current Price": f"${market_data.get('current_price', 'N/A')}",
-                    "Volume": market_data.get('volume', 'N/A'),
+                    "Volume": market_data.get("volume", "N/A"),
                     "52W High": f"${market_data.get('high_52w', 'N/A')}",
                     "52W Low": f"${market_data.get('low_52w', 'N/A')}",
-                    "Market Cap": market_data.get('market_cap', 'N/A')
+                    "Market Cap": market_data.get("market_cap", "N/A"),
                 },
                 "Technical Indicators": {
-                    "RSI": technical_indicators.get('rsi', 'N/A'),
-                    "MACD": technical_indicators.get('macd', 'N/A'),
+                    "RSI": technical_indicators.get("rsi", "N/A"),
+                    "MACD": technical_indicators.get("macd", "N/A"),
                     "MA20": f"${technical_indicators.get('ma20', 'N/A')}",
                     "MA50": f"${technical_indicators.get('ma50', 'N/A')}",
-                    "Bollinger Bands": technical_indicators.get('bollinger_bands', 'N/A'),
-                    "ATR": technical_indicators.get('atr', 'N/A')
-                }
+                    "Bollinger Bands": technical_indicators.get(
+                        "bollinger_bands", "N/A"
+                    ),
+                    "ATR": technical_indicators.get("atr", "N/A"),
+                },
             }
 
             if context:
@@ -76,7 +79,7 @@ class MarketAnalystService(BaseAIAgent):
                 "key_factors": ["factor1", "factor2", "factor3"],
                 "recommendations": ["rec1", "rec2"],
                 "risk_level": "low|medium|high",
-                "reasoning": "detailed explanation of your analysis"
+                "reasoning": "detailed explanation of your analysis",
             }
 
             # Build prompt
@@ -95,24 +98,20 @@ class MarketAnalystService(BaseAIAgent):
                 "key_factors": ["Unable to analyze"],
                 "recommendations": ["Review data quality"],
                 "risk_level": "medium",
-                "reasoning": "Analysis failed"
+                "reasoning": "Analysis failed",
             }
 
             analysis_data = self._parse_json_response(response, default_values)
 
             # Validate and normalize data
             sentiment = self._validate_choice(
-                analysis_data["sentiment"],
-                ["bullish", "bearish", "neutral"],
-                "neutral"
+                analysis_data["sentiment"], ["bullish", "bearish", "neutral"], "neutral"
             )
 
             confidence = self._validate_confidence(analysis_data["confidence"])
 
             risk_level = self._validate_choice(
-                analysis_data["risk_level"],
-                ["low", "medium", "high"],
-                "medium"
+                analysis_data["risk_level"], ["low", "medium", "high"], "medium"
             )
 
             return MarketAnalysis(
@@ -123,7 +122,7 @@ class MarketAnalystService(BaseAIAgent):
                 recommendations=analysis_data.get("recommendations", []),
                 risk_level=risk_level,
                 reasoning=analysis_data.get("reasoning", ""),
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
 
         except Exception as e:
@@ -136,11 +135,18 @@ class MarketAnalystService(BaseAIAgent):
                 recommendations=["Retry analysis"],
                 risk_level="high",
                 reasoning=f"Error: {str(e)}",
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
 
-    async def process(self, symbol: str, market_data: Dict[str, Any],
-                     technical_indicators: Dict[str, Any], **kwargs) -> MarketAnalysis:
+    async def process(
+        self,
+        symbol: str,
+        market_data: Dict[str, Any],
+        technical_indicators: Dict[str, Any],
+        **kwargs,
+    ) -> MarketAnalysis:
         """Main processing method for BaseAIAgent interface"""
-        context = kwargs.get('context', '')
-        return await self.analyze_market(symbol, market_data, technical_indicators, context)
+        context = kwargs.get("context", "")
+        return await self.analyze_market(
+            symbol, market_data, technical_indicators, context
+        )

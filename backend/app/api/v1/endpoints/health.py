@@ -3,7 +3,7 @@ Health check endpoints for MCP servers and system components
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -11,7 +11,6 @@ from pydantic import BaseModel
 from app.core.logging import get_logger
 from app.mcp.orchestrator import (
     MCPOrchestrator,
-    MCPServerStatus,
     MCPServerType,
     get_mcp_orchestrator,
 )

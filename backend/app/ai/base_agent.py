@@ -6,10 +6,9 @@ Eliminates duplicate patterns and provides shared functionality
 
 import json
 import os
-import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import structlog
 
@@ -29,7 +28,9 @@ class BaseAIAgent(ABC):
     - Agent state tracking
     """
 
-    def __init__(self, ollama_client: OllamaClient, agent_type: str, prompt_filename: str):
+    def __init__(
+        self, ollama_client: OllamaClient, agent_type: str, prompt_filename: str
+    ):
         self.ollama_client = ollama_client
         self.agent_type = agent_type
         self.system_prompt = self._load_prompt(prompt_filename)
@@ -56,13 +57,9 @@ class BaseAIAgent(ABC):
     @abstractmethod
     def _get_default_prompt(self) -> str:
         """Get default system prompt if file loading fails"""
-        pass
 
     async def _generate_response(
-        self,
-        prompt: str,
-        max_tokens: int = 1024,
-        temperature: float = 0.7
+        self, prompt: str, max_tokens: int = 1024, temperature: float = 0.7
     ) -> str:
         """Generate AI response with error handling and tracking"""
         try:
@@ -74,24 +71,30 @@ class BaseAIAgent(ABC):
                 model_key=self.agent_type,
                 system_prompt=self.system_prompt,
                 max_tokens=max_tokens,
-                temperature=temperature
+                temperature=temperature,
             )
 
-            logger.debug("Generated AI response",
-                        agent_type=self.agent_type,
-                        prompt_length=len(prompt),
-                        response_length=len(response))
+            logger.debug(
+                "Generated AI response",
+                agent_type=self.agent_type,
+                prompt_length=len(prompt),
+                response_length=len(response),
+            )
 
             return response
 
         except Exception as e:
             self.error_count += 1
-            logger.error("AI response generation failed",
-                        agent_type=self.agent_type,
-                        error=str(e))
+            logger.error(
+                "AI response generation failed",
+                agent_type=self.agent_type,
+                error=str(e),
+            )
             raise
 
-    def _parse_json_response(self, response: str, default_values: Dict[str, Any]) -> Dict[str, Any]:
+    def _parse_json_response(
+        self, response: str, default_values: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Parse JSON response with robust fallback handling"""
         try:
             # Clean response - remove markdown code blocks if present
@@ -119,25 +122,29 @@ class BaseAIAgent(ABC):
 
             # Validate that we got a dictionary
             if not isinstance(parsed, dict):
-                logger.warning("Parsed JSON is not a dictionary", type=type(parsed).__name__)
+                logger.warning(
+                    "Parsed JSON is not a dictionary", type=type(parsed).__name__
+                )
                 return default_values
 
             # Merge with defaults to ensure all required fields exist
             result = {**default_values, **parsed}
 
-            logger.debug("Successfully parsed JSON response",
-                        fields=list(result.keys()))
+            logger.debug(
+                "Successfully parsed JSON response", fields=list(result.keys())
+            )
 
             return result
 
         except json.JSONDecodeError as e:
-            logger.warning("Failed to parse JSON response",
-                          error=str(e),
-                          response_preview=response[:200])
+            logger.warning(
+                "Failed to parse JSON response",
+                error=str(e),
+                response_preview=response[:200],
+            )
             return default_values
         except Exception as e:
-            logger.error("Unexpected error parsing JSON response",
-                        error=str(e))
+            logger.error("Unexpected error parsing JSON response", error=str(e))
             return default_values
 
     def _validate_confidence(self, confidence: Any) -> float:
@@ -154,9 +161,9 @@ class BaseAIAgent(ABC):
         if str(value).lower() in [choice.lower() for choice in valid_choices]:
             return str(value).lower()
         else:
-            logger.warning("Invalid choice value",
-                          value=value,
-                          valid_choices=valid_choices)
+            logger.warning(
+                "Invalid choice value", value=value, valid_choices=valid_choices
+            )
             return default
 
     def _build_standard_prompt_template(
@@ -164,7 +171,7 @@ class BaseAIAgent(ABC):
         symbol: str,
         data_sections: Dict[str, Any],
         instruction: str,
-        json_schema: Dict[str, Any]
+        json_schema: Dict[str, Any],
     ) -> str:
         """Build standardized prompt template"""
         sections = []
@@ -199,14 +206,15 @@ class BaseAIAgent(ABC):
     def get_agent_stats(self) -> Dict[str, Any]:
         """Get agent execution statistics"""
         return {
-            'agent_type': self.agent_type,
-            'execution_count': self.execution_count,
-            'error_count': self.error_count,
-            'error_rate': self.error_count / max(self.execution_count, 1),
-            'last_execution': self.last_execution.isoformat() if self.last_execution else None
+            "agent_type": self.agent_type,
+            "execution_count": self.execution_count,
+            "error_count": self.error_count,
+            "error_rate": self.error_count / max(self.execution_count, 1),
+            "last_execution": (
+                self.last_execution.isoformat() if self.last_execution else None
+            ),
         }
 
     @abstractmethod
     async def process(self, *args, **kwargs) -> Any:
         """Main processing method - must be implemented by subclasses"""
-        pass

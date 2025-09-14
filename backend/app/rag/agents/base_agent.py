@@ -3,26 +3,24 @@ Base Trading Agent Framework with LangChain Integration
 Foundation for all specialized trading strategy agents
 """
 
-import asyncio
 import json
 import logging
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
-from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 import asyncpg
 import numpy as np
 from langchain.agents import Tool
 from langchain.memory import ConversationBufferMemory
-from langchain.schema import AIMessage, BaseMessage, HumanMessage
 
+from app.rag.services.context_builder import TradingContextBuilder
 from app.rag.services.embedding_factory import get_embedding_service
-from app.rag.services.memory_manager import AgentMemoryManager, MemoryType
+from app.rag.services.memory_manager import AgentMemoryManager
 from app.rag.services.rag_service import AgentRAGService
 from app.rag.services.tool_registry import LangChainToolRegistry
-from app.rag.services.context_builder import TradingContextBuilder
 from app.rag.types import TradingSignal
 
 logger = logging.getLogger(__name__)
@@ -145,7 +143,7 @@ class BaseTradingAgent(ABC):
             # Initialize RAG service for pattern retrieval and decision augmentation
             self.rag_service = AgentRAGService(
                 db_connection_string=self.db_connection_string,
-                memory_manager=self.memory_manager
+                memory_manager=self.memory_manager,
             )
             await self.rag_service.initialize()
 
@@ -155,16 +153,19 @@ class BaseTradingAgent(ABC):
             self.context_builder.memory_manager = self.memory_manager
             # Note: context_builder will be fully integrated when we add the initialize method
 
-            logger.info(f"✅ Agent intelligence infrastructure initialized for {self.agent_name}")
-            
+            logger.info(
+                f"✅ Agent intelligence infrastructure initialized for {self.agent_name}"
+            )
+
         except Exception as e:
-            logger.error(f"Failed to initialize intelligence components for {self.agent_name}: {e}")
+            logger.error(
+                f"Failed to initialize intelligence components for {self.agent_name}: {e}"
+            )
             raise
 
     @abstractmethod
     async def _create_tools(self) -> List[Tool]:
         """Create LangChain tools specific to this agent's strategy"""
-        pass
 
     @abstractmethod
     async def analyze_market(self, market_data: Dict[str, Any]) -> TradingSignal:
@@ -172,12 +173,10 @@ class BaseTradingAgent(ABC):
         Analyze market data and generate a trading signal
         This is the main method each agent must implement
         """
-        pass
 
     @abstractmethod
     def _extract_market_features(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
         """Extract strategy-specific features from market data"""
-        pass
 
     async def find_similar_patterns(
         self,
@@ -320,7 +319,7 @@ class BaseTradingAgent(ABC):
                 patterns = await conn.fetch(
                     """
                     SELECT COUNT(*) as pattern_count, AVG(success_rate) as avg_success_rate
-                    FROM agent_patterns 
+                    FROM agent_patterns
                     WHERE agent_type = $1 AND is_active = TRUE
                 """,
                     self.agent_name,
@@ -419,7 +418,7 @@ class BaseTradingAgent(ABC):
             async with self._get_db_connection() as conn:
                 stats = await conn.fetchrow(
                     """
-                    SELECT * FROM agent_performance_summary 
+                    SELECT * FROM agent_performance_summary
                     WHERE agent_type = $1 AND strategy_name = $2
                 """,
                     self.agent_name,
@@ -453,7 +452,7 @@ class BaseTradingAgent(ABC):
             async with self._get_db_connection() as conn:
                 result = await conn.fetchval("SELECT 1")
                 health_info["database_connected"] = result == 1
-        except:
+        except Exception:
             health_info["database_connected"] = False
 
         # Test embedding service
@@ -463,7 +462,7 @@ class BaseTradingAgent(ABC):
                 health_info["embedding_service"] = embed_health["status"]
             else:
                 health_info["embedding_service"] = "not_initialized"
-        except:
+        except Exception:
             health_info["embedding_service"] = "error"
 
         return health_info

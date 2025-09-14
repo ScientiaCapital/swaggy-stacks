@@ -3,12 +3,11 @@ Modern Technical Analysis Indicators
 Implementation of advanced indicators from Sofien Kaabar's "New Technical Indicators in Python"
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict
 
 import numpy as np
 import pandas as pd
 import structlog
-from scipy import signal
 
 from app.core.exceptions import TradingError
 
@@ -48,33 +47,41 @@ class ModernIndicators:
             indicators = {}
 
             # Adaptive Indicators
-            indicators.update(self._calculate_adaptive_indicators(
-                open_prices, high_prices, low_prices, close_prices, volume
-            ))
+            indicators.update(
+                self._calculate_adaptive_indicators(
+                    open_prices, high_prices, low_prices, close_prices, volume
+                )
+            )
 
             # Contrarian Indicators
-            indicators.update(self._calculate_contrarian_indicators(
-                high_prices, low_prices, close_prices
-            ))
+            indicators.update(
+                self._calculate_contrarian_indicators(
+                    high_prices, low_prices, close_prices
+                )
+            )
 
             # Pattern Recognition Indicators
-            indicators.update(self._calculate_pattern_indicators(
-                high_prices, low_prices, close_prices
-            ))
+            indicators.update(
+                self._calculate_pattern_indicators(
+                    high_prices, low_prices, close_prices
+                )
+            )
 
             # Advanced Momentum Indicators
-            indicators.update(self._calculate_advanced_momentum_indicators(
-                close_prices, volume
-            ))
+            indicators.update(
+                self._calculate_advanced_momentum_indicators(close_prices, volume)
+            )
 
             # Market Timing Indicators
-            indicators.update(self._calculate_market_timing_indicators(
-                open_prices, high_prices, low_prices, close_prices, volume
-            ))
+            indicators.update(
+                self._calculate_market_timing_indicators(
+                    open_prices, high_prices, low_prices, close_prices, volume
+                )
+            )
 
             # Generate composite modern signals
-            indicators["modern_composite_signals"] = self._generate_modern_composite_signals(
-                indicators
+            indicators["modern_composite_signals"] = (
+                self._generate_modern_composite_signals(indicators)
             )
 
             logger.info("Modern indicators calculated successfully")
@@ -85,8 +92,12 @@ class ModernIndicators:
             raise TradingError(f"Modern indicator analysis failed: {str(e)}")
 
     def _calculate_adaptive_indicators(
-        self, open_prices: np.ndarray, high_prices: np.ndarray,
-        low_prices: np.ndarray, close_prices: np.ndarray, volume: np.ndarray
+        self,
+        open_prices: np.ndarray,
+        high_prices: np.ndarray,
+        low_prices: np.ndarray,
+        close_prices: np.ndarray,
+        volume: np.ndarray,
     ) -> Dict:
         """Calculate adaptive indicators that adjust to market conditions"""
         indicators = {}
@@ -124,8 +135,9 @@ class ModernIndicators:
 
         return indicators
 
-    def _calculate_advanced_momentum_indicators(self, close_prices: np.ndarray,
-                                              volume: np.ndarray) -> Dict:
+    def _calculate_advanced_momentum_indicators(
+        self, close_prices: np.ndarray, volume: np.ndarray
+    ) -> Dict:
         """Calculate advanced momentum indicators"""
         indicators = {}
 
@@ -140,8 +152,9 @@ class ModernIndicators:
 
         return indicators
 
-    def _calculate_k_envelopes(self, close_prices: np.ndarray, period: int = 20,
-                             multiplier: float = 1.5) -> Dict:
+    def _calculate_k_envelopes(
+        self, close_prices: np.ndarray, period: int = 20, multiplier: float = 1.5
+    ) -> Dict:
         """
         Calculate K's Envelopes - Dynamic support/resistance bands
 
@@ -165,7 +178,7 @@ class ModernIndicators:
             close_prices - k_lower,
             k_upper - k_lower,
             out=np.zeros_like(close_prices),
-            where=(k_upper - k_lower) != 0
+            where=(k_upper - k_lower) != 0,
         )
 
         # K's Envelope width (volatility measure)
@@ -173,7 +186,7 @@ class ModernIndicators:
             k_upper - k_lower,
             k_middle,
             out=np.zeros_like(k_middle),
-            where=k_middle != 0
+            where=k_middle != 0,
         )
 
         indicators["k_envelope_upper"] = k_upper
@@ -184,8 +197,13 @@ class ModernIndicators:
 
         return indicators
 
-    def _calculate_kama(self, close_prices: np.ndarray, period: int = 14,
-                       fast_sc: float = 2, slow_sc: float = 30) -> Dict:
+    def _calculate_kama(
+        self,
+        close_prices: np.ndarray,
+        period: int = 14,
+        fast_sc: float = 2,
+        slow_sc: float = 30,
+    ) -> Dict:
         """
         Calculate KAMA - Kaufman Adaptive Moving Average
 
@@ -196,14 +214,13 @@ class ModernIndicators:
         # Calculate Efficiency Ratio (ER)
         price_changes = np.abs(np.diff(close_prices))
         direction = np.abs(close_prices[period:] - close_prices[:-period])
-        volatility = pd.Series(price_changes).rolling(window=period).sum().values[period-1:]
+        volatility = (
+            pd.Series(price_changes).rolling(window=period).sum().values[period - 1 :]
+        )
 
         # Avoid division by zero
         efficiency_ratio = np.divide(
-            direction,
-            volatility,
-            out=np.zeros_like(direction),
-            where=volatility != 0
+            direction, volatility, out=np.zeros_like(direction), where=volatility != 0
         )
 
         # Smoothing Constant (SC)
@@ -221,14 +238,16 @@ class ModernIndicators:
         for i in range(period, len(close_prices)):
             sc_idx = i - period
             if sc_idx < len(smoothing_constant):
-                kama[i] = kama[i-1] + smoothing_constant[sc_idx] * (close_prices[i] - kama[i-1])
+                kama[i] = kama[i - 1] + smoothing_constant[sc_idx] * (
+                    close_prices[i] - kama[i - 1]
+                )
             else:
-                kama[i] = kama[i-1]
+                kama[i] = kama[i - 1]
 
         indicators["kama"] = kama
-        indicators["kama_efficiency_ratio"] = np.concatenate([
-            np.full(period, np.nan), efficiency_ratio
-        ])
+        indicators["kama_efficiency_ratio"] = np.concatenate(
+            [np.full(period, np.nan), efficiency_ratio]
+        )
 
         return indicators
 
@@ -256,7 +275,7 @@ class ModernIndicators:
         zlema[0] = corrected_prices[0]
 
         for i in range(1, len(corrected_prices)):
-            zlema[i] = alpha * corrected_prices[i] + (1 - alpha) * zlema[i-1]
+            zlema[i] = alpha * corrected_prices[i] + (1 - alpha) * zlema[i - 1]
 
         indicators["zlema"] = zlema
 
@@ -281,7 +300,7 @@ class ModernIndicators:
             actual_distances = []
             for j in range(i - period + 1, i + 1):
                 if j > 0:
-                    actual_distances.append(abs(close_prices[j] - close_prices[j-1]))
+                    actual_distances.append(abs(close_prices[j] - close_prices[j - 1]))
 
             actual_distance = sum(actual_distances) if actual_distances else 1
 
@@ -301,8 +320,9 @@ class ModernIndicators:
 
         return indicators
 
-    def _calculate_fractal_patterns(self, high_prices: np.ndarray,
-                                  low_prices: np.ndarray) -> Dict:
+    def _calculate_fractal_patterns(
+        self, high_prices: np.ndarray, low_prices: np.ndarray
+    ) -> Dict:
         """
         Calculate Fractal Patterns - 5-bar reversal pattern detection
 
@@ -318,17 +338,21 @@ class ModernIndicators:
         # Need at least 5 bars for fractal pattern
         for i in range(2, len(low_prices) - 2):
             # Bullish fractal: current low is lower than 2 bars before and after
-            if (low_prices[i] < low_prices[i-2] and
-                low_prices[i] < low_prices[i-1] and
-                low_prices[i] < low_prices[i+1] and
-                low_prices[i] < low_prices[i+2]):
+            if (
+                low_prices[i] < low_prices[i - 2]
+                and low_prices[i] < low_prices[i - 1]
+                and low_prices[i] < low_prices[i + 1]
+                and low_prices[i] < low_prices[i + 2]
+            ):
                 bullish_fractals[i] = low_prices[i]
 
             # Bearish fractal: current high is higher than 2 bars before and after
-            if (high_prices[i] > high_prices[i-2] and
-                high_prices[i] > high_prices[i-1] and
-                high_prices[i] > high_prices[i+1] and
-                high_prices[i] > high_prices[i+2]):
+            if (
+                high_prices[i] > high_prices[i - 2]
+                and high_prices[i] > high_prices[i - 1]
+                and high_prices[i] > high_prices[i + 1]
+                and high_prices[i] > high_prices[i + 2]
+            ):
                 bearish_fractals[i] = high_prices[i]
 
         indicators["fractal_bullish"] = bullish_fractals
@@ -406,8 +430,16 @@ class ModernIndicators:
             signals["fractal_bias"] = indicators.get("fractal_bias", "NEUTRAL")
 
             # Advanced momentum signals
-            rvi = indicators.get("rvi", [0])[-1] if len(indicators.get("rvi", [])) > 0 else 0
-            rvi_signal = indicators.get("rvi_signal", [0])[-1] if len(indicators.get("rvi_signal", [])) > 0 else 0
+            rvi = (
+                indicators.get("rvi", [0])[-1]
+                if len(indicators.get("rvi", [])) > 0
+                else 0
+            )
+            rvi_signal = (
+                indicators.get("rvi_signal", [0])[-1]
+                if len(indicators.get("rvi_signal", [])) > 0
+                else 0
+            )
 
             if not np.isnan(rvi) and not np.isnan(rvi_signal):
                 if rvi > rvi_signal and rvi > 0:
@@ -420,7 +452,11 @@ class ModernIndicators:
                 signals["rvi_momentum"] = "NEUTRAL"
 
             # Coppock Curve signal
-            coppock = indicators.get("coppock_curve", [0])[-1] if len(indicators.get("coppock_curve", [])) > 0 else 0
+            coppock = (
+                indicators.get("coppock_curve", [0])[-1]
+                if len(indicators.get("coppock_curve", [])) > 0
+                else 0
+            )
             if not np.isnan(coppock):
                 if coppock > 0:
                     signals["coppock"] = "BULLISH"
@@ -432,8 +468,16 @@ class ModernIndicators:
                 signals["coppock"] = "NEUTRAL"
 
             # KST Oscillator signal
-            kst = indicators.get("kst", [0])[-1] if len(indicators.get("kst", [])) > 0 else 0
-            kst_signal = indicators.get("kst_signal", [0])[-1] if len(indicators.get("kst_signal", [])) > 0 else 0
+            kst = (
+                indicators.get("kst", [0])[-1]
+                if len(indicators.get("kst", [])) > 0
+                else 0
+            )
+            kst_signal = (
+                indicators.get("kst_signal", [0])[-1]
+                if len(indicators.get("kst_signal", [])) > 0
+                else 0
+            )
 
             if not np.isnan(kst) and not np.isnan(kst_signal):
                 if kst > kst_signal:
@@ -456,9 +500,13 @@ class ModernIndicators:
 
             # PFE momentum weight: 20%
             if signals["pfe_momentum"] in ["STRONG_BULLISH", "BULLISH"]:
-                signal_score += 0.2 if signals["pfe_momentum"] == "STRONG_BULLISH" else 0.1
+                signal_score += (
+                    0.2 if signals["pfe_momentum"] == "STRONG_BULLISH" else 0.1
+                )
             elif signals["pfe_momentum"] in ["STRONG_BEARISH", "BEARISH"]:
-                signal_score -= 0.2 if signals["pfe_momentum"] == "STRONG_BEARISH" else 0.1
+                signal_score -= (
+                    0.2 if signals["pfe_momentum"] == "STRONG_BEARISH" else 0.1
+                )
 
             # RVI momentum weight: 15%
             if signals["rvi_momentum"] == "BULLISH":
@@ -517,16 +565,20 @@ class ModernIndicators:
         return signals
 
     def _calculate_market_timing_indicators(
-        self, open_prices: np.ndarray, high_prices: np.ndarray,
-        low_prices: np.ndarray, close_prices: np.ndarray, volume: np.ndarray
+        self,
+        open_prices: np.ndarray,
+        high_prices: np.ndarray,
+        low_prices: np.ndarray,
+        close_prices: np.ndarray,
+        volume: np.ndarray,
     ) -> Dict:
         """Calculate market timing indicators"""
         indicators = {}
 
         # Hindenburg Omen
-        indicators.update(self._calculate_hindenburg_omen(
-            high_prices, low_prices, close_prices
-        ))
+        indicators.update(
+            self._calculate_hindenburg_omen(high_prices, low_prices, close_prices)
+        )
 
         # McClellan Oscillator (simplified single-stock version)
         indicators.update(self._calculate_mcclellan_oscillator(close_prices))
@@ -559,10 +611,7 @@ class ModernIndicators:
 
         # Calculate RVI
         rvi = np.divide(
-            co_smooth,
-            hl_smooth,
-            out=np.zeros_like(co_smooth),
-            where=hl_smooth != 0
+            co_smooth, hl_smooth, out=np.zeros_like(co_smooth), where=hl_smooth != 0
         )
 
         # Calculate RVI signal line (4-period smoothed RVI)
@@ -600,7 +649,7 @@ class ModernIndicators:
         coppock = np.zeros_like(close_prices)
         for i in range(9, len(close_prices)):
             if i >= 14:  # Ensure we have enough data
-                coppock[i] = np.sum(roc_sum[i-9:i+1] * weights)
+                coppock[i] = np.sum(roc_sum[i - 9 : i + 1] * weights)
 
         indicators["coppock_curve"] = coppock
 
@@ -633,7 +682,12 @@ class ModernIndicators:
         roc_30_smooth = pd.Series(roc_30).rolling(window=15).mean().values
 
         # Calculate KST with different weights
-        kst = (roc_10_smooth * 1) + (roc_15_smooth * 2) + (roc_20_smooth * 3) + (roc_30_smooth * 4)
+        kst = (
+            (roc_10_smooth * 1)
+            + (roc_15_smooth * 2)
+            + (roc_20_smooth * 3)
+            + (roc_30_smooth * 4)
+        )
 
         # Calculate KST signal line
         kst_signal = pd.Series(kst).rolling(window=9).mean().values
@@ -643,8 +697,9 @@ class ModernIndicators:
 
         return indicators
 
-    def _calculate_hindenburg_omen(self, high_prices: np.ndarray,
-                                 low_prices: np.ndarray, close_prices: np.ndarray) -> Dict:
+    def _calculate_hindenburg_omen(
+        self, high_prices: np.ndarray, low_prices: np.ndarray, close_prices: np.ndarray
+    ) -> Dict:
         """
         Calculate Hindenburg Omen
 
@@ -658,11 +713,11 @@ class ModernIndicators:
 
         for i in range(period, len(close_prices)):
             # Check if current price is at or near 52-period high
-            recent_high = np.max(high_prices[i-period:i+1])
+            recent_high = np.max(high_prices[i - period : i + 1])
             near_high = high_prices[i] >= (recent_high * 0.95)  # Within 5% of high
 
             # Check if current price is at or near 52-period low
-            recent_low = np.min(low_prices[i-period:i+1])
+            recent_low = np.min(low_prices[i - period : i + 1])
             near_low = low_prices[i] <= (recent_low * 1.05)  # Within 5% of low
 
             # Simplified Hindenburg condition
@@ -673,7 +728,7 @@ class ModernIndicators:
         # Count recent Hindenburg signals
         hindenburg_count = np.zeros_like(close_prices)
         for i in range(30, len(close_prices)):
-            hindenburg_count[i] = np.sum(hindenburg_signals[i-30:i+1])
+            hindenburg_count[i] = np.sum(hindenburg_signals[i - 30 : i + 1])
 
         indicators["hindenburg_omen"] = hindenburg_signals
         indicators["hindenburg_count"] = hindenburg_count
@@ -711,8 +766,8 @@ class ModernIndicators:
         ema_39[0] = ad_diff[0]
 
         for i in range(1, len(ad_diff)):
-            ema_19[i] = alpha_19 * ad_diff[i] + (1 - alpha_19) * ema_19[i-1]
-            ema_39[i] = alpha_39 * ad_diff[i] + (1 - alpha_39) * ema_39[i-1]
+            ema_19[i] = alpha_19 * ad_diff[i] + (1 - alpha_19) * ema_19[i - 1]
+            ema_39[i] = alpha_39 * ad_diff[i] + (1 - alpha_39) * ema_39[i - 1]
 
         # McClellan Oscillator
         mcclellan = ema_19 - ema_39

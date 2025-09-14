@@ -5,18 +5,16 @@ Leverages the "secret sauce" of specialized Chinese LLMs for trading predictions
 
 import asyncio
 import json
-import logging
-import numpy as np
-import pandas as pd
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple, Union
-from pathlib import Path
+from datetime import datetime
+from typing import Any, Dict, Optional, Union
+
+import pandas as pd
 import structlog
 
 from app.ai.ollama_client import OllamaClient
-from app.analysis.technical_indicators import TechnicalIndicators
 from app.analysis.modern_indicators import ModernIndicators
+from app.analysis.technical_indicators import TechnicalIndicators
 
 logger = structlog.get_logger()
 
@@ -24,6 +22,7 @@ logger = structlog.get_logger()
 @dataclass
 class PredictionResult:
     """Result from LLM ensemble prediction"""
+
     symbol: str
     prediction_type: str  # price_direction, volatility, trend_strength
     prediction_value: Union[str, float]  # BULLISH/BEARISH/NEUTRAL or numeric value
@@ -38,6 +37,7 @@ class PredictionResult:
 @dataclass
 class MarketContext:
     """Market context converted to natural language"""
+
     price_narrative: str
     trend_analysis: str
     volatility_assessment: str
@@ -67,38 +67,47 @@ class LLMPredictor:
                 "context_limit": 32768,  # Largest context window
                 "temperature": 0.3,
                 "weight": 0.3,
-                "strengths": ["mathematical_reasoning", "statistical_analysis", "price_calculations"]
+                "strengths": [
+                    "mathematical_reasoning",
+                    "statistical_analysis",
+                    "price_calculations",
+                ],
             },
             "yi_technical": {
                 "specialization": "technical_analysis",
                 "context_limit": 4096,
                 "temperature": 0.2,
                 "weight": 0.25,
-                "strengths": ["pattern_recognition", "chart_analysis", "technical_indicators"]
+                "strengths": [
+                    "pattern_recognition",
+                    "chart_analysis",
+                    "technical_indicators",
+                ],
             },
             "glm_risk": {
                 "specialization": "risk_management",
                 "context_limit": 8192,
                 "temperature": 0.1,
                 "weight": 0.25,
-                "strengths": ["risk_assessment", "volatility_analysis", "drawdown_prediction"]
+                "strengths": [
+                    "risk_assessment",
+                    "volatility_analysis",
+                    "drawdown_prediction",
+                ],
             },
             "deepseek_lite": {
                 "specialization": "strategy_development",
                 "context_limit": 16384,
                 "temperature": 0.2,
                 "weight": 0.2,
-                "strengths": ["strategy_alignment", "trend_analysis", "market_timing"]
-            }
+                "strengths": ["strategy_alignment", "trend_analysis", "market_timing"],
+            },
         }
 
         logger.info("🧠 LLM Predictor initialized with Chinese LLM ensemble")
 
     def _convert_market_data_to_context(
-        self,
-        symbol: str,
-        historical_data: pd.DataFrame,
-        indicators: Dict[str, Any]
+        self, symbol: str, historical_data: pd.DataFrame, indicators: Dict[str, Any]
     ) -> MarketContext:
         """
         Convert numerical market data into natural language context
@@ -109,9 +118,11 @@ class LLMPredictor:
             if historical_data.empty:
                 raise ValueError("No historical data provided")
 
-            recent_prices = historical_data['close'].tail(10)
+            recent_prices = historical_data["close"].tail(10)
             current_price = recent_prices.iloc[-1]
-            price_change_pct = ((current_price - recent_prices.iloc[0]) / recent_prices.iloc[0]) * 100
+            price_change_pct = (
+                (current_price - recent_prices.iloc[0]) / recent_prices.iloc[0]
+            ) * 100
 
             # Create price narrative
             if price_change_pct > 5:
@@ -122,8 +133,8 @@ class LLMPredictor:
                 price_narrative = f"{symbol} has been consolidating around ${current_price:.2f} with {price_change_pct:.1f}% change, showing neutral price action."
 
             # Analyze trend using moving averages
-            ma20 = indicators.get('ma20', current_price)
-            ma50 = indicators.get('ma50', current_price)
+            ma20 = indicators.get("ma20", current_price)
+            ma50 = indicators.get("ma50", current_price)
 
             if current_price > ma20 > ma50:
                 trend_analysis = "Strong uptrend confirmed with price above both 20-day and 50-day moving averages. Technical structure supports bullish continuation."
@@ -133,12 +144,12 @@ class LLMPredictor:
                 trend_analysis = "Mixed trend signals with price action around moving averages. Market direction uncertain, awaiting clearer signals."
 
             # Volatility assessment
-            atr = indicators.get('atr', 0)
+            atr = indicators.get("atr", 0)
             volatility_assessment = f"Average True Range of {atr:.2f} indicates {'high' if atr > current_price * 0.03 else 'moderate' if atr > current_price * 0.015 else 'low'} volatility environment."
 
             # Volume analysis
-            recent_volume = historical_data['volume'].tail(5).mean()
-            avg_volume = historical_data['volume'].mean()
+            recent_volume = historical_data["volume"].tail(5).mean()
+            avg_volume = historical_data["volume"].mean()
             volume_ratio = recent_volume / avg_volume if avg_volume > 0 else 1.0
 
             if volume_ratio > 1.5:
@@ -149,20 +160,22 @@ class LLMPredictor:
                 volume_story = "Normal volume levels indicate steady participation without excessive speculation."
 
             # Indicator summary
-            rsi = indicators.get('rsi', 50)
-            macd_signal = indicators.get('macd_signal', 'NEUTRAL')
-            bb_position = indicators.get('bollinger_position', 'MIDDLE')
+            rsi = indicators.get("rsi", 50)
+            macd_signal = indicators.get("macd_signal", "NEUTRAL")
+            bb_position = indicators.get("bollinger_position", "MIDDLE")
 
             indicator_summary = f"RSI at {rsi:.1f} suggests {'overbought conditions' if rsi > 70 else 'oversold conditions' if rsi < 30 else 'neutral momentum'}. "
             indicator_summary += f"MACD shows {macd_signal.lower()} signal. "
-            indicator_summary += f"Price is at {bb_position.lower()} of Bollinger Bands."
+            indicator_summary += (
+                f"Price is at {bb_position.lower()} of Bollinger Bands."
+            )
 
             return MarketContext(
                 price_narrative=price_narrative,
                 trend_analysis=trend_analysis,
                 volatility_assessment=volatility_assessment,
                 volume_story=volume_story,
-                indicator_summary=indicator_summary
+                indicator_summary=indicator_summary,
             )
 
         except Exception as e:
@@ -173,7 +186,7 @@ class LLMPredictor:
                 trend_analysis="Trend analysis inconclusive",
                 volatility_assessment="Volatility assessment pending",
                 volume_story="Volume analysis unavailable",
-                indicator_summary="Technical indicators pending"
+                indicator_summary="Technical indicators pending",
             )
 
     def _build_specialized_prompt(
@@ -182,7 +195,7 @@ class LLMPredictor:
         symbol: str,
         market_context: MarketContext,
         prediction_type: str,
-        horizon_days: int
+        horizon_days: int,
     ) -> str:
         """Build specialized prompts for each Chinese LLM based on their strengths"""
 
@@ -274,9 +287,7 @@ Provide your prediction in this JSON format:
 }}"""
 
     async def _get_model_prediction(
-        self,
-        model_key: str,
-        prompt: str
+        self, model_key: str, prompt: str
     ) -> Dict[str, Any]:
         """Get prediction from a specific LLM model"""
         try:
@@ -289,12 +300,12 @@ Provide your prediction in this JSON format:
             config = self.model_config[model_key]
 
             # Adjust context if needed
-            max_tokens = min(config["context_limit"] // 2, 2048)  # Reserve context for response
+            max_tokens = min(
+                config["context_limit"] // 2, 2048
+            )  # Reserve context for response
 
             response = await self.ollama_client.generate_response(
-                prompt=prompt,
-                model_key=model_key,
-                max_tokens=max_tokens
+                prompt=prompt, model_key=model_key, max_tokens=max_tokens
             )
 
             # Parse JSON response
@@ -305,7 +316,9 @@ Provide your prediction in this JSON format:
                 return prediction_data
             except json.JSONDecodeError:
                 # Fallback parsing for non-JSON responses
-                logger.warning(f"Non-JSON response from {model_key}, attempting fallback parsing")
+                logger.warning(
+                    f"Non-JSON response from {model_key}, attempting fallback parsing"
+                )
                 return self._fallback_parse_response(response, model_key, config)
 
         except Exception as e:
@@ -313,25 +326,32 @@ Provide your prediction in this JSON format:
             return {"error": str(e), "model_used": model_key}
 
     def _fallback_parse_response(
-        self,
-        response: str,
-        model_key: str,
-        config: Dict[str, Any]
+        self, response: str, model_key: str, config: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Fallback parsing for non-JSON LLM responses"""
 
         # Simple keyword-based parsing
         response_lower = response.lower()
 
-        if "bullish" in response_lower or "buy" in response_lower or "up" in response_lower:
+        if (
+            "bullish" in response_lower
+            or "buy" in response_lower
+            or "up" in response_lower
+        ):
             prediction = "BULLISH"
-        elif "bearish" in response_lower or "sell" in response_lower or "down" in response_lower:
+        elif (
+            "bearish" in response_lower
+            or "sell" in response_lower
+            or "down" in response_lower
+        ):
             prediction = "BEARISH"
         else:
             prediction = "NEUTRAL"
 
         # Estimate confidence based on language strength
-        if any(word in response_lower for word in ["strong", "very", "highly", "confident"]):
+        if any(
+            word in response_lower for word in ["strong", "very", "highly", "confident"]
+        ):
             confidence = 0.8
         elif any(word in response_lower for word in ["likely", "probable", "expect"]):
             confidence = 0.6
@@ -344,7 +364,7 @@ Provide your prediction in this JSON format:
             "reasoning": response[:500],  # Truncate long responses
             "model_used": model_key,
             "specialization": config["specialization"],
-            "parsed_fallback": True
+            "parsed_fallback": True,
         }
 
     def _combine_predictions(
@@ -353,13 +373,16 @@ Provide your prediction in this JSON format:
         symbol: str,
         prediction_type: str,
         horizon_days: int,
-        market_context: MarketContext
+        market_context: MarketContext,
     ) -> PredictionResult:
         """Combine individual model predictions into ensemble result"""
 
         # Filter out error predictions
-        valid_predictions = {k: v for k, v in model_predictions.items()
-                           if "error" not in v and "prediction" in v}
+        valid_predictions = {
+            k: v
+            for k, v in model_predictions.items()
+            if "error" not in v and "prediction" in v
+        }
 
         if not valid_predictions:
             logger.error("No valid predictions from any model")
@@ -372,7 +395,7 @@ Provide your prediction in this JSON format:
                 reasoning="No valid predictions available from ensemble models",
                 model_contributions=model_predictions,
                 market_context=market_context.__dict__,
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
 
         # Weighted voting based on model configurations
@@ -407,7 +430,10 @@ Provide your prediction in this JSON format:
             model_reasoning = prediction_data.get("reasoning", "No reasoning provided")
             reasoning_parts.append(f"{specialization.title()}: {model_reasoning}")
 
-        ensemble_reasoning = f"Ensemble Analysis ({len(valid_predictions)} models): " + " | ".join(reasoning_parts)
+        ensemble_reasoning = (
+            f"Ensemble Analysis ({len(valid_predictions)} models): "
+            + " | ".join(reasoning_parts)
+        )
 
         return PredictionResult(
             symbol=symbol,
@@ -418,7 +444,7 @@ Provide your prediction in this JSON format:
             reasoning=ensemble_reasoning,
             model_contributions=model_predictions,
             market_context=market_context.__dict__,
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
     async def predict_price_direction(
@@ -426,7 +452,7 @@ Provide your prediction in this JSON format:
         symbol: str,
         historical_data: pd.DataFrame,
         indicators: Optional[Dict[str, Any]] = None,
-        horizon_days: int = 5
+        horizon_days: int = 5,
     ) -> PredictionResult:
         """
         Predict price direction using ensemble of Chinese LLMs
@@ -443,7 +469,9 @@ Provide your prediction in this JSON format:
         try:
             # Calculate indicators if not provided
             if indicators is None:
-                indicators = self.technical_indicators.calculate_all_indicators(historical_data)
+                indicators = self.technical_indicators.calculate_all_indicators(
+                    historical_data
+                )
 
             # Convert market data to natural language context
             market_context = self._convert_market_data_to_context(
@@ -471,11 +499,17 @@ Provide your prediction in this JSON format:
 
             # Combine predictions into ensemble result
             result = self._combine_predictions(
-                model_predictions, symbol, "price_direction", horizon_days, market_context
+                model_predictions,
+                symbol,
+                "price_direction",
+                horizon_days,
+                market_context,
             )
 
-            logger.info(f"🔮 LLM Ensemble Prediction for {symbol}: {result.prediction_value} "
-                       f"(confidence: {result.confidence:.2f})")
+            logger.info(
+                f"🔮 LLM Ensemble Prediction for {symbol}: {result.prediction_value} "
+                f"(confidence: {result.confidence:.2f})"
+            )
 
             return result
 
@@ -490,7 +524,7 @@ Provide your prediction in this JSON format:
                 reasoning=f"Error in prediction: {str(e)}",
                 model_contributions={},
                 market_context={},
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
 
     async def predict_volatility(
@@ -498,7 +532,7 @@ Provide your prediction in this JSON format:
         symbol: str,
         historical_data: pd.DataFrame,
         indicators: Optional[Dict[str, Any]] = None,
-        horizon_days: int = 5
+        horizon_days: int = 5,
     ) -> PredictionResult:
         """Predict volatility using ensemble focused on GLM and Qwen models"""
 
@@ -506,7 +540,9 @@ Provide your prediction in this JSON format:
         # Using specialized prompts for volatility prediction
         try:
             if indicators is None:
-                indicators = self.technical_indicators.calculate_all_indicators(historical_data)
+                indicators = self.technical_indicators.calculate_all_indicators(
+                    historical_data
+                )
 
             market_context = self._convert_market_data_to_context(
                 symbol, historical_data, indicators
@@ -518,13 +554,21 @@ Provide your prediction in this JSON format:
 
             for model_key in priority_models:
                 prompt = self._build_specialized_prompt(
-                    model_key, symbol, market_context, "volatility_forecast", horizon_days
+                    model_key,
+                    symbol,
+                    market_context,
+                    "volatility_forecast",
+                    horizon_days,
                 )
                 prediction = await self._get_model_prediction(model_key, prompt)
                 model_predictions[model_key] = prediction
 
             result = self._combine_predictions(
-                model_predictions, symbol, "volatility_forecast", horizon_days, market_context
+                model_predictions,
+                symbol,
+                "volatility_forecast",
+                horizon_days,
+                market_context,
             )
 
             return result
@@ -540,7 +584,7 @@ Provide your prediction in this JSON format:
                 reasoning=f"Error in volatility prediction: {str(e)}",
                 model_contributions={},
                 market_context={},
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
 
     async def get_model_health(self) -> Dict[str, Any]:
@@ -557,27 +601,33 @@ Provide your prediction in this JSON format:
                     "specialization": config["specialization"],
                     "context_limit": config["context_limit"],
                     "memory_usage_mb": model_info.memory_usage_mb if model_info else 0,
-                    "status": "healthy" if is_loaded else "unavailable"
+                    "status": "healthy" if is_loaded else "unavailable",
                 }
 
             except Exception as e:
                 health_status[model_key] = {
                     "available": False,
                     "status": "error",
-                    "error": str(e)
+                    "error": str(e),
                 }
 
         # Overall system health
-        available_models = sum(1 for status in health_status.values() if status.get("available", False))
+        available_models = sum(
+            1 for status in health_status.values() if status.get("available", False)
+        )
         total_models = len(self.model_config)
 
         return {
-            "overall_status": "healthy" if available_models >= 2 else "degraded" if available_models >= 1 else "critical",
+            "overall_status": (
+                "healthy"
+                if available_models >= 2
+                else "degraded" if available_models >= 1 else "critical"
+            ),
             "available_models": available_models,
             "total_models": total_models,
             "model_details": health_status,
             "memory_usage": self.ollama_client.get_total_memory_usage(),
-            "timestamp": datetime.now()
+            "timestamp": datetime.now(),
         }
 
 
@@ -596,21 +646,25 @@ async def get_llm_predictor() -> LLMPredictor:
 
 # Convenience function for quick predictions
 async def predict_symbol_direction(
-    symbol: str,
-    historical_data: pd.DataFrame,
-    horizon_days: int = 5
+    symbol: str, historical_data: pd.DataFrame, horizon_days: int = 5
 ) -> Dict[str, Any]:
     """Quick prediction for a symbol"""
     predictor = await get_llm_predictor()
-    result = await predictor.predict_price_direction(symbol, historical_data, horizon_days=horizon_days)
+    result = await predictor.predict_price_direction(
+        symbol, historical_data, horizon_days=horizon_days
+    )
 
     return {
         "symbol": result.symbol,
         "prediction": result.prediction_value,
         "confidence": result.confidence,
-        "reasoning": result.reasoning[:200] + "..." if len(result.reasoning) > 200 else result.reasoning,
+        "reasoning": (
+            result.reasoning[:200] + "..."
+            if len(result.reasoning) > 200
+            else result.reasoning
+        ),
         "horizon_days": result.horizon_days,
-        "timestamp": result.timestamp.isoformat()
+        "timestamp": result.timestamp.isoformat(),
     }
 
 

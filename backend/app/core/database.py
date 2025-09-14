@@ -50,7 +50,6 @@ def get_db_session():
 async def init_db():
     """Initialize database tables"""
     # Import all models to ensure they are registered with Base
-    from app.models import user, trade, strategy, market_data, pattern_performance, backtest
 
     # Create all tables
     Base.metadata.create_all(bind=engine)

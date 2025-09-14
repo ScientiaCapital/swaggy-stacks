@@ -6,15 +6,15 @@ Handles machine learning model management, predictions, and performance tracking
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Union
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.indicator_performance import (
-    MLModelVersion,
     MLModelPrediction,
-    ParameterOptimization
+    MLModelVersion,
+    ParameterOptimization,
 )
 from app.monitoring.metrics import PrometheusMetrics
 
@@ -36,10 +36,10 @@ class MLModelService:
             # TODO: Initialize actual ML models based on config
             # This is a placeholder for ML pipeline initialization
             self.ml_pipeline = {
-                'ensemble_model': None,
-                'trend_predictor': None,
-                'volatility_model': None,
-                'sentiment_analyzer': None
+                "ensemble_model": None,
+                "trend_predictor": None,
+                "volatility_model": None,
+                "sentiment_analyzer": None,
             }
 
             logger.info("ML models initialized (placeholder implementation)")
@@ -57,7 +57,7 @@ class MLModelService:
         prediction_value: float,
         confidence: float,
         features_used: Dict = None,
-        model_version: str = "1.0"
+        model_version: str = "1.0",
     ) -> Optional[MLModelPrediction]:
         """Track a machine learning prediction"""
         try:
@@ -77,7 +77,7 @@ class MLModelService:
                 prediction_value=prediction_value,
                 confidence=confidence,
                 features_used=features_used or {},
-                prediction_timestamp=datetime.utcnow()
+                prediction_timestamp=datetime.utcnow(),
             )
 
             self.db.add(prediction)
@@ -86,8 +86,7 @@ class MLModelService:
             # Update metrics
             if self.metrics:
                 self.metrics.ml_predictions_total.labels(
-                    model=model_name,
-                    prediction_type=prediction_type
+                    model=model_name, prediction_type=prediction_type
                 ).inc()
 
             logger.info(f"Tracked ML prediction for {model_name} on {symbol}")
@@ -102,13 +101,15 @@ class MLModelService:
         self,
         prediction_id: int,
         actual_value: float,
-        outcome_timestamp: datetime = None
+        outcome_timestamp: datetime = None,
     ) -> bool:
         """Update the actual outcome of an ML prediction"""
         try:
-            prediction = self.db.query(MLModelPrediction).filter(
-                MLModelPrediction.id == prediction_id
-            ).first()
+            prediction = (
+                self.db.query(MLModelPrediction)
+                .filter(MLModelPrediction.id == prediction_id)
+                .first()
+            )
 
             if not prediction:
                 logger.warning(f"ML prediction {prediction_id} not found")
@@ -129,9 +130,9 @@ class MLModelService:
             # Update metrics
             if self.metrics and prediction.model_version:
                 model_name = prediction.model_version.model_name
-                self.metrics.ml_prediction_accuracy.labels(
-                    model=model_name
-                ).observe(prediction.accuracy_score or 0)
+                self.metrics.ml_prediction_accuracy.labels(model=model_name).observe(
+                    prediction.accuracy_score or 0
+                )
 
             logger.info(f"Updated ML prediction outcome for {prediction_id}")
             return True
@@ -142,26 +143,30 @@ class MLModelService:
             return False
 
     async def get_ml_model_performance(
-        self,
-        model_name: str = None,
-        days_back: int = 30,
-        prediction_type: str = None
+        self, model_name: str = None, days_back: int = 30, prediction_type: str = None
     ) -> Dict[str, Any]:
         """Get performance metrics for ML models"""
         try:
             from datetime import timedelta
+
             cutoff_date = datetime.utcnow() - timedelta(days=days_back)
 
             # Build query
-            query = self.db.query(MLModelPrediction).join(MLModelVersion).filter(
-                MLModelPrediction.prediction_timestamp >= cutoff_date,
-                MLModelPrediction.actual_value.isnot(None)
+            query = (
+                self.db.query(MLModelPrediction)
+                .join(MLModelVersion)
+                .filter(
+                    MLModelPrediction.prediction_timestamp >= cutoff_date,
+                    MLModelPrediction.actual_value.isnot(None),
+                )
             )
 
             if model_name:
                 query = query.filter(MLModelVersion.model_name == model_name)
             if prediction_type:
-                query = query.filter(MLModelPrediction.prediction_type == prediction_type)
+                query = query.filter(
+                    MLModelPrediction.prediction_type == prediction_type
+                )
 
             predictions = query.all()
 
@@ -174,48 +179,58 @@ class MLModelService:
                 model_name = pred.model_version.model_name
                 if model_name not in model_stats:
                     model_stats[model_name] = {
-                        'total_predictions': 0,
-                        'accuracy_sum': 0.0,
-                        'error_sum': 0.0,
-                        'confidence_sum': 0.0,
-                        'predictions': []
+                        "total_predictions": 0,
+                        "accuracy_sum": 0.0,
+                        "error_sum": 0.0,
+                        "confidence_sum": 0.0,
+                        "predictions": [],
                     }
 
                 stats = model_stats[model_name]
-                stats['total_predictions'] += 1
-                stats['predictions'].append(pred)
-                stats['confidence_sum'] += pred.confidence
+                stats["total_predictions"] += 1
+                stats["predictions"].append(pred)
+                stats["confidence_sum"] += pred.confidence
 
                 if pred.accuracy_score is not None:
-                    stats['accuracy_sum'] += pred.accuracy_score
+                    stats["accuracy_sum"] += pred.accuracy_score
                 if pred.prediction_error is not None:
-                    stats['error_sum'] += pred.prediction_error
+                    stats["error_sum"] += pred.prediction_error
 
             # Calculate final metrics
             performance_data = []
             for model_name, stats in model_stats.items():
-                total = stats['total_predictions']
+                total = stats["total_predictions"]
 
-                performance_data.append({
-                    'model_name': model_name,
-                    'total_predictions': total,
-                    'avg_accuracy': round(stats['accuracy_sum'] / total, 4) if total > 0 else 0,
-                    'avg_error': round(stats['error_sum'] / total, 4) if total > 0 else 0,
-                    'avg_confidence': round(stats['confidence_sum'] / total, 4) if total > 0 else 0,
-                    'latest_prediction': max(
-                        (p.prediction_timestamp for p in stats['predictions']),
-                        default=None
-                    )
-                })
+                performance_data.append(
+                    {
+                        "model_name": model_name,
+                        "total_predictions": total,
+                        "avg_accuracy": (
+                            round(stats["accuracy_sum"] / total, 4) if total > 0 else 0
+                        ),
+                        "avg_error": (
+                            round(stats["error_sum"] / total, 4) if total > 0 else 0
+                        ),
+                        "avg_confidence": (
+                            round(stats["confidence_sum"] / total, 4)
+                            if total > 0
+                            else 0
+                        ),
+                        "latest_prediction": max(
+                            (p.prediction_timestamp for p in stats["predictions"]),
+                            default=None,
+                        ),
+                    }
+                )
 
             # Sort by average accuracy descending
-            performance_data.sort(key=lambda x: x['avg_accuracy'], reverse=True)
+            performance_data.sort(key=lambda x: x["avg_accuracy"], reverse=True)
 
             return {
-                'period_days': days_back,
-                'total_models': len(performance_data),
-                'models': performance_data,
-                'generated_at': datetime.utcnow().isoformat()
+                "period_days": days_back,
+                "total_models": len(performance_data),
+                "models": performance_data,
+                "generated_at": datetime.utcnow().isoformat(),
             }
 
         except Exception as e:
@@ -227,15 +242,19 @@ class MLModelService:
         model_name: str,
         version: str = "1.0",
         model_type: str = "ensemble",
-        description: str = None
+        description: str = None,
     ) -> Optional[MLModelVersion]:
         """Get existing model version or create new one"""
         try:
             # Try to find existing version
-            model_version = self.db.query(MLModelVersion).filter(
-                MLModelVersion.model_name == model_name,
-                MLModelVersion.version == version
-            ).first()
+            model_version = (
+                self.db.query(MLModelVersion)
+                .filter(
+                    MLModelVersion.model_name == model_name,
+                    MLModelVersion.version == version,
+                )
+                .first()
+            )
 
             if model_version:
                 return model_version
@@ -247,7 +266,7 @@ class MLModelService:
                 model_type=model_type,
                 description=description or f"{model_name} version {version}",
                 created_at=datetime.utcnow(),
-                is_active=True
+                is_active=True,
             )
 
             self.db.add(model_version)
@@ -262,13 +281,11 @@ class MLModelService:
             return None
 
     async def get_ensemble_model_performance(
-        self,
-        days_back: int = 30
+        self, days_back: int = 30
     ) -> Dict[str, Any]:
         """Get performance metrics specifically for ensemble models"""
         return await self.get_ml_model_performance(
-            model_name="ensemble",
-            days_back=days_back
+            model_name="ensemble", days_back=days_back
         )
 
     async def optimize_model_parameters(
@@ -277,7 +294,7 @@ class MLModelService:
         parameter_space: Dict,
         optimization_method: str = "bayesian",
         metric: str = "accuracy",
-        max_iterations: int = 100
+        max_iterations: int = 100,
     ) -> Optional[ParameterOptimization]:
         """Start parameter optimization for a model"""
         try:
@@ -290,7 +307,7 @@ class MLModelService:
                 parameter_space=parameter_space,
                 total_iterations=max_iterations,
                 status="PENDING",
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
 
             self.db.add(optimization)
@@ -305,37 +322,48 @@ class MLModelService:
             return None
 
     async def get_model_prediction_history(
-        self,
-        model_name: str,
-        symbol: str = None,
-        limit: int = 100
+        self, model_name: str, symbol: str = None, limit: int = 100
     ) -> List[Dict[str, Any]]:
         """Get recent prediction history for a model"""
         try:
-            query = self.db.query(MLModelPrediction).join(MLModelVersion).filter(
-                MLModelVersion.model_name == model_name
+            query = (
+                self.db.query(MLModelPrediction)
+                .join(MLModelVersion)
+                .filter(MLModelVersion.model_name == model_name)
             )
 
             if symbol:
                 query = query.filter(MLModelPrediction.symbol == symbol)
 
-            predictions = query.order_by(
-                MLModelPrediction.prediction_timestamp.desc()
-            ).limit(limit).all()
+            predictions = (
+                query.order_by(MLModelPrediction.prediction_timestamp.desc())
+                .limit(limit)
+                .all()
+            )
 
             history = []
             for pred in predictions:
-                history.append({
-                    'id': pred.id,
-                    'symbol': pred.symbol,
-                    'prediction_type': pred.prediction_type,
-                    'prediction_value': pred.prediction_value,
-                    'actual_value': pred.actual_value,
-                    'confidence': pred.confidence,
-                    'accuracy_score': pred.accuracy_score,
-                    'prediction_timestamp': pred.prediction_timestamp.isoformat() if pred.prediction_timestamp else None,
-                    'outcome_timestamp': pred.outcome_timestamp.isoformat() if pred.outcome_timestamp else None
-                })
+                history.append(
+                    {
+                        "id": pred.id,
+                        "symbol": pred.symbol,
+                        "prediction_type": pred.prediction_type,
+                        "prediction_value": pred.prediction_value,
+                        "actual_value": pred.actual_value,
+                        "confidence": pred.confidence,
+                        "accuracy_score": pred.accuracy_score,
+                        "prediction_timestamp": (
+                            pred.prediction_timestamp.isoformat()
+                            if pred.prediction_timestamp
+                            else None
+                        ),
+                        "outcome_timestamp": (
+                            pred.outcome_timestamp.isoformat()
+                            if pred.outcome_timestamp
+                            else None
+                        ),
+                    }
+                )
 
             return history
 

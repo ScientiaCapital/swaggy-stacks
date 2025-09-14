@@ -3,27 +3,19 @@ AI Agent Backtesting Integration Service
 Provides interface for AI agents to submit trading ideas, learn from results, and optimize strategies
 """
 
-import asyncio
-import json
 import uuid
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple, Union
-from dataclasses import dataclass, asdict
 
 import numpy as np
-import pandas as pd
 import structlog
 from sqlalchemy.orm import Session
 
-from app.backtesting.engine import BacktestEngine, BacktestConfig
-from app.core.database import get_db
-from app.core.exceptions import BacktestingError
-from app.monitoring.metrics import PrometheusMetrics
-from app.rag.agents.strategy_agent import StrategyAgent
-from app.risk.position_manager import IntegratedRiskManager
-from app.analysis.indicator_factory import IndicatorFactory, IndicatorType
-from app.services.ml_training_pipeline import MLTrainingPipeline
+from app.backtesting.engine import BacktestConfig, BacktestEngine
 from app.models.indicator_performance import MLModelVersion
+from app.monitoring.metrics import PrometheusMetrics
+from app.services.ml_training_pipeline import MLTrainingPipeline
 
 logger = structlog.get_logger()
 
@@ -31,6 +23,7 @@ logger = structlog.get_logger()
 @dataclass
 class TradingIdea:
     """Trading idea submitted by AI agents"""
+
     id: str
     agent_id: str
     symbol: str
@@ -54,6 +47,7 @@ class TradingIdea:
 @dataclass
 class BacktestFeedback:
     """Structured feedback for AI agents"""
+
     idea_id: str
     agent_id: str
     backtest_id: str
@@ -94,7 +88,7 @@ class PatternLearner:
         self,
         pattern_name: str,
         market_conditions: Dict[str, Any],
-        performance_metrics: Dict[str, float]
+        performance_metrics: Dict[str, float],
     ):
         """Update pattern performance based on backtest results"""
         try:
@@ -104,7 +98,7 @@ class PatternLearner:
                     "successful_trades": 0,
                     "total_return": 0.0,
                     "market_contexts": [],
-                    "performance_history": []
+                    "performance_history": [],
                 }
 
             pattern_data = self.pattern_performance[pattern_name]
@@ -119,32 +113,37 @@ class PatternLearner:
 
             # Store context and performance
             pattern_data["market_contexts"].append(market_conditions)
-            pattern_data["performance_history"].append({
-                "return": return_value,
-                "sharpe": performance_metrics.get("sharpe_ratio", 0.0),
-                "drawdown": performance_metrics.get("max_drawdown", 0.0),
-                "timestamp": datetime.now().isoformat(),
-                "market_context": market_conditions
-            })
+            pattern_data["performance_history"].append(
+                {
+                    "return": return_value,
+                    "sharpe": performance_metrics.get("sharpe_ratio", 0.0),
+                    "drawdown": performance_metrics.get("max_drawdown", 0.0),
+                    "timestamp": datetime.now().isoformat(),
+                    "market_context": market_conditions,
+                }
+            )
 
             # Keep only recent history (last 100 samples)
             if len(pattern_data["performance_history"]) > 100:
-                pattern_data["performance_history"] = pattern_data["performance_history"][-100:]
+                pattern_data["performance_history"] = pattern_data[
+                    "performance_history"
+                ][-100:]
 
             logger.info(
                 "Pattern performance updated",
                 pattern=pattern_name,
                 occurrences=pattern_data["total_occurrences"],
-                success_rate=pattern_data["successful_trades"] / pattern_data["total_occurrences"]
+                success_rate=pattern_data["successful_trades"]
+                / pattern_data["total_occurrences"],
             )
 
         except Exception as e:
-            logger.error("Error updating pattern performance", error=str(e), pattern=pattern_name)
+            logger.error(
+                "Error updating pattern performance", error=str(e), pattern=pattern_name
+            )
 
     def get_pattern_success_rate(
-        self,
-        pattern_name: str,
-        market_conditions: Dict[str, Any] = None
+        self, pattern_name: str, market_conditions: Dict[str, Any] = None
     ) -> Tuple[float, Dict[str, Any]]:
         """Get pattern success rate, optionally filtered by market conditions"""
         try:
@@ -154,17 +153,25 @@ class PatternLearner:
             pattern_data = self.pattern_performance[pattern_name]
 
             if pattern_data["total_occurrences"] < self.min_samples:
-                return 0.5, {"reason": "insufficient_samples", "samples": pattern_data["total_occurrences"]}
+                return 0.5, {
+                    "reason": "insufficient_samples",
+                    "samples": pattern_data["total_occurrences"],
+                }
 
             # If no market conditions specified, return overall success rate
             if not market_conditions:
-                success_rate = pattern_data["successful_trades"] / pattern_data["total_occurrences"]
-                avg_return = pattern_data["total_return"] / pattern_data["total_occurrences"]
+                success_rate = (
+                    pattern_data["successful_trades"]
+                    / pattern_data["total_occurrences"]
+                )
+                avg_return = (
+                    pattern_data["total_return"] / pattern_data["total_occurrences"]
+                )
 
                 return success_rate, {
                     "overall_success_rate": success_rate,
                     "average_return": avg_return,
-                    "total_occurrences": pattern_data["total_occurrences"]
+                    "total_occurrences": pattern_data["total_occurrences"],
                 }
 
             # Filter by market conditions
@@ -177,7 +184,10 @@ class PatternLearner:
                     filtered_history.append(record)
 
             if len(filtered_history) < 3:  # Need at least 3 similar contexts
-                success_rate = pattern_data["successful_trades"] / pattern_data["total_occurrences"]
+                success_rate = (
+                    pattern_data["successful_trades"]
+                    / pattern_data["total_occurrences"]
+                )
                 return success_rate, {"reason": "insufficient_similar_contexts"}
 
             # Calculate context-specific performance
@@ -188,7 +198,7 @@ class PatternLearner:
             return success_rate, {
                 "context_specific_success_rate": success_rate,
                 "context_specific_return": avg_return,
-                "similar_contexts_count": len(filtered_history)
+                "similar_contexts_count": len(filtered_history),
             }
 
         except Exception as e:
@@ -196,9 +206,7 @@ class PatternLearner:
             return 0.5, {"error": str(e)}
 
     def _calculate_context_similarity(
-        self,
-        context1: Dict[str, Any],
-        context2: Dict[str, Any]
+        self, context1: Dict[str, Any], context2: Dict[str, Any]
     ) -> float:
         """Calculate similarity between market contexts"""
         try:
@@ -214,9 +222,13 @@ class PatternLearner:
                     val1 = context1[factor]
                     val2 = context2[factor]
 
-                    if isinstance(val1, (int, float)) and isinstance(val2, (int, float)):
+                    if isinstance(val1, (int, float)) and isinstance(
+                        val2, (int, float)
+                    ):
                         # Numerical similarity
-                        max_val = max(abs(val1), abs(val2), 0.001)  # Avoid division by zero
+                        max_val = max(
+                            abs(val1), abs(val2), 0.001
+                        )  # Avoid division by zero
                         similarity = 1 - abs(val1 - val2) / max_val
                         similarity_scores.append(max(0, similarity))
                     elif val1 == val2:
@@ -232,9 +244,7 @@ class PatternLearner:
             return 0.0
 
     def suggest_pattern_improvements(
-        self,
-        pattern_name: str,
-        recent_performance: Dict[str, float]
+        self, pattern_name: str, recent_performance: Dict[str, float]
     ) -> List[str]:
         """Suggest improvements based on pattern performance analysis"""
         suggestions = []
@@ -248,28 +258,46 @@ class PatternLearner:
 
             # Analyze recent performance vs historical
             if pattern_data["total_occurrences"] >= self.min_samples:
-                historical_avg = pattern_data["total_return"] / pattern_data["total_occurrences"]
+                historical_avg = (
+                    pattern_data["total_return"] / pattern_data["total_occurrences"]
+                )
                 recent_return = recent_performance.get("return", 0.0)
 
                 if recent_return < historical_avg * 0.5:
-                    suggestions.append(f"Pattern underperforming: consider tightening entry conditions")
-                    suggestions.append(f"Review market context - pattern may work better in different conditions")
+                    suggestions.append(
+                        f"Pattern underperforming: consider tightening entry conditions"
+                    )
+                    suggestions.append(
+                        f"Review market context - pattern may work better in different conditions"
+                    )
 
                 if recent_performance.get("max_drawdown", 0.0) > 0.15:
-                    suggestions.append("High drawdown detected: consider smaller position sizes")
+                    suggestions.append(
+                        "High drawdown detected: consider smaller position sizes"
+                    )
                     suggestions.append("Implement tighter stop losses for this pattern")
 
                 if recent_performance.get("win_rate", 0.5) < 0.4:
-                    suggestions.append("Low win rate: pattern recognition may need refinement")
+                    suggestions.append(
+                        "Low win rate: pattern recognition may need refinement"
+                    )
 
             # General improvement suggestions
-            success_rate = pattern_data["successful_trades"] / max(pattern_data["total_occurrences"], 1)
+            success_rate = pattern_data["successful_trades"] / max(
+                pattern_data["total_occurrences"], 1
+            )
             if success_rate < 0.6:
-                suggestions.append("Consider combining with other confirming indicators")
-                suggestions.append("Analyze failed trades to identify common characteristics")
+                suggestions.append(
+                    "Consider combining with other confirming indicators"
+                )
+                suggestions.append(
+                    "Analyze failed trades to identify common characteristics"
+                )
 
         except Exception as e:
-            logger.error("Error generating pattern improvement suggestions", error=str(e))
+            logger.error(
+                "Error generating pattern improvement suggestions", error=str(e)
+            )
             suggestions.append("Error analyzing pattern - manual review recommended")
 
         return suggestions[:5]  # Limit to top 5 suggestions
@@ -278,6 +306,7 @@ class PatternLearner:
 @dataclass
 class IndicatorPerformance:
     """Performance metrics for a specific indicator"""
+
     indicator_name: str
     indicator_type: str  # TRADITIONAL, MODERN, LLM
     total_signals: int = 0
@@ -318,12 +347,12 @@ class IndicatorPerformanceTracker:
 
         # Market condition categorization
         self.market_conditions_map = {
-            'high_vol': {'volatility': (0.25, float('inf'))},
-            'low_vol': {'volatility': (0.0, 0.15)},
-            'trending_up': {'trend': 'UP', 'volatility': (0.0, 0.30)},
-            'trending_down': {'trend': 'DOWN', 'volatility': (0.0, 0.30)},
-            'sideways': {'trend': 'NEUTRAL', 'volatility': (0.0, 0.20)},
-            'volatile': {'volatility': (0.30, float('inf'))}
+            "high_vol": {"volatility": (0.25, float("inf"))},
+            "low_vol": {"volatility": (0.0, 0.15)},
+            "trending_up": {"trend": "UP", "volatility": (0.0, 0.30)},
+            "trending_down": {"trend": "DOWN", "volatility": (0.0, 0.30)},
+            "sideways": {"trend": "NEUTRAL", "volatility": (0.0, 0.20)},
+            "volatile": {"volatility": (0.30, float("inf"))},
         }
 
         logger.info("IndicatorPerformanceTracker initialized")
@@ -334,21 +363,21 @@ class IndicatorPerformanceTracker:
         indicator_type: str,
         signal_data: Dict[str, Any],
         market_conditions: Dict[str, Any],
-        actual_outcome: Dict[str, Any] = None
+        actual_outcome: Dict[str, Any] = None,
     ):
         """Record an indicator signal and its performance"""
         try:
             signal_record = {
-                'indicator_name': indicator_name,
-                'indicator_type': indicator_type,
-                'signal_time': datetime.now(),
-                'signal_strength': signal_data.get('signal_strength', 0.0),
-                'signal_direction': signal_data.get('signal_direction', 'NEUTRAL'),
-                'confidence': signal_data.get('confidence', 0.0),
-                'market_conditions': market_conditions,
-                'entry_price': signal_data.get('entry_price', 0.0),
-                'actual_outcome': actual_outcome,
-                'signal_id': str(uuid.uuid4())
+                "indicator_name": indicator_name,
+                "indicator_type": indicator_type,
+                "signal_time": datetime.now(),
+                "signal_strength": signal_data.get("signal_strength", 0.0),
+                "signal_direction": signal_data.get("signal_direction", "NEUTRAL"),
+                "confidence": signal_data.get("confidence", 0.0),
+                "market_conditions": market_conditions,
+                "entry_price": signal_data.get("entry_price", 0.0),
+                "actual_outcome": actual_outcome,
+                "signal_id": str(uuid.uuid4()),
             }
 
             self.signal_history.append(signal_record)
@@ -360,24 +389,20 @@ class IndicatorPerformanceTracker:
             logger.debug(
                 "Indicator signal recorded",
                 indicator=indicator_name,
-                signal_direction=signal_record['signal_direction'],
-                confidence=signal_record['confidence']
+                signal_direction=signal_record["signal_direction"],
+                confidence=signal_record["confidence"],
             )
 
         except Exception as e:
             logger.error(f"Error recording indicator signal: {e}")
 
-    def update_signal_outcome(
-        self,
-        signal_id: str,
-        actual_outcome: Dict[str, Any]
-    ):
+    def update_signal_outcome(self, signal_id: str, actual_outcome: Dict[str, Any]):
         """Update the actual outcome for a previously recorded signal"""
         try:
             # Find and update signal record
             for signal_record in self.signal_history:
-                if signal_record.get('signal_id') == signal_id:
-                    signal_record['actual_outcome'] = actual_outcome
+                if signal_record.get("signal_id") == signal_id:
+                    signal_record["actual_outcome"] = actual_outcome
                     self._update_indicator_performance(signal_record)
                     logger.debug(f"Signal outcome updated for {signal_id}")
                     return
@@ -390,9 +415,9 @@ class IndicatorPerformanceTracker:
     def _update_indicator_performance(self, signal_record: Dict[str, Any]):
         """Update performance metrics for an indicator based on signal outcome"""
         try:
-            indicator_name = signal_record['indicator_name']
-            indicator_type = signal_record['indicator_type']
-            actual_outcome = signal_record.get('actual_outcome', {})
+            indicator_name = signal_record["indicator_name"]
+            indicator_type = signal_record["indicator_type"]
+            actual_outcome = signal_record.get("actual_outcome", {})
 
             if not actual_outcome:
                 return
@@ -400,8 +425,7 @@ class IndicatorPerformanceTracker:
             # Initialize performance tracking for indicator
             if indicator_name not in self.indicator_performance:
                 self.indicator_performance[indicator_name] = IndicatorPerformance(
-                    indicator_name=indicator_name,
-                    indicator_type=indicator_type
+                    indicator_name=indicator_name, indicator_type=indicator_type
                 )
 
             perf = self.indicator_performance[indicator_name]
@@ -409,20 +433,20 @@ class IndicatorPerformanceTracker:
             # Update basic metrics
             perf.total_signals += 1
             perf.avg_signal_strength = (
-                (perf.avg_signal_strength * (perf.total_signals - 1) +
-                 signal_record.get('signal_strength', 0.0)) / perf.total_signals
-            )
+                perf.avg_signal_strength * (perf.total_signals - 1)
+                + signal_record.get("signal_strength", 0.0)
+            ) / perf.total_signals
 
             # Determine if signal was correct
-            signal_direction = signal_record.get('signal_direction', 'NEUTRAL')
-            actual_return = actual_outcome.get('return', 0.0)
+            signal_direction = signal_record.get("signal_direction", "NEUTRAL")
+            actual_return = actual_outcome.get("return", 0.0)
 
             signal_correct = False
-            if signal_direction == 'BULLISH' and actual_return > 0.01:
+            if signal_direction == "BULLISH" and actual_return > 0.01:
                 signal_correct = True
-            elif signal_direction == 'BEARISH' and actual_return < -0.01:
+            elif signal_direction == "BEARISH" and actual_return < -0.01:
                 signal_correct = True
-            elif signal_direction == 'NEUTRAL' and abs(actual_return) <= 0.01:
+            elif signal_direction == "NEUTRAL" and abs(actual_return) <= 0.01:
                 signal_correct = True
 
             if signal_correct:
@@ -436,35 +460,45 @@ class IndicatorPerformanceTracker:
 
             # Update Sharpe ratio (simplified calculation)
             if perf.total_signals >= 5:
-                returns = [r.get('actual_outcome', {}).get('return', 0.0)
-                          for r in self.signal_history
-                          if r.get('indicator_name') == indicator_name and r.get('actual_outcome')]
+                returns = [
+                    r.get("actual_outcome", {}).get("return", 0.0)
+                    for r in self.signal_history
+                    if r.get("indicator_name") == indicator_name
+                    and r.get("actual_outcome")
+                ]
 
                 if returns:
                     mean_return = np.mean(returns)
                     std_return = np.std(returns)
-                    perf.sharpe_ratio = mean_return / max(std_return, 0.001) * np.sqrt(252)  # Annualized
+                    perf.sharpe_ratio = (
+                        mean_return / max(std_return, 0.001) * np.sqrt(252)
+                    )  # Annualized
 
             # Update max drawdown
-            drawdown = actual_outcome.get('drawdown', 0.0)
+            drawdown = actual_outcome.get("drawdown", 0.0)
             if drawdown > perf.max_drawdown:
                 perf.max_drawdown = drawdown
 
             # Update market condition performance
-            market_condition = self._classify_market_condition(signal_record.get('market_conditions', {}))
+            market_condition = self._classify_market_condition(
+                signal_record.get("market_conditions", {})
+            )
             if market_condition not in perf.market_condition_performance:
                 perf.market_condition_performance[market_condition] = {
-                    'signals': 0, 'correct': 0, 'win_rate': 0.0, 'avg_return': 0.0
+                    "signals": 0,
+                    "correct": 0,
+                    "win_rate": 0.0,
+                    "avg_return": 0.0,
                 }
 
             mc_perf = perf.market_condition_performance[market_condition]
-            mc_perf['signals'] += 1
+            mc_perf["signals"] += 1
             if signal_correct:
-                mc_perf['correct'] += 1
-            mc_perf['win_rate'] = mc_perf['correct'] / mc_perf['signals']
-            mc_perf['avg_return'] = (
-                (mc_perf['avg_return'] * (mc_perf['signals'] - 1) + actual_return) / mc_perf['signals']
-            )
+                mc_perf["correct"] += 1
+            mc_perf["win_rate"] = mc_perf["correct"] / mc_perf["signals"]
+            mc_perf["avg_return"] = (
+                mc_perf["avg_return"] * (mc_perf["signals"] - 1) + actual_return
+            ) / mc_perf["signals"]
 
             perf.last_updated = datetime.now()
 
@@ -473,7 +507,7 @@ class IndicatorPerformanceTracker:
                 indicator=indicator_name,
                 win_rate=perf.win_rate,
                 total_signals=perf.total_signals,
-                sharpe_ratio=perf.sharpe_ratio
+                sharpe_ratio=perf.sharpe_ratio,
             )
 
         except Exception as e:
@@ -482,34 +516,34 @@ class IndicatorPerformanceTracker:
     def _classify_market_condition(self, market_conditions: Dict[str, Any]) -> str:
         """Classify market conditions into predefined categories"""
         try:
-            volatility = market_conditions.get('volatility', 0.2)
-            trend = market_conditions.get('trend', 'NEUTRAL')
+            volatility = market_conditions.get("volatility", 0.2)
+            trend = market_conditions.get("trend", "NEUTRAL")
 
             # Apply classification rules
             if volatility > 0.30:
-                return 'volatile'
+                return "volatile"
             elif volatility > 0.25:
-                return 'high_vol'
+                return "high_vol"
             elif volatility < 0.15:
-                return 'low_vol'
-            elif trend == 'UP' and volatility <= 0.30:
-                return 'trending_up'
-            elif trend == 'DOWN' and volatility <= 0.30:
-                return 'trending_down'
-            elif trend == 'NEUTRAL' and volatility <= 0.20:
-                return 'sideways'
+                return "low_vol"
+            elif trend == "UP" and volatility <= 0.30:
+                return "trending_up"
+            elif trend == "DOWN" and volatility <= 0.30:
+                return "trending_down"
+            elif trend == "NEUTRAL" and volatility <= 0.20:
+                return "sideways"
             else:
-                return 'normal'
+                return "normal"
 
         except Exception as e:
             logger.error(f"Error classifying market condition: {e}")
-            return 'unknown'
+            return "unknown"
 
     def get_indicator_performance(
         self,
         indicator_name: str = None,
         indicator_type: str = None,
-        market_condition: str = None
+        market_condition: str = None,
     ) -> Union[Dict[str, IndicatorPerformance], IndicatorPerformance]:
         """Get performance metrics for indicators"""
         try:
@@ -518,18 +552,23 @@ class IndicatorPerformanceTracker:
                 # Return specific indicator performance
                 if indicator_name in self.indicator_performance:
                     perf = self.indicator_performance[indicator_name]
-                    if market_condition and market_condition in perf.market_condition_performance:
+                    if (
+                        market_condition
+                        and market_condition in perf.market_condition_performance
+                    ):
                         # Return market-condition-specific performance
                         mc_perf = perf.market_condition_performance[market_condition]
                         return {
-                            'indicator_name': indicator_name,
-                            'market_condition': market_condition,
-                            'performance': mc_perf,
-                            'overall_performance': asdict(perf)
+                            "indicator_name": indicator_name,
+                            "market_condition": market_condition,
+                            "performance": mc_perf,
+                            "overall_performance": asdict(perf),
                         }
                     return perf
                 else:
-                    return IndicatorPerformance(indicator_name, indicator_type or 'UNKNOWN')
+                    return IndicatorPerformance(
+                        indicator_name, indicator_type or "UNKNOWN"
+                    )
 
             # Return all indicators filtered by type
             filtered_performance = {}
@@ -544,10 +583,7 @@ class IndicatorPerformanceTracker:
             return {}
 
     def get_top_performing_indicators(
-        self,
-        metric: str = 'sharpe_ratio',
-        top_n: int = 10,
-        min_signals: int = None
+        self, metric: str = "sharpe_ratio", top_n: int = 10, min_signals: int = None
     ) -> List[Dict[str, Any]]:
         """Get top performing indicators ranked by specified metric"""
         try:
@@ -555,7 +591,8 @@ class IndicatorPerformanceTracker:
 
             # Filter indicators with sufficient data
             candidates = [
-                (name, perf) for name, perf in self.indicator_performance.items()
+                (name, perf)
+                for name, perf in self.indicator_performance.items()
                 if perf.total_signals >= min_signals
             ]
 
@@ -564,39 +601,39 @@ class IndicatorPerformanceTracker:
 
             # Sort by metric
             metric_map = {
-                'sharpe_ratio': lambda p: p.sharpe_ratio,
-                'win_rate': lambda p: p.win_rate,
-                'total_return': lambda p: p.total_return,
-                'signal_strength': lambda p: p.avg_signal_strength
+                "sharpe_ratio": lambda p: p.sharpe_ratio,
+                "win_rate": lambda p: p.win_rate,
+                "total_return": lambda p: p.total_return,
+                "signal_strength": lambda p: p.avg_signal_strength,
             }
 
             if metric not in metric_map:
-                metric = 'sharpe_ratio'
+                metric = "sharpe_ratio"
 
             sorted_indicators = sorted(
-                candidates,
-                key=lambda x: metric_map[metric](x[1]),
-                reverse=True
+                candidates, key=lambda x: metric_map[metric](x[1]), reverse=True
             )[:top_n]
 
             # Format results
             top_indicators = []
             for name, perf in sorted_indicators:
-                top_indicators.append({
-                    'indicator_name': name,
-                    'indicator_type': perf.indicator_type,
-                    'rank_metric': metric,
-                    'rank_value': metric_map[metric](perf),
-                    'performance_summary': {
-                        'win_rate': perf.win_rate,
-                        'total_signals': perf.total_signals,
-                        'sharpe_ratio': perf.sharpe_ratio,
-                        'total_return': perf.total_return,
-                        'avg_signal_strength': perf.avg_signal_strength,
-                        'max_drawdown': perf.max_drawdown
-                    },
-                    'market_condition_performance': perf.market_condition_performance
-                })
+                top_indicators.append(
+                    {
+                        "indicator_name": name,
+                        "indicator_type": perf.indicator_type,
+                        "rank_metric": metric,
+                        "rank_value": metric_map[metric](perf),
+                        "performance_summary": {
+                            "win_rate": perf.win_rate,
+                            "total_signals": perf.total_signals,
+                            "sharpe_ratio": perf.sharpe_ratio,
+                            "total_return": perf.total_return,
+                            "avg_signal_strength": perf.avg_signal_strength,
+                            "max_drawdown": perf.max_drawdown,
+                        },
+                        "market_condition_performance": perf.market_condition_performance,
+                    }
+                )
 
             return top_indicators
 
@@ -604,10 +641,7 @@ class IndicatorPerformanceTracker:
             logger.error(f"Error getting top performing indicators: {e}")
             return []
 
-    def generate_performance_report(
-        self,
-        lookback_days: int = None
-    ) -> Dict[str, Any]:
+    def generate_performance_report(self, lookback_days: int = None) -> Dict[str, Any]:
         """Generate comprehensive performance report"""
         try:
             lookback_days = lookback_days or self.lookback_days
@@ -615,81 +649,94 @@ class IndicatorPerformanceTracker:
 
             # Filter recent signals
             recent_signals = [
-                s for s in self.signal_history
-                if s.get('signal_time', datetime.min) > cutoff_date
+                s
+                for s in self.signal_history
+                if s.get("signal_time", datetime.min) > cutoff_date
             ]
 
             # Overall statistics
             total_signals = len(recent_signals)
-            signals_with_outcomes = len([s for s in recent_signals if s.get('actual_outcome')])
+            signals_with_outcomes = len(
+                [s for s in recent_signals if s.get("actual_outcome")]
+            )
 
             # Performance by indicator type
             type_performance = {}
             for signal in recent_signals:
-                if not signal.get('actual_outcome'):
+                if not signal.get("actual_outcome"):
                     continue
 
-                indicator_type = signal.get('indicator_type', 'UNKNOWN')
+                indicator_type = signal.get("indicator_type", "UNKNOWN")
                 if indicator_type not in type_performance:
                     type_performance[indicator_type] = {
-                        'signals': 0, 'correct': 0, 'returns': []
+                        "signals": 0,
+                        "correct": 0,
+                        "returns": [],
                     }
 
                 type_perf = type_performance[indicator_type]
-                type_perf['signals'] += 1
+                type_perf["signals"] += 1
 
                 # Check if signal was correct
-                signal_direction = signal.get('signal_direction', 'NEUTRAL')
-                actual_return = signal.get('actual_outcome', {}).get('return', 0.0)
+                signal_direction = signal.get("signal_direction", "NEUTRAL")
+                actual_return = signal.get("actual_outcome", {}).get("return", 0.0)
 
-                if ((signal_direction == 'BULLISH' and actual_return > 0.01) or
-                    (signal_direction == 'BEARISH' and actual_return < -0.01) or
-                    (signal_direction == 'NEUTRAL' and abs(actual_return) <= 0.01)):
-                    type_perf['correct'] += 1
+                if (
+                    (signal_direction == "BULLISH" and actual_return > 0.01)
+                    or (signal_direction == "BEARISH" and actual_return < -0.01)
+                    or (signal_direction == "NEUTRAL" and abs(actual_return) <= 0.01)
+                ):
+                    type_perf["correct"] += 1
 
-                type_perf['returns'].append(actual_return)
+                type_perf["returns"].append(actual_return)
 
             # Calculate type-level metrics
             for indicator_type, perf in type_performance.items():
-                perf['win_rate'] = perf['correct'] / max(perf['signals'], 1)
-                perf['avg_return'] = np.mean(perf['returns']) if perf['returns'] else 0.0
-                perf['sharpe_ratio'] = (
-                    np.mean(perf['returns']) / max(np.std(perf['returns']), 0.001) * np.sqrt(252)
-                    if perf['returns'] else 0.0
+                perf["win_rate"] = perf["correct"] / max(perf["signals"], 1)
+                perf["avg_return"] = (
+                    np.mean(perf["returns"]) if perf["returns"] else 0.0
+                )
+                perf["sharpe_ratio"] = (
+                    np.mean(perf["returns"])
+                    / max(np.std(perf["returns"]), 0.001)
+                    * np.sqrt(252)
+                    if perf["returns"]
+                    else 0.0
                 )
 
             # Top performers
             top_performers = self.get_top_performing_indicators(top_n=5)
 
             report = {
-                'report_period': f"Last {lookback_days} days",
-                'generation_time': datetime.now().isoformat(),
-                'summary_statistics': {
-                    'total_signals_generated': total_signals,
-                    'signals_with_outcomes': signals_with_outcomes,
-                    'outcome_completion_rate': signals_with_outcomes / max(total_signals, 1),
-                    'total_indicators_tracked': len(self.indicator_performance)
+                "report_period": f"Last {lookback_days} days",
+                "generation_time": datetime.now().isoformat(),
+                "summary_statistics": {
+                    "total_signals_generated": total_signals,
+                    "signals_with_outcomes": signals_with_outcomes,
+                    "outcome_completion_rate": signals_with_outcomes
+                    / max(total_signals, 1),
+                    "total_indicators_tracked": len(self.indicator_performance),
                 },
-                'performance_by_type': type_performance,
-                'top_performing_indicators': top_performers,
-                'indicator_count_by_type': {
-                    indicator_type: len([
-                        perf for perf in self.indicator_performance.values()
-                        if perf.indicator_type == indicator_type
-                    ])
-                    for indicator_type in ['TRADITIONAL', 'MODERN', 'LLM']
+                "performance_by_type": type_performance,
+                "top_performing_indicators": top_performers,
+                "indicator_count_by_type": {
+                    indicator_type: len(
+                        [
+                            perf
+                            for perf in self.indicator_performance.values()
+                            if perf.indicator_type == indicator_type
+                        ]
+                    )
+                    for indicator_type in ["TRADITIONAL", "MODERN", "LLM"]
                 },
-                'recommendations': self._generate_performance_recommendations()
+                "recommendations": self._generate_performance_recommendations(),
             }
 
             return report
 
         except Exception as e:
             logger.error(f"Error generating performance report: {e}")
-            return {
-                'error': str(e),
-                'generation_time': datetime.now().isoformat()
-            }
+            return {"error": str(e), "generation_time": datetime.now().isoformat()}
 
     def _generate_performance_recommendations(self) -> List[str]:
         """Generate performance-based recommendations"""
@@ -698,7 +745,9 @@ class IndicatorPerformanceTracker:
         try:
             # Analyze overall performance patterns
             if len(self.indicator_performance) == 0:
-                recommendations.append("No indicator performance data available - begin tracking indicators")
+                recommendations.append(
+                    "No indicator performance data available - begin tracking indicators"
+                )
                 return recommendations
 
             # Calculate average win rates by type
@@ -713,9 +762,13 @@ class IndicatorPerformanceTracker:
             for indicator_type, win_rates in type_win_rates.items():
                 avg_win_rate = np.mean(win_rates)
                 if avg_win_rate < 0.45:
-                    recommendations.append(f"{indicator_type} indicators underperforming - review parameters")
+                    recommendations.append(
+                        f"{indicator_type} indicators underperforming - review parameters"
+                    )
                 elif avg_win_rate > 0.65:
-                    recommendations.append(f"{indicator_type} indicators performing well - consider increasing allocation")
+                    recommendations.append(
+                        f"{indicator_type} indicators performing well - consider increasing allocation"
+                    )
 
             # Market condition recommendations
             market_condition_performance = {}
@@ -723,24 +776,34 @@ class IndicatorPerformanceTracker:
                 for condition, mc_perf in perf.market_condition_performance.items():
                     if condition not in market_condition_performance:
                         market_condition_performance[condition] = []
-                    if mc_perf['signals'] >= 3:  # Minimum for meaningful analysis
-                        market_condition_performance[condition].append(mc_perf['win_rate'])
+                    if mc_perf["signals"] >= 3:  # Minimum for meaningful analysis
+                        market_condition_performance[condition].append(
+                            mc_perf["win_rate"]
+                        )
 
             for condition, win_rates in market_condition_performance.items():
                 if win_rates:
                     avg_wr = np.mean(win_rates)
                     if avg_wr < 0.40:
-                        recommendations.append(f"Poor performance in {condition} market - avoid or adjust parameters")
+                        recommendations.append(
+                            f"Poor performance in {condition} market - avoid or adjust parameters"
+                        )
                     elif avg_wr > 0.70:
-                        recommendations.append(f"Excellent performance in {condition} market - prioritize these conditions")
+                        recommendations.append(
+                            f"Excellent performance in {condition} market - prioritize these conditions"
+                        )
 
             # General recommendations
             if not recommendations:
-                recommendations.append("Performance tracking is healthy - continue monitoring")
+                recommendations.append(
+                    "Performance tracking is healthy - continue monitoring"
+                )
 
         except Exception as e:
             logger.error(f"Error generating performance recommendations: {e}")
-            recommendations.append("Error generating recommendations - manual review advised")
+            recommendations.append(
+                "Error generating recommendations - manual review advised"
+            )
 
         return recommendations[:5]  # Limit to top 5 recommendations
 
@@ -767,10 +830,7 @@ class BacktestService:
         logger.info("BacktestService initialized with ML prediction capabilities")
 
     async def submit_trading_idea(
-        self,
-        agent_id: str,
-        trading_idea: TradingIdea,
-        db: Session = None
+        self, agent_id: str, trading_idea: TradingIdea, db: Session = None
     ) -> Dict[str, Any]:
         """Submit trading idea from AI agent for backtesting"""
         try:
@@ -787,7 +847,7 @@ class BacktestService:
                 initial_capital=100000,
                 max_position_size=0.15,
                 transaction_cost=0.001,
-                years_lookback=1  # Focus on recent performance
+                years_lookback=1,  # Focus on recent performance
             )
 
             # Create market data for backtesting (in production, fetch real data)
@@ -821,7 +881,7 @@ class BacktestService:
                 idea_id=idea_id,
                 agent_id=agent_id,
                 strategy=trading_idea.strategy,
-                performance_rank=feedback.performance_rank
+                performance_rank=feedback.performance_rank,
             )
 
             return {
@@ -829,26 +889,26 @@ class BacktestService:
                 "backtest_id": backtest_results.get("backtest_id"),
                 "status": "completed",
                 "feedback": asdict(feedback),
-                "execution_time": execution_time
+                "execution_time": execution_time,
             }
 
         except Exception as e:
             logger.error(
                 "Error processing trading idea submission",
                 error=str(e),
-                agent_id=agent_id
+                agent_id=agent_id,
             )
             return {
                 "status": "error",
                 "error": str(e),
-                "idea_id": getattr(trading_idea, 'id', None)
+                "idea_id": getattr(trading_idea, "id", None),
             }
 
     async def get_pattern_performance(
         self,
         pattern_name: str,
         market_conditions: Dict[str, Any] = None,
-        agent_id: str = None
+        agent_id: str = None,
     ) -> Dict[str, Any]:
         """Get historical pattern performance for AI agent learning"""
         try:
@@ -870,30 +930,34 @@ class BacktestService:
                 "details": details,
                 "improvement_suggestions": suggestions,
                 "market_conditions": market_conditions,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
             # Add agent-specific performance if available
             if agent_id and agent_id in self.agent_performance:
                 agent_data = self.agent_performance[agent_id]
                 agent_pattern_performance = [
-                    feedback for feedback in agent_data.get("feedback_history", [])
+                    feedback
+                    for feedback in agent_data.get("feedback_history", [])
                     if pattern_name.lower() in feedback.get("strategy", "").lower()
                 ]
 
                 if agent_pattern_performance:
-                    agent_success = sum(1 for f in agent_pattern_performance if f.get("success", False))
+                    agent_success = sum(
+                        1 for f in agent_pattern_performance if f.get("success", False)
+                    )
                     performance_data["agent_specific"] = {
-                        "agent_success_rate": agent_success / len(agent_pattern_performance),
+                        "agent_success_rate": agent_success
+                        / len(agent_pattern_performance),
                         "agent_attempts": len(agent_pattern_performance),
-                        "last_attempt": agent_pattern_performance[-1].get("timestamp")
+                        "last_attempt": agent_pattern_performance[-1].get("timestamp"),
                     }
 
             logger.info(
                 "Pattern performance retrieved",
                 pattern=pattern_name,
                 success_rate=success_rate,
-                agent_id=agent_id
+                agent_id=agent_id,
             )
 
             return performance_data
@@ -903,7 +967,7 @@ class BacktestService:
             return {
                 "pattern_name": pattern_name,
                 "error": str(e),
-                "success_rate": 0.5  # Default neutral performance
+                "success_rate": 0.5,  # Default neutral performance
             }
 
     async def optimize_strategy_parameters(
@@ -912,7 +976,7 @@ class BacktestService:
         strategy_name: str,
         parameter_space: Dict[str, Dict[str, Any]],
         optimization_metric: str = "sharpe_ratio",
-        max_iterations: int = 50
+        max_iterations: int = 50,
     ) -> Dict[str, Any]:
         """Optimize strategy parameters using grid search or Bayesian optimization"""
         try:
@@ -925,7 +989,7 @@ class BacktestService:
 
             optimization_results = []
             best_parameters = None
-            best_metric_value = float('-inf')
+            best_metric_value = float("-inf")
 
             for i, params in enumerate(parameter_combinations):
                 try:
@@ -940,12 +1004,14 @@ class BacktestService:
                         entry_conditions=params,
                         exit_conditions={},
                         risk_parameters={},
-                        timeframe="1D"
+                        timeframe="1D",
                     )
 
                     # Run backtest with these parameters
                     mock_data = await self._prepare_market_data_for_idea(test_idea)
-                    backtest_config = BacktestConfig(initial_capital=100000, years_lookback=1)
+                    backtest_config = BacktestConfig(
+                        initial_capital=100000, years_lookback=1
+                    )
 
                     results = await self._execute_idea_backtest(
                         test_idea, mock_data, backtest_config
@@ -954,11 +1020,13 @@ class BacktestService:
                     # Extract optimization metric
                     metric_value = results.get(optimization_metric, 0.0)
 
-                    optimization_results.append({
-                        "parameters": params,
-                        "metric_value": metric_value,
-                        "full_results": results
-                    })
+                    optimization_results.append(
+                        {
+                            "parameters": params,
+                            "metric_value": metric_value,
+                            "full_results": results,
+                        }
+                    )
 
                     # Track best parameters
                     if metric_value > best_metric_value:
@@ -984,7 +1052,7 @@ class BacktestService:
                 "total_combinations_tested": len(optimization_results),
                 "top_results": optimization_results[:5],  # Top 5 results
                 "execution_time": execution_time,
-                "optimization_timestamp": datetime.now().isoformat()
+                "optimization_timestamp": datetime.now().isoformat(),
             }
 
             logger.info(
@@ -992,7 +1060,7 @@ class BacktestService:
                 agent_id=agent_id,
                 strategy=strategy_name,
                 best_metric=best_metric_value,
-                combinations_tested=len(optimization_results)
+                combinations_tested=len(optimization_results),
             )
 
             return optimization_summary
@@ -1003,13 +1071,11 @@ class BacktestService:
                 "agent_id": agent_id,
                 "strategy_name": strategy_name,
                 "error": str(e),
-                "optimization_timestamp": datetime.now().isoformat()
+                "optimization_timestamp": datetime.now().isoformat(),
             }
 
     async def get_agent_learning_summary(
-        self,
-        agent_id: str,
-        days_lookback: int = 30
+        self, agent_id: str, days_lookback: int = 30
     ) -> Dict[str, Any]:
         """Get comprehensive learning summary for an AI agent"""
         try:
@@ -1019,24 +1085,30 @@ class BacktestService:
                 return {
                     "agent_id": agent_id,
                     "message": "No performance data available",
-                    "suggestions": ["Submit trading ideas to begin learning"]
+                    "suggestions": ["Submit trading ideas to begin learning"],
                 }
 
             agent_data = self.agent_performance[agent_id]
             recent_feedback = [
-                feedback for feedback in agent_data.get("feedback_history", [])
-                if datetime.fromisoformat(feedback.get("timestamp", "1970-01-01")) > cutoff_date
+                feedback
+                for feedback in agent_data.get("feedback_history", [])
+                if datetime.fromisoformat(feedback.get("timestamp", "1970-01-01"))
+                > cutoff_date
             ]
 
             if not recent_feedback:
                 return {
                     "agent_id": agent_id,
                     "message": "No recent performance data",
-                    "total_historical_ideas": len(agent_data.get("feedback_history", []))
+                    "total_historical_ideas": len(
+                        agent_data.get("feedback_history", [])
+                    ),
                 }
 
             # Calculate performance metrics
-            successful_ideas = sum(1 for f in recent_feedback if f.get("success", False))
+            successful_ideas = sum(
+                1 for f in recent_feedback if f.get("success", False)
+            )
             success_rate = successful_ideas / len(recent_feedback)
 
             avg_return = np.mean([f.get("total_return", 0.0) for f in recent_feedback])
@@ -1054,7 +1126,7 @@ class BacktestService:
                 strategy: {
                     "attempts": len(returns),
                     "avg_return": np.mean(returns),
-                    "success_rate": sum(1 for r in returns if r > 0) / len(returns)
+                    "success_rate": sum(1 for r in returns if r > 0) / len(returns),
                 }
                 for strategy, returns in strategy_performance.items()
             }
@@ -1069,8 +1141,14 @@ class BacktestService:
                 recommendations.append("Consider risk-adjusted position sizing")
                 recommendations.append("Implement tighter stop losses")
 
-            best_strategy = max(strategy_summary.keys(),
-                              key=lambda k: strategy_summary[k]["avg_return"]) if strategy_summary else None
+            best_strategy = (
+                max(
+                    strategy_summary.keys(),
+                    key=lambda k: strategy_summary[k]["avg_return"],
+                )
+                if strategy_summary
+                else None
+            )
 
             learning_summary = {
                 "agent_id": agent_id,
@@ -1083,17 +1161,14 @@ class BacktestService:
                 "best_performing_strategy": best_strategy,
                 "learning_recommendations": recommendations,
                 "improvement_trend": self._calculate_improvement_trend(recent_feedback),
-                "summary_timestamp": datetime.now().isoformat()
+                "summary_timestamp": datetime.now().isoformat(),
             }
 
             return learning_summary
 
         except Exception as e:
             logger.error("Error generating agent learning summary", error=str(e))
-            return {
-                "agent_id": agent_id,
-                "error": str(e)
-            }
+            return {"agent_id": agent_id, "error": str(e)}
 
     async def track_indicator_performance(
         self,
@@ -1101,7 +1176,7 @@ class BacktestService:
         indicator_type: str,
         signal_data: Dict[str, Any],
         market_conditions: Dict[str, Any],
-        actual_outcome: Dict[str, Any] = None
+        actual_outcome: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
         """Track performance of an individual indicator"""
         try:
@@ -1111,17 +1186,23 @@ class BacktestService:
                 indicator_type=indicator_type,
                 signal_data=signal_data,
                 market_conditions=market_conditions,
-                actual_outcome=actual_outcome
+                actual_outcome=actual_outcome,
             )
 
             # Get updated performance metrics
-            performance = self.indicator_tracker.get_indicator_performance(indicator_name)
+            performance = self.indicator_tracker.get_indicator_performance(
+                indicator_name
+            )
 
             return {
                 "status": "success",
                 "indicator_name": indicator_name,
-                "performance_metrics": asdict(performance) if hasattr(performance, '__dict__') else performance,
-                "timestamp": datetime.now().isoformat()
+                "performance_metrics": (
+                    asdict(performance)
+                    if hasattr(performance, "__dict__")
+                    else performance
+                ),
+                "timestamp": datetime.now().isoformat(),
             }
 
         except Exception as e:
@@ -1129,7 +1210,7 @@ class BacktestService:
             return {
                 "status": "error",
                 "error": str(e),
-                "indicator_name": indicator_name
+                "indicator_name": indicator_name,
             }
 
     async def get_indicator_performance_report(
@@ -1137,23 +1218,26 @@ class BacktestService:
         indicator_name: str = None,
         indicator_type: str = None,
         market_condition: str = None,
-        lookback_days: int = None
+        lookback_days: int = None,
     ) -> Dict[str, Any]:
         """Get comprehensive indicator performance report"""
         try:
             # Get specific indicator performance if requested
             if indicator_name:
                 performance = self.indicator_tracker.get_indicator_performance(
-                    indicator_name=indicator_name,
-                    market_condition=market_condition
+                    indicator_name=indicator_name, market_condition=market_condition
                 )
 
                 return {
                     "report_type": "individual_indicator",
                     "indicator_name": indicator_name,
                     "market_condition": market_condition,
-                    "performance": asdict(performance) if hasattr(performance, '__dict__') else performance,
-                    "generation_time": datetime.now().isoformat()
+                    "performance": (
+                        asdict(performance)
+                        if hasattr(performance, "__dict__")
+                        else performance
+                    ),
+                    "generation_time": datetime.now().isoformat(),
                 }
 
             # Get comprehensive performance report
@@ -1166,56 +1250,47 @@ class BacktestService:
                 )
                 report["filtered_by_type"] = {
                     "indicator_type": indicator_type,
-                    "indicators": {name: asdict(perf) for name, perf in filtered_performance.items()}
+                    "indicators": {
+                        name: asdict(perf)
+                        for name, perf in filtered_performance.items()
+                    },
                 }
 
-            return {
-                "report_type": "comprehensive",
-                "report_data": report
-            }
+            return {"report_type": "comprehensive", "report_data": report}
 
         except Exception as e:
             logger.error(f"Error generating indicator performance report: {e}")
             return {
                 "report_type": "error",
                 "error": str(e),
-                "generation_time": datetime.now().isoformat()
+                "generation_time": datetime.now().isoformat(),
             }
 
     async def get_top_performing_indicators(
-        self,
-        metric: str = "sharpe_ratio",
-        top_n: int = 10,
-        min_signals: int = None
+        self, metric: str = "sharpe_ratio", top_n: int = 10, min_signals: int = None
     ) -> Dict[str, Any]:
         """Get top performing indicators ranked by specified metric"""
         try:
             top_indicators = self.indicator_tracker.get_top_performing_indicators(
-                metric=metric,
-                top_n=top_n,
-                min_signals=min_signals
+                metric=metric, top_n=top_n, min_signals=min_signals
             )
 
             return {
                 "status": "success",
                 "ranking_metric": metric,
                 "top_indicators": top_indicators,
-                "total_indicators_evaluated": len(self.indicator_tracker.indicator_performance),
-                "generation_time": datetime.now().isoformat()
+                "total_indicators_evaluated": len(
+                    self.indicator_tracker.indicator_performance
+                ),
+                "generation_time": datetime.now().isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Error getting top performing indicators: {e}")
-            return {
-                "status": "error",
-                "error": str(e),
-                "ranking_metric": metric
-            }
+            return {"status": "error", "error": str(e), "ranking_metric": metric}
 
     async def update_indicator_signal_outcome(
-        self,
-        signal_id: str,
-        actual_outcome: Dict[str, Any]
+        self, signal_id: str, actual_outcome: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Update the outcome for a previously recorded indicator signal"""
         try:
@@ -1226,20 +1301,15 @@ class BacktestService:
                 "status": "success",
                 "signal_id": signal_id,
                 "outcome_updated": True,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Error updating indicator signal outcome: {e}")
-            return {
-                "status": "error",
-                "error": str(e),
-                "signal_id": signal_id
-            }
+            return {"status": "error", "error": str(e), "signal_id": signal_id}
 
     async def get_indicator_market_condition_analysis(
-        self,
-        market_condition: str = None
+        self, market_condition: str = None
     ) -> Dict[str, Any]:
         """Get analysis of indicator performance by market conditions"""
         try:
@@ -1252,9 +1322,13 @@ class BacktestService:
                 # Analyze specific market condition
                 condition_performance = {}
                 for indicator_name, perf in all_performance.items():
-                    if hasattr(perf, 'market_condition_performance'):
-                        mc_perf = perf.market_condition_performance.get(market_condition, {})
-                        if mc_perf.get('signals', 0) >= 3:  # Minimum signals for analysis
+                    if hasattr(perf, "market_condition_performance"):
+                        mc_perf = perf.market_condition_performance.get(
+                            market_condition, {}
+                        )
+                        if (
+                            mc_perf.get("signals", 0) >= 3
+                        ):  # Minimum signals for analysis
                             condition_performance[indicator_name] = mc_perf
 
                 analysis_results = {
@@ -1262,19 +1336,22 @@ class BacktestService:
                     "indicator_performance": condition_performance,
                     "top_performers_in_condition": sorted(
                         condition_performance.items(),
-                        key=lambda x: x[1].get('win_rate', 0.0),
-                        reverse=True
-                    )[:5]
+                        key=lambda x: x[1].get("win_rate", 0.0),
+                        reverse=True,
+                    )[:5],
                 }
             else:
                 # Analyze all market conditions
                 all_conditions = {}
                 for indicator_name, perf in all_performance.items():
-                    if hasattr(perf, 'market_condition_performance'):
-                        for condition, mc_perf in perf.market_condition_performance.items():
+                    if hasattr(perf, "market_condition_performance"):
+                        for (
+                            condition,
+                            mc_perf,
+                        ) in perf.market_condition_performance.items():
                             if condition not in all_conditions:
                                 all_conditions[condition] = {}
-                            if mc_perf.get('signals', 0) >= 3:
+                            if mc_perf.get("signals", 0) >= 3:
                                 all_conditions[condition][indicator_name] = mc_perf
 
                 analysis_results = {
@@ -1282,17 +1359,28 @@ class BacktestService:
                     "condition_summary": {
                         condition: {
                             "indicator_count": len(indicators),
-                            "avg_win_rate": np.mean([perf.get('win_rate', 0.0) for perf in indicators.values()]) if indicators else 0.0,
-                            "total_signals": sum(perf.get('signals', 0) for perf in indicators.values())
+                            "avg_win_rate": (
+                                np.mean(
+                                    [
+                                        perf.get("win_rate", 0.0)
+                                        for perf in indicators.values()
+                                    ]
+                                )
+                                if indicators
+                                else 0.0
+                            ),
+                            "total_signals": sum(
+                                perf.get("signals", 0) for perf in indicators.values()
+                            ),
                         }
                         for condition, indicators in all_conditions.items()
-                    }
+                    },
                 }
 
             return {
                 "status": "success",
                 "analysis": analysis_results,
-                "generation_time": datetime.now().isoformat()
+                "generation_time": datetime.now().isoformat(),
             }
 
         except Exception as e:
@@ -1300,13 +1388,12 @@ class BacktestService:
             return {
                 "status": "error",
                 "error": str(e),
-                "market_condition": market_condition
+                "market_condition": market_condition,
             }
 
     # Helper methods
     async def _prepare_market_data_for_idea(
-        self,
-        trading_idea: TradingIdea
+        self, trading_idea: TradingIdea
     ) -> Dict[str, Any]:
         """Prepare market data for backtesting a trading idea"""
         # Mock market data generation (in production, fetch real data)
@@ -1324,17 +1411,19 @@ class BacktestService:
             "symbol": trading_idea.symbol,
             "prices": prices,
             "volumes": np.random.randint(100000, 1000000, days + 1).tolist(),
-            "dates": [(datetime.now() - timedelta(days=days-i)).isoformat()
-                     for i in range(days + 1)],
+            "dates": [
+                (datetime.now() - timedelta(days=days - i)).isoformat()
+                for i in range(days + 1)
+            ],
             "highs": [p * 1.01 for p in prices],
-            "lows": [p * 0.99 for p in prices]
+            "lows": [p * 0.99 for p in prices],
         }
 
     async def _execute_idea_backtest(
         self,
         trading_idea: TradingIdea,
         market_data: Dict[str, Any],
-        config: BacktestConfig
+        config: BacktestConfig,
     ) -> Dict[str, Any]:
         """Execute backtest for a specific trading idea"""
         try:
@@ -1347,11 +1436,15 @@ class BacktestService:
 
             # Calculate metrics
             volatility = abs(np.random.normal(0.15, 0.05))
-            sharpe_ratio = adjusted_return / max(volatility, 0.01) if volatility > 0 else 0
+            sharpe_ratio = (
+                adjusted_return / max(volatility, 0.01) if volatility > 0 else 0
+            )
             max_drawdown = abs(np.random.normal(0.08, 0.04))
 
             # Win rate based on strategy and confidence
-            base_win_rate = 0.55 if trading_idea.strategy in ["technical", "pattern"] else 0.50
+            base_win_rate = (
+                0.55 if trading_idea.strategy in ["technical", "pattern"] else 0.50
+            )
             win_rate = min(0.90, base_win_rate + (trading_idea.confidence * 0.2))
 
             trades_count = np.random.randint(10, 50)
@@ -1366,7 +1459,7 @@ class BacktestService:
                 "trades_count": trades_count,
                 "volatility": volatility,
                 "final_capital": config.initial_capital * (1 + adjusted_return),
-                "execution_time": np.random.uniform(1.0, 5.0)
+                "execution_time": np.random.uniform(1.0, 5.0),
             }
 
         except Exception as e:
@@ -1378,13 +1471,11 @@ class BacktestService:
                 "sharpe_ratio": 0.0,
                 "max_drawdown": 0.0,
                 "win_rate": 0.0,
-                "trades_count": 0
+                "trades_count": 0,
             }
 
     async def _generate_agent_feedback(
-        self,
-        trading_idea: TradingIdea,
-        backtest_results: Dict[str, Any]
+        self, trading_idea: TradingIdea, backtest_results: Dict[str, Any]
     ) -> BacktestFeedback:
         """Generate structured feedback for AI agent"""
         try:
@@ -1417,11 +1508,15 @@ class BacktestService:
                 suggestions.append("Add confirmation indicators")
 
             # Risk score calculation
-            risk_score = min(100, max(0,
-                (max_drawdown * 50) +
-                ((1 - win_rate) * 30) +
-                (max(0, -total_return) * 20)
-            ))
+            risk_score = min(
+                100,
+                max(
+                    0,
+                    (max_drawdown * 50)
+                    + ((1 - win_rate) * 30)
+                    + (max(0, -total_return) * 20),
+                ),
+            )
 
             return BacktestFeedback(
                 idea_id=trading_idea.id,
@@ -1439,7 +1534,7 @@ class BacktestService:
                 learned_patterns=[],  # Will be populated by pattern learning
                 optimized_parameters={},
                 market_context={"volatility": "normal", "trend": "neutral"},
-                execution_time=backtest_results.get("execution_time", 0.0)
+                execution_time=backtest_results.get("execution_time", 0.0),
             )
 
         except Exception as e:
@@ -1461,7 +1556,7 @@ class BacktestService:
                 learned_patterns=[],
                 optimized_parameters={},
                 market_context={},
-                execution_time=0.0
+                execution_time=0.0,
             )
 
     def _update_agent_performance(self, agent_id: str, feedback: BacktestFeedback):
@@ -1472,7 +1567,7 @@ class BacktestService:
                 "successful_ideas": 0,
                 "feedback_history": [],
                 "strategy_preferences": {},
-                "learning_progress": []
+                "learning_progress": [],
             }
 
         agent_data = self.agent_performance[agent_id]
@@ -1491,9 +1586,7 @@ class BacktestService:
             agent_data["feedback_history"] = agent_data["feedback_history"][-100:]
 
     async def _update_pattern_learning(
-        self,
-        trading_idea: TradingIdea,
-        backtest_results: Dict[str, Any]
+        self, trading_idea: TradingIdea, backtest_results: Dict[str, Any]
     ):
         """Update pattern learning from backtest results"""
         try:
@@ -1504,14 +1597,14 @@ class BacktestService:
             market_conditions = {
                 "volatility": backtest_results.get("volatility", 0.2),
                 "trend": "neutral",
-                "volume": "normal"
+                "volume": "normal",
             }
 
             # Performance metrics for learning
             performance_metrics = {
                 "return": backtest_results.get("total_return", 0.0),
                 "sharpe_ratio": backtest_results.get("sharpe_ratio", 0.0),
-                "max_drawdown": backtest_results.get("max_drawdown", 0.0)
+                "max_drawdown": backtest_results.get("max_drawdown", 0.0),
             }
 
             # Update pattern performance
@@ -1523,9 +1616,7 @@ class BacktestService:
             logger.error("Error updating pattern learning", error=str(e))
 
     def _generate_parameter_combinations(
-        self,
-        parameter_space: Dict[str, Dict[str, Any]],
-        max_combinations: int = 50
+        self, parameter_space: Dict[str, Dict[str, Any]], max_combinations: int = 50
     ) -> List[Dict[str, Any]]:
         """Generate parameter combinations for optimization"""
         try:
@@ -1555,12 +1646,14 @@ class BacktestService:
 
             # Generate combinations
             import itertools
+
             all_combinations = list(itertools.product(*param_values))
 
             # Limit combinations
             if len(all_combinations) > max_combinations:
                 # Random sampling if too many combinations
                 import random
+
                 all_combinations = random.sample(all_combinations, max_combinations)
 
             # Convert to dictionary format
@@ -1576,20 +1669,24 @@ class BacktestService:
             logger.error("Error generating parameter combinations", error=str(e))
             return [{}]  # Return empty parameters as fallback
 
-    def _calculate_improvement_trend(self, feedback_history: List[Dict[str, Any]]) -> str:
+    def _calculate_improvement_trend(
+        self, feedback_history: List[Dict[str, Any]]
+    ) -> str:
         """Calculate if agent is improving over time"""
         try:
             if len(feedback_history) < 5:
                 return "insufficient_data"
 
             # Get recent and older performance
-            recent_performance = np.mean([
-                f.get("total_return", 0.0) for f in feedback_history[-5:]
-            ])
+            recent_performance = np.mean(
+                [f.get("total_return", 0.0) for f in feedback_history[-5:]]
+            )
 
-            older_performance = np.mean([
-                f.get("total_return", 0.0) for f in feedback_history[-10:-5]
-            ]) if len(feedback_history) >= 10 else recent_performance
+            older_performance = (
+                np.mean([f.get("total_return", 0.0) for f in feedback_history[-10:-5]])
+                if len(feedback_history) >= 10
+                else recent_performance
+            )
 
             improvement = recent_performance - older_performance
 
@@ -1620,10 +1717,7 @@ class BacktestService:
             return False
 
     async def track_ml_prediction(
-        self,
-        symbol: str,
-        prediction_result: Dict[str, Any],
-        horizon_days: int
+        self, symbol: str, prediction_result: Dict[str, Any], horizon_days: int
     ) -> Optional[int]:
         """Track ML prediction for later outcome verification"""
         if not self.ml_pipeline:
@@ -1638,12 +1732,12 @@ class BacktestService:
                 model_version_id=model_version.id,
                 symbol=symbol,
                 prediction_horizon=horizon_days,
-                predicted_direction=prediction_result.get('ensemble_prediction'),
-                predicted_return=prediction_result.get('predicted_return', 0.0),
-                confidence_score=prediction_result.get('confidence', 0.0),
-                individual_predictions=prediction_result.get('model_predictions', {}),
-                market_conditions=prediction_result.get('market_context', {}),
-                technical_indicators=prediction_result.get('technical_context', {})
+                predicted_direction=prediction_result.get("ensemble_prediction"),
+                predicted_return=prediction_result.get("predicted_return", 0.0),
+                confidence_score=prediction_result.get("confidence", 0.0),
+                individual_predictions=prediction_result.get("model_predictions", {}),
+                market_conditions=prediction_result.get("market_context", {}),
+                technical_indicators=prediction_result.get("technical_context", {}),
             )
 
             return prediction.id if prediction else None
@@ -1653,10 +1747,7 @@ class BacktestService:
             return None
 
     async def update_ml_prediction_outcome(
-        self,
-        prediction_id: int,
-        actual_direction: str,
-        actual_return: float
+        self, prediction_id: int, actual_direction: str, actual_return: float
     ) -> bool:
         """Update the actual outcome for a tracked ML prediction"""
         if not self.ml_pipeline:
@@ -1671,9 +1762,7 @@ class BacktestService:
             return False
 
     async def get_ml_model_performance(
-        self,
-        model_name: str = None,
-        days_back: int = 30
+        self, model_name: str = None, days_back: int = 30
     ) -> Dict[str, Any]:
         """Get ML model performance report"""
         if not self.ml_pipeline:
@@ -1681,8 +1770,7 @@ class BacktestService:
 
         try:
             return await self.ml_pipeline.get_model_performance_report(
-                model_name=model_name,
-                days_back=days_back
+                model_name=model_name, days_back=days_back
             )
         except Exception as e:
             logger.error("Error getting ML model performance", error=str(e))
@@ -1692,10 +1780,16 @@ class BacktestService:
         """Get or create the ensemble model version"""
         try:
             # Check for existing ensemble model version
-            existing_version = self.db.query(MLModelVersion).filter(
-                MLModelVersion.model_name == "llm_ensemble",
-                MLModelVersion.is_active == True
-            ).first() if self.db else None
+            existing_version = (
+                self.db.query(MLModelVersion)
+                .filter(
+                    MLModelVersion.model_name == "llm_ensemble",
+                    MLModelVersion.is_active == True,
+                )
+                .first()
+                if self.db
+                else None
+            )
 
             if existing_version:
                 return existing_version
@@ -1703,18 +1797,22 @@ class BacktestService:
             # Create new ensemble model version
             model_config = {
                 "type": "ensemble",
-                "models": ["qwen_quant", "yi_technical", "glm_risk", "deepseek_strategy"],
+                "models": [
+                    "qwen_quant",
+                    "yi_technical",
+                    "glm_risk",
+                    "deepseek_strategy",
+                ],
                 "voting_method": "weighted_confidence",
-                "confidence_threshold": 0.6
+                "confidence_threshold": 0.6,
             }
 
             return await self.ml_pipeline.create_model_version(
                 model_name="llm_ensemble",
                 model_type="LLM_ENSEMBLE",
-                model_config=model_config
+                model_config=model_config,
             )
 
         except Exception as e:
             logger.error("Error getting/creating ensemble model version", error=str(e))
             raise
-

@@ -3,7 +3,7 @@ Live Trading Engine - Integrates Markov analysis with Alpaca for live trading
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -12,8 +12,6 @@ import structlog
 import yfinance as yf
 
 from app.ai.trading_agents import AIAgentCoordinator
-from app.core.config import settings
-from app.core.exceptions import TradingError
 from app.trading.alpaca_client import AlpacaClient
 from app.trading.order_manager import OrderManager
 from app.trading.position_optimizer import PositionOptimizer

@@ -7,7 +7,12 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import Field, validator
 
-from .base_models import BaseSymbolModel, BaseFilterModel, BasePaginationModel, BaseTimeRangeModel
+from .base_models import (
+    BaseFilterModel,
+    BasePaginationModel,
+    BaseSymbolModel,
+    BaseTimeRangeModel,
+)
 from .enums import OrderSide, OrderType, TimeInForce
 
 
@@ -91,14 +96,11 @@ class PositionCloseRequest(BaseSymbolModel):
 # Utility request models
 class PaginationParams(BasePaginationModel):
     """Pagination parameters"""
-    pass
 
 
 class TimeRangeParams(BaseTimeRangeModel):
     """Time range parameters"""
-    pass
 
 
 class FilterParams(BaseFilterModel):
     """Common filter parameters"""
-    pass

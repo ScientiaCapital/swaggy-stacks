@@ -4,8 +4,8 @@ Risk Management Module
 
 from .position_manager import (
     IntegratedRiskManager,
-    PositionSizer,
     PortfolioRiskManager,
+    PositionSizer,
     StopLossManager,
 )
 

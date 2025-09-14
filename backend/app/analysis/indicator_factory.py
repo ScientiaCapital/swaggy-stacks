@@ -6,15 +6,13 @@ Provides factory pattern to manage traditional and modern indicators with cachin
 import hashlib
 import json
 import pickle
-from datetime import datetime, timedelta
-from typing import Dict, Any, Optional, Union, Literal
+from typing import Any, Dict, Literal, Optional
 
-import numpy as np
 import pandas as pd
 import structlog
 
-from app.analysis.technical_indicators import TechnicalIndicators
 from app.analysis.modern_indicators import ModernIndicators
+from app.analysis.technical_indicators import TechnicalIndicators
 from app.core.database import get_redis
 from app.core.exceptions import TradingError
 
@@ -57,8 +55,9 @@ class IndicatorFactory:
             logger.warning("Redis not available, caching disabled", error=str(e))
             self.redis_client = None
 
-    def _generate_cache_key(self, data: pd.DataFrame, indicator_type: str,
-                          params: Optional[Dict] = None) -> str:
+    def _generate_cache_key(
+        self, data: pd.DataFrame, indicator_type: str, params: Optional[Dict] = None
+    ) -> str:
         """
         Generate unique cache key for indicator data
 
@@ -81,13 +80,17 @@ class IndicatorFactory:
         if len(data) > 0:
             first_row = data.iloc[0].to_dict()
             last_row = data.iloc[-1].to_dict()
-            data_hash.update(json.dumps(first_row, sort_keys=True, default=str).encode())
+            data_hash.update(
+                json.dumps(first_row, sort_keys=True, default=str).encode()
+            )
             data_hash.update(json.dumps(last_row, sort_keys=True, default=str).encode())
 
             # Add middle point for longer datasets
             if len(data) > 10:
-                middle_row = data.iloc[len(data)//2].to_dict()
-                data_hash.update(json.dumps(middle_row, sort_keys=True, default=str).encode())
+                middle_row = data.iloc[len(data) // 2].to_dict()
+                data_hash.update(
+                    json.dumps(middle_row, sort_keys=True, default=str).encode()
+                )
 
         # Add parameters to hash
         if params:
@@ -118,8 +121,11 @@ class IndicatorFactory:
                 logger.debug("Cache hit for indicators", cache_key=cache_key)
                 return indicators
         except Exception as e:
-            logger.warning("Failed to retrieve cached indicators",
-                         cache_key=cache_key, error=str(e))
+            logger.warning(
+                "Failed to retrieve cached indicators",
+                cache_key=cache_key,
+                error=str(e),
+            )
 
         return None
 
@@ -140,8 +146,9 @@ class IndicatorFactory:
             self.redis_client.setex(cache_key, self.cache_ttl, serialized_data)
             logger.debug("Cached indicators", cache_key=cache_key, ttl=self.cache_ttl)
         except Exception as e:
-            logger.warning("Failed to cache indicators",
-                         cache_key=cache_key, error=str(e))
+            logger.warning(
+                "Failed to cache indicators", cache_key=cache_key, error=str(e)
+            )
 
     def get_indicator(self, name: str, indicator_type: IndicatorType = "both") -> Any:
         """
@@ -161,15 +168,18 @@ class IndicatorFactory:
         elif indicator_type == "both":
             return {
                 "traditional": self.traditional_indicators,
-                "modern": self.modern_indicators
+                "modern": self.modern_indicators,
             }
         else:
             raise TradingError(f"Unknown indicator type: {indicator_type}")
 
-    def calculate_all(self, data: pd.DataFrame,
-                     indicator_type: IndicatorType = "both",
-                     use_cache: bool = True,
-                     force_refresh: bool = False) -> Dict[str, Any]:
+    def calculate_all(
+        self,
+        data: pd.DataFrame,
+        indicator_type: IndicatorType = "both",
+        use_cache: bool = True,
+        force_refresh: bool = False,
+    ) -> Dict[str, Any]:
         """
         Calculate all indicators of specified type(s) with caching support
 
@@ -190,8 +200,10 @@ class IndicatorFactory:
                 )
 
             # Required columns validation
-            required_columns = ['open', 'high', 'low', 'close', 'volume']
-            missing_columns = [col for col in required_columns if col not in data.columns]
+            required_columns = ["open", "high", "low", "close", "volume"]
+            missing_columns = [
+                col for col in required_columns if col not in data.columns
+            ]
             if missing_columns:
                 raise TradingError(f"Missing required columns: {missing_columns}")
 
@@ -209,7 +221,9 @@ class IndicatorFactory:
 
             if indicator_type in ["traditional", "both"]:
                 logger.info("Calculating traditional indicators", data_length=len(data))
-                traditional_result = self.traditional_indicators.calculate_all_indicators(data)
+                traditional_result = (
+                    self.traditional_indicators.calculate_all_indicators(data)
+                )
                 result["traditional"] = traditional_result
 
             if indicator_type in ["modern", "both"]:
@@ -231,8 +245,10 @@ class IndicatorFactory:
                     unified_indicators[f"mod_{key}"] = value
 
                 # Add combined analysis
-                unified_indicators["combined_signals"] = self._generate_combined_signals(
-                    result["traditional"], result["modern"]
+                unified_indicators["combined_signals"] = (
+                    self._generate_combined_signals(
+                        result["traditional"], result["modern"]
+                    )
                 )
 
                 result["unified"] = unified_indicators
@@ -241,17 +257,21 @@ class IndicatorFactory:
             if use_cache:
                 self._cache_indicators(cache_key, result)
 
-            logger.info("Indicator calculation completed",
-                       indicator_type=indicator_type,
-                       result_keys=list(result.keys()),
-                       cached=use_cache)
+            logger.info(
+                "Indicator calculation completed",
+                indicator_type=indicator_type,
+                result_keys=list(result.keys()),
+                cached=use_cache,
+            )
 
             return result
 
         except Exception as e:
-            logger.error("Failed to calculate indicators",
-                        indicator_type=indicator_type,
-                        error=str(e))
+            logger.error(
+                "Failed to calculate indicators",
+                indicator_type=indicator_type,
+                error=str(e),
+            )
             raise TradingError(f"Indicator calculation failed: {str(e)}")
 
     def _generate_combined_signals(self, traditional: Dict, modern: Dict) -> Dict:
@@ -280,7 +300,10 @@ class IndicatorFactory:
                 combined_signals["trend_consensus"] = "STRONG_BULLISH"
             elif trad_trend == "BEARISH" and kama_trend == "BEARISH":
                 combined_signals["trend_consensus"] = "STRONG_BEARISH"
-            elif trad_trend in ["BULLISH", "BEARISH"] or kama_trend in ["BULLISH", "BEARISH"]:
+            elif trad_trend in ["BULLISH", "BEARISH"] or kama_trend in [
+                "BULLISH",
+                "BEARISH",
+            ]:
                 if trad_trend == "BULLISH" or kama_trend == "BULLISH":
                     combined_signals["trend_consensus"] = "WEAK_BULLISH"
                 else:
@@ -348,7 +371,7 @@ class IndicatorFactory:
                 "trend_consensus": "NEUTRAL",
                 "momentum_consensus": "NEUTRAL",
                 "final_signal": "HOLD",
-                "signal_strength": 0.0
+                "signal_strength": 0.0,
             }
 
     def invalidate_cache(self, pattern: Optional[str] = None):
@@ -372,7 +395,9 @@ class IndicatorFactory:
                 deleted = self.redis_client.delete(*keys)
                 logger.info("Cache invalidated", pattern=cache_pattern, deleted=deleted)
             else:
-                logger.info("No cache entries found to invalidate", pattern=cache_pattern)
+                logger.info(
+                    "No cache entries found to invalidate", pattern=cache_pattern
+                )
 
         except Exception as e:
             logger.error("Failed to invalidate cache", pattern=pattern, error=str(e))
@@ -399,7 +424,7 @@ class IndicatorFactory:
                 "indicator_cache_entries": len(indicator_keys),
                 "redis_connected_clients": redis_info.get("connected_clients", 0),
                 "redis_used_memory": redis_info.get("used_memory_human", "unknown"),
-                "cache_ttl_seconds": self.cache_ttl
+                "cache_ttl_seconds": self.cache_ttl,
             }
 
         except Exception as e:

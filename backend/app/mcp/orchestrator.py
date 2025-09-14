@@ -5,14 +5,11 @@ Follows singleton pattern from TradingManager for consistency
 """
 
 import asyncio
-import json
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
-
-import structlog
 
 from app.core.config import settings
 from app.core.exceptions import MCPConnectionError, MCPError, MCPTimeoutError

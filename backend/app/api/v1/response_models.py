@@ -3,13 +3,17 @@ API Response Models
 Response models for all endpoints
 """
 
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import Field
 
-from .base_models import BaseResponseModel, BaseTimestampedModel, BaseMetricsModel, BaseErrorModel
-from .enums import OrderSide, OrderStatus, OrderType, TradingAction, RiskLevel
+from .base_models import (
+    BaseErrorModel,
+    BaseMetricsModel,
+    BaseResponseModel,
+    BaseTimestampedModel,
+)
+from .enums import OrderSide, OrderStatus, OrderType, RiskLevel, TradingAction
 
 
 class OrderResponse(BaseTimestampedModel):
@@ -163,4 +167,3 @@ class HealthCheckResponse(BaseResponseModel):
 
 class ErrorResponse(BaseErrorModel):
     """Standard error response model"""
-    pass

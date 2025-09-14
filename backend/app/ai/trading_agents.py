@@ -4,18 +4,17 @@ AI Trading Coordinator - Refactored from trading_agents.py
 Lightweight orchestrator coordinating specialized AI agent services
 """
 
-import asyncio
 from dataclasses import asdict
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
 import structlog
 
+from .market_analyst_service import MarketAnalysis, MarketAnalystService
 from .ollama_client import OllamaClient
-from .market_analyst_service import MarketAnalystService, MarketAnalysis
+from .performance_coach_service import PerformanceCoachService, TradeReview
 from .risk_advisor_service import RiskAdvisorService, RiskAssessment
 from .strategy_optimizer_service import StrategyOptimizerService, StrategySignal
-from .performance_coach_service import PerformanceCoachService, TradeReview
 
 logger = structlog.get_logger()
 
@@ -31,8 +30,11 @@ class AITradingCoordinator:
     - PerformanceCoachService: Trade review and system improvement
     """
 
-    def __init__(self, ollama_base_url: str = "http://localhost:11434",
-                 enable_streaming: bool = True):
+    def __init__(
+        self,
+        ollama_base_url: str = "http://localhost:11434",
+        enable_streaming: bool = True,
+    ):
         self.ollama_client = OllamaClient(ollama_base_url)
 
         # Initialize specialized services
@@ -66,7 +68,9 @@ class AITradingCoordinator:
         """Add callback for agent coordination events"""
         self.coordination_callbacks.append(callback)
 
-    async def _stream_decision(self, agent_type: str, symbol: str, decision_data: Dict[str, Any]):
+    async def _stream_decision(
+        self, agent_type: str, symbol: str, decision_data: Dict[str, Any]
+    ):
         """Stream agent decision in real-time"""
         if not self.enable_streaming:
             return
@@ -76,7 +80,7 @@ class AITradingCoordinator:
             "agent_type": agent_type,
             "symbol": symbol,
             "timestamp": datetime.now().isoformat(),
-            **decision_data
+            **decision_data,
         }
 
         # Cache decision
@@ -91,9 +95,15 @@ class AITradingCoordinator:
             except Exception as e:
                 logger.warning("Decision callback failed", error=str(e))
 
-    async def _track_tool_execution(self, agent_type: str, tool_name: str,
-                                   execution_id: str, start_time: float,
-                                   result: Any, error: Optional[str] = None):
+    async def _track_tool_execution(
+        self,
+        agent_type: str,
+        tool_name: str,
+        execution_id: str,
+        start_time: float,
+        result: Any,
+        error: Optional[str] = None,
+    ):
         """Track tool execution for feedback loops"""
         execution_time_ms = (datetime.now().timestamp() - start_time) * 1000
 
@@ -105,7 +115,7 @@ class AITradingCoordinator:
             "result": result,
             "execution_time_ms": execution_time_ms,
             "timestamp": datetime.now().isoformat(),
-            "error_message": error
+            "error_message": error,
         }
 
         # Cache feedback
@@ -120,8 +130,12 @@ class AITradingCoordinator:
             except Exception as e:
                 logger.warning("Tool execution callback failed", error=str(e))
 
-    async def stream_market_analysis(self, symbol: str, market_data: Dict[str, Any],
-                                   technical_indicators: Dict[str, Any]) -> MarketAnalysis:
+    async def stream_market_analysis(
+        self,
+        symbol: str,
+        market_data: Dict[str, Any],
+        technical_indicators: Dict[str, Any],
+    ) -> MarketAnalysis:
         """Run market analysis with real-time decision streaming"""
         agent_type = "market_analyst"
         execution_id = f"market_analysis_{symbol}_{datetime.now().timestamp()}"
@@ -141,16 +155,20 @@ class AITradingCoordinator:
             )
 
             # Stream decision
-            await self._stream_decision(agent_type, symbol, {
-                "decision": result.sentiment,
-                "confidence": result.confidence,
-                "reasoning": result.reasoning,
-                "metadata": {
-                    "key_factors": result.key_factors,
-                    "risk_level": result.risk_level,
-                    "recommendations": result.recommendations
-                }
-            })
+            await self._stream_decision(
+                agent_type,
+                symbol,
+                {
+                    "decision": result.sentiment,
+                    "confidence": result.confidence,
+                    "reasoning": result.reasoning,
+                    "metadata": {
+                        "key_factors": result.key_factors,
+                        "risk_level": result.risk_level,
+                        "recommendations": result.recommendations,
+                    },
+                },
+            )
 
             return result
 
@@ -160,10 +178,15 @@ class AITradingCoordinator:
             )
             raise
 
-    async def stream_risk_assessment(self, symbol: str, position_size: float,
-                                   account_value: float, current_positions: List[Dict],
-                                   market_volatility: Dict[str, Any],
-                                   proposed_trade: Dict[str, Any]) -> RiskAssessment:
+    async def stream_risk_assessment(
+        self,
+        symbol: str,
+        position_size: float,
+        account_value: float,
+        current_positions: List[Dict],
+        market_volatility: Dict[str, Any],
+        proposed_trade: Dict[str, Any],
+    ) -> RiskAssessment:
         """Run risk assessment with real-time streaming"""
         agent_type = "risk_advisor"
         execution_id = f"risk_assessment_{symbol}_{datetime.now().timestamp()}"
@@ -185,17 +208,21 @@ class AITradingCoordinator:
             )
 
             # Stream decision
-            await self._stream_decision(agent_type, symbol, {
-                "decision": f"RISK_{result.risk_level.upper()}",
-                "confidence": 1.0,  # Risk assessments are definitive
-                "reasoning": f"Risk level: {result.risk_level}",
-                "metadata": {
-                    "portfolio_heat": result.portfolio_heat,
-                    "recommended_position_size": result.recommended_position_size,
-                    "key_risk_factors": result.key_risk_factors,
-                    "max_position_risk": result.max_position_risk
-                }
-            })
+            await self._stream_decision(
+                agent_type,
+                symbol,
+                {
+                    "decision": f"RISK_{result.risk_level.upper()}",
+                    "confidence": 1.0,  # Risk assessments are definitive
+                    "reasoning": f"Risk level: {result.risk_level}",
+                    "metadata": {
+                        "portfolio_heat": result.portfolio_heat,
+                        "recommended_position_size": result.recommended_position_size,
+                        "key_risk_factors": result.key_risk_factors,
+                        "max_position_risk": result.max_position_risk,
+                    },
+                },
+            )
 
             return result
 
@@ -205,10 +232,14 @@ class AITradingCoordinator:
             )
             raise
 
-    async def stream_strategy_signal(self, symbol: str, markov_analysis: Dict[str, Any],
-                                   technical_indicators: Dict[str, Any],
-                                   market_context: Dict[str, Any],
-                                   performance_history: List[Dict]) -> StrategySignal:
+    async def stream_strategy_signal(
+        self,
+        symbol: str,
+        markov_analysis: Dict[str, Any],
+        technical_indicators: Dict[str, Any],
+        market_context: Dict[str, Any],
+        performance_history: List[Dict],
+    ) -> StrategySignal:
         """Generate strategy signal with real-time streaming"""
         agent_type = "strategy_optimizer"
         execution_id = f"strategy_signal_{symbol}_{datetime.now().timestamp()}"
@@ -229,18 +260,22 @@ class AITradingCoordinator:
             )
 
             # Stream decision
-            await self._stream_decision(agent_type, symbol, {
-                "decision": result.action,
-                "confidence": result.confidence,
-                "reasoning": result.reasoning,
-                "metadata": {
-                    "entry_price": result.entry_price,
-                    "stop_loss": result.stop_loss,
-                    "take_profit": result.take_profit,
-                    "position_size": result.position_size,
-                    "technical_factors": result.technical_factors
-                }
-            })
+            await self._stream_decision(
+                agent_type,
+                symbol,
+                {
+                    "decision": result.action,
+                    "confidence": result.confidence,
+                    "reasoning": result.reasoning,
+                    "metadata": {
+                        "entry_price": result.entry_price,
+                        "stop_loss": result.stop_loss,
+                        "take_profit": result.take_profit,
+                        "position_size": result.position_size,
+                        "technical_factors": result.technical_factors,
+                    },
+                },
+            )
 
             return result
 
@@ -268,7 +303,7 @@ class AITradingCoordinator:
             self.active_decisions[correlation_id] = {
                 "symbol": symbol,
                 "start_time": datetime.now().isoformat(),
-                "status": "in_progress"
+                "status": "in_progress",
             }
 
             # Run streaming market analysis
@@ -322,15 +357,17 @@ class AITradingCoordinator:
                 "risk_assessment": asdict(risk_assessment),
                 "strategy_signal": asdict(strategy_signal),
                 "final_recommendation": final_recommendation,
-                "agent_performance": self.get_all_agent_stats()
+                "agent_performance": self.get_all_agent_stats(),
             }
 
             # Update active decision status
-            self.active_decisions[correlation_id].update({
-                "status": "completed",
-                "end_time": datetime.now().isoformat(),
-                "final_recommendation": final_recommendation
-            })
+            self.active_decisions[correlation_id].update(
+                {
+                    "status": "completed",
+                    "end_time": datetime.now().isoformat(),
+                    "final_recommendation": final_recommendation,
+                }
+            )
 
             # Stream final coordinated decision
             await self._stream_coordinated_decision(symbol, result)
@@ -343,11 +380,13 @@ class AITradingCoordinator:
 
             # Update active decision with error
             if correlation_id in self.active_decisions:
-                self.active_decisions[correlation_id].update({
-                    "status": "failed",
-                    "error": str(e),
-                    "end_time": datetime.now().isoformat()
-                })
+                self.active_decisions[correlation_id].update(
+                    {
+                        "status": "failed",
+                        "error": str(e),
+                        "end_time": datetime.now().isoformat(),
+                    }
+                )
 
             return {
                 "symbol": symbol,
@@ -357,7 +396,9 @@ class AITradingCoordinator:
                 "final_recommendation": "HOLD",
             }
 
-    async def _stream_coordinated_decision(self, symbol: str, analysis_result: Dict[str, Any]):
+    async def _stream_coordinated_decision(
+        self, symbol: str, analysis_result: Dict[str, Any]
+    ):
         """Stream final coordinated decision from all agents"""
         coordination_update = {
             "message_type": "final_decision",
@@ -366,14 +407,14 @@ class AITradingCoordinator:
             "agent_consensus": {
                 "market_analyst": analysis_result["market_analysis"]["sentiment"],
                 "risk_advisor": analysis_result["risk_assessment"]["risk_level"],
-                "strategy_optimizer": analysis_result["strategy_signal"]["action"]
+                "strategy_optimizer": analysis_result["strategy_signal"]["action"],
             },
             "confidence_scores": {
                 "market_analyst": analysis_result["market_analysis"]["confidence"],
                 "risk_advisor": 1.0,  # Risk assessments are definitive
-                "strategy_optimizer": analysis_result["strategy_signal"]["confidence"]
+                "strategy_optimizer": analysis_result["strategy_signal"]["confidence"],
             },
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
         # Trigger coordination callbacks
@@ -401,7 +442,9 @@ class AITradingCoordinator:
         # If both market and strategy agree, follow their recommendation
         if market_analysis.sentiment == "bullish" and strategy_signal.action == "BUY":
             return "BUY"
-        elif market_analysis.sentiment == "bearish" and strategy_signal.action == "SELL":
+        elif (
+            market_analysis.sentiment == "bearish" and strategy_signal.action == "SELL"
+        ):
             return "SELL"
         else:
             return "HOLD"
@@ -409,19 +452,23 @@ class AITradingCoordinator:
     def get_all_agent_stats(self) -> Dict[str, Dict[str, Any]]:
         """Get execution statistics for all agent services"""
         return {
-            'market_analyst': self.market_analyst.get_agent_stats(),
-            'risk_advisor': self.risk_advisor.get_agent_stats(),
-            'strategy_optimizer': self.strategy_optimizer.get_agent_stats(),
-            'performance_coach': self.performance_coach.get_agent_stats()
+            "market_analyst": self.market_analyst.get_agent_stats(),
+            "risk_advisor": self.risk_advisor.get_agent_stats(),
+            "strategy_optimizer": self.strategy_optimizer.get_agent_stats(),
+            "performance_coach": self.performance_coach.get_agent_stats(),
         }
 
-    def get_decision_history(self, symbol: str, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_decision_history(
+        self, symbol: str, limit: int = 50
+    ) -> List[Dict[str, Any]]:
         """Get recent decision history for a symbol"""
         if symbol not in self.decision_history:
             return []
         return self.decision_history[symbol][-limit:]
 
-    def get_tool_feedback(self, agent_type: str, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_tool_feedback(
+        self, agent_type: str, limit: int = 50
+    ) -> List[Dict[str, Any]]:
         """Get recent tool execution feedback for an agent"""
         if agent_type not in self.tool_feedback:
             return []
@@ -438,11 +485,17 @@ class AITradingCoordinator:
             "active_decisions": len(self.active_decisions),
             "decision_callbacks": len(self.decision_callbacks),
             "tool_callbacks": len(self.tool_execution_callbacks),
-            "coordination_callbacks": len(self.coordination_callbacks)
+            "coordination_callbacks": len(self.coordination_callbacks),
         }
 
     # Legacy compatibility methods
-    async def review_trade(self, trade_data: Dict[str, Any], market_context: Dict[str, Any],
-                          system_performance: Dict[str, Any]) -> TradeReview:
+    async def review_trade(
+        self,
+        trade_data: Dict[str, Any],
+        market_context: Dict[str, Any],
+        system_performance: Dict[str, Any],
+    ) -> TradeReview:
         """Legacy compatibility for trade review"""
-        return await self.performance_coach.review_trade(trade_data, market_context, system_performance)
+        return await self.performance_coach.review_trade(
+            trade_data, market_context, system_performance
+        )

@@ -4,12 +4,8 @@ Combines functionality from markov_analyzer.py, markov_agent.py, and legacy enha
 Eliminates redundancy while maintaining all features
 """
 
-import json
-import logging
 import warnings
-from collections import defaultdict, deque
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -509,7 +505,7 @@ EnhancedMarkovTradingSystem = MarkovSystem  # Legacy alias
 __all__ = [
     "MarkovCore",
     "MarkovSystem",
-    "DataHandler", 
+    "DataHandler",
     "PositionSizer",
     # Backward compatibility aliases
     "EnhancedMarkovSystem",

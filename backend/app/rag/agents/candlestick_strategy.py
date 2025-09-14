@@ -21,7 +21,9 @@ class CandlestickStrategy:
     def __init__(self, config: Dict[str, Any] = None):
         self.config = config or {}
         self.name = "candlestick"
-        self.pattern_confidence_threshold = config.get("pattern_confidence_threshold", 0.6)
+        self.pattern_confidence_threshold = config.get(
+            "pattern_confidence_threshold", 0.6
+        )
         self.volume_confirmation_weight = config.get("volume_confirmation_weight", 0.2)
         self.trend_confirmation_weight = config.get("trend_confirmation_weight", 0.3)
 
@@ -33,6 +35,7 @@ class CandlestickStrategy:
         """Initialize PatternTool for candlestick pattern detection"""
         try:
             from app.rag.tools.pattern_tool import PatternTool
+
             self.pattern_tool = PatternTool()
             logger.info("✅ PatternTool initialized for candlestick strategy")
         except Exception as e:
@@ -71,7 +74,10 @@ class CandlestickStrategy:
             lows = market_data.get("lows", [])
 
             if len(prices) < 4:  # Minimum for pattern detection
-                return {"error": "insufficient_data", "message": "Need at least 4 periods for pattern detection"}
+                return {
+                    "error": "insufficient_data",
+                    "message": "Need at least 4 periods for pattern detection",
+                }
 
             patterns = []
             pattern_strength = 0.0
@@ -81,34 +87,52 @@ class CandlestickStrategy:
             if self.pattern_tool:
                 try:
                     # Convert OHLC data for pattern detection
-                    ohlc_data = self._prepare_ohlc_data(prices, highs, lows, volumes)
-                    detected_patterns = self.pattern_tool._detect_candlestick_patterns(prices, volumes)
+                    self._prepare_ohlc_data(prices, highs, lows, volumes)
+                    detected_patterns = self.pattern_tool._detect_candlestick_patterns(
+                        prices, volumes
+                    )
 
                     if detected_patterns:
                         patterns = detected_patterns
-                        pattern_strength, dominant_signal = self._calculate_aggregate_signal(patterns)
+                        pattern_strength, dominant_signal = (
+                            self._calculate_aggregate_signal(patterns)
+                        )
 
                 except Exception as e:
                     logger.warning(f"PatternTool detection failed, using fallback: {e}")
                     patterns = self._fallback_pattern_detection(prices, volumes)
-                    pattern_strength, dominant_signal = self._calculate_aggregate_signal(patterns)
+                    pattern_strength, dominant_signal = (
+                        self._calculate_aggregate_signal(patterns)
+                    )
             else:
                 # Fallback pattern detection
                 patterns = self._fallback_pattern_detection(prices, volumes)
-                pattern_strength, dominant_signal = self._calculate_aggregate_signal(patterns)
+                pattern_strength, dominant_signal = self._calculate_aggregate_signal(
+                    patterns
+                )
 
             # Add trend and volume confirmation
             trend_context = self._calculate_trend_context(prices)
-            volume_confirmation = self._calculate_volume_confirmation(volumes, patterns) if volumes else 0.5
+            volume_confirmation = (
+                self._calculate_volume_confirmation(volumes, patterns)
+                if volumes
+                else 0.5
+            )
 
             # Adjust pattern strength based on confirmations
-            confirmed_strength = pattern_strength * (1 +
-                (self.trend_confirmation_weight * self._trend_signal_alignment(trend_context, dominant_signal)) +
-                (self.volume_confirmation_weight * (volume_confirmation - 0.5))
+            confirmed_strength = pattern_strength * (
+                1
+                + (
+                    self.trend_confirmation_weight
+                    * self._trend_signal_alignment(trend_context, dominant_signal)
+                )
+                + (self.volume_confirmation_weight * (volume_confirmation - 0.5))
             )
 
             analysis_time = (datetime.now() - start_time).total_seconds()
-            metrics.record_strategy_analysis_latency(analysis_time, "candlestick", symbol)
+            metrics.record_strategy_analysis_latency(
+                analysis_time, "candlestick", symbol
+            )
 
             return {
                 "patterns": patterns,
@@ -122,11 +146,15 @@ class CandlestickStrategy:
 
         except Exception as e:
             analysis_time = (datetime.now() - start_time).total_seconds()
-            metrics.record_strategy_analysis_latency(analysis_time, "candlestick", symbol)
+            metrics.record_strategy_analysis_latency(
+                analysis_time, "candlestick", symbol
+            )
             logger.error(f"Candlestick analysis failed for {symbol}: {str(e)}")
             return {"error": "analysis_failed", "message": str(e)}
 
-    def generate_signal(self, analysis: Dict[str, Any], market_data: Dict[str, Any]) -> Dict[str, str]:
+    def generate_signal(
+        self, analysis: Dict[str, Any], market_data: Dict[str, Any]
+    ) -> Dict[str, str]:
         """Generate candlestick pattern-based trading signal"""
         if "error" in analysis:
             return {
@@ -148,11 +176,7 @@ class CandlestickStrategy:
             }
 
         # Convert dominant signal to trading action
-        action_mapping = {
-            "bullish": "BUY",
-            "bearish": "SELL",
-            "neutral": "HOLD"
-        }
+        action_mapping = {"bullish": "BUY", "bearish": "SELL", "neutral": "HOLD"}
 
         action = action_mapping.get(dominant_signal, "HOLD")
 
@@ -161,7 +185,9 @@ class CandlestickStrategy:
         reasoning = f"Detected {pattern_count} candlestick pattern(s): {', '.join(pattern_names[:3])}{'...' if len(pattern_names) > 3 else ''}"
 
         if analysis.get("trend_context") != "neutral":
-            reasoning += f" with {analysis.get('trend_context', 'unknown')} trend context"
+            reasoning += (
+                f" with {analysis.get('trend_context', 'unknown')} trend context"
+            )
 
         if analysis.get("volume_confirmation", 0.5) > 0.6:
             reasoning += " and volume confirmation"
@@ -173,8 +199,13 @@ class CandlestickStrategy:
             "patterns_detected": pattern_names,
         }
 
-    def _prepare_ohlc_data(self, prices: List[float], highs: List[float] = None,
-                          lows: List[float] = None, volumes: List[float] = None) -> Dict[str, List[float]]:
+    def _prepare_ohlc_data(
+        self,
+        prices: List[float],
+        highs: List[float] = None,
+        lows: List[float] = None,
+        volumes: List[float] = None,
+    ) -> Dict[str, List[float]]:
         """Prepare OHLC data structure for pattern detection"""
         # If highs/lows not provided, estimate from prices
         if not highs:
@@ -187,10 +218,13 @@ class CandlestickStrategy:
             "highs": highs,
             "lows": lows,
             "closes": prices,
-            "volumes": volumes or [1000] * len(prices)  # Default volume if not provided
+            "volumes": volumes
+            or [1000] * len(prices),  # Default volume if not provided
         }
 
-    def _fallback_pattern_detection(self, prices: List[float], volumes: List[float] = None) -> List[Dict[str, Any]]:
+    def _fallback_pattern_detection(
+        self, prices: List[float], volumes: List[float] = None
+    ) -> List[Dict[str, Any]]:
         """Fallback pattern detection when PatternTool is not available"""
         patterns = []
 
@@ -202,21 +236,27 @@ class CandlestickStrategy:
 
         # Detect basic patterns
         if self._is_doji_pattern(recent_prices[-1:]):
-            patterns.append({
-                "name": "Doji",
-                "direction": "neutral",
-                "strength": 0.6,
-                "description": "Indecision pattern"
-            })
+            patterns.append(
+                {
+                    "name": "Doji",
+                    "direction": "neutral",
+                    "strength": 0.6,
+                    "description": "Indecision pattern",
+                }
+            )
 
         if self._is_engulfing_pattern(recent_prices[-2:]):
-            direction = "bullish" if recent_prices[-1] > recent_prices[-2] else "bearish"
-            patterns.append({
-                "name": "Engulfing",
-                "direction": direction,
-                "strength": 0.7,
-                "description": f"{direction.capitalize()} engulfing pattern"
-            })
+            direction = (
+                "bullish" if recent_prices[-1] > recent_prices[-2] else "bearish"
+            )
+            patterns.append(
+                {
+                    "name": "Engulfing",
+                    "direction": direction,
+                    "strength": 0.7,
+                    "description": f"{direction.capitalize()} engulfing pattern",
+                }
+            )
 
         return patterns
 
@@ -233,7 +273,9 @@ class CandlestickStrategy:
             return False
         return abs(candles[-1] - candles[-2]) / candles[-2] > 0.02  # 2% move
 
-    def _calculate_aggregate_signal(self, patterns: List[Dict[str, Any]]) -> Tuple[float, str]:
+    def _calculate_aggregate_signal(
+        self, patterns: List[Dict[str, Any]]
+    ) -> Tuple[float, str]:
         """Calculate aggregate signal strength and direction from multiple patterns"""
         if not patterns:
             return 0.0, "neutral"
@@ -287,7 +329,9 @@ class CandlestickStrategy:
         else:
             return "neutral"
 
-    def _calculate_volume_confirmation(self, volumes: List[float], patterns: List[Dict[str, Any]]) -> float:
+    def _calculate_volume_confirmation(
+        self, volumes: List[float], patterns: List[Dict[str, Any]]
+    ) -> float:
         """Calculate volume confirmation for pattern strength"""
         if not volumes or len(volumes) < 4:
             return 0.5  # Neutral if no volume data
@@ -347,11 +391,13 @@ class CandlestickStrategy:
             "morning_star": "Bullish reversal, three-candle pattern",
             "evening_star": "Bearish reversal, three-candle pattern",
             "harami": "Inside bar pattern, continuation or reversal",
-            "tweezers": "Double top/bottom pattern, reversal signal"
+            "tweezers": "Double top/bottom pattern, reversal signal",
         }
 
         pattern_key = pattern_name.lower().replace(" ", "_")
-        characteristics = pattern_characteristics.get(pattern_key, "Pattern analysis not available")
+        characteristics = pattern_characteristics.get(
+            pattern_key, "Pattern analysis not available"
+        )
 
         return f"Pattern: {pattern_name} - {characteristics}"
 

@@ -2,6 +2,6 @@
 Common types for the RAG system
 """
 
-from .trading_types import TradingSignal, MarketContext, AgentState
+from .trading_types import AgentState, MarketContext, TradingSignal
 
-__all__ = ['TradingSignal', 'MarketContext', 'AgentState']
+__all__ = ["TradingSignal", "MarketContext", "AgentState"]

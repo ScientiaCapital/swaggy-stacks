@@ -2,10 +2,9 @@
 Ollama client for AI model interaction optimized for M1 MacBook with 8GB RAM
 """
 
-import asyncio
 import json
 from dataclasses import dataclass
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, Optional
 
 import httpx
 import structlog
@@ -60,7 +59,6 @@ class OllamaClient:
             use_case="conversational",
             temperature=0.7,
         ),
-        
         # NEW: Memory-efficient Chinese LLM models
         "yi_technical": ModelConfig(
             name="yi-6b-chat",
@@ -70,7 +68,7 @@ class OllamaClient:
             temperature=0.2,
         ),
         "glm_risk": ModelConfig(
-            name="glm-4-9b-chat", 
+            name="glm-4-9b-chat",
             context_length=8192,
             memory_usage_mb=7200,  # 7200MB for GLM-4-9B
             use_case="risk_management_chinese",
@@ -80,7 +78,7 @@ class OllamaClient:
             name="qwen2.5-7b",
             context_length=32768,
             memory_usage_mb=6800,  # 6800MB for Qwen2.5-7B
-            use_case="quantitative_analysis_chinese", 
+            use_case="quantitative_analysis_chinese",
             temperature=0.3,
         ),
         "deepseek_lite": ModelConfig(
@@ -132,7 +130,7 @@ class OllamaClient:
                     "Model ready",
                     model=model_config.name,
                     use_case=model_config.use_case,
-                    memory_mb=model_config.memory_usage_mb
+                    memory_mb=model_config.memory_usage_mb,
                 )
                 return True
 
@@ -263,16 +261,16 @@ class OllamaClient:
 
         prompt = f"""
         Analyze this market data and trading signals:
-        
+
         Market Data:
         {json.dumps(market_data, indent=2)}
-        
+
         Current Signals:
         {json.dumps(signals, indent=2)}
-        
+
         Additional Context:
         {context}
-        
+
         Provide analysis in this JSON format:
         {{
             "market_sentiment": "bullish|bearish|neutral",
@@ -284,7 +282,7 @@ class OllamaClient:
         }}
         """
 
-        system_prompt = """You are an expert quantitative analyst specializing in algorithmic trading. 
+        system_prompt = """You are an expert quantitative analyst specializing in algorithmic trading.
         Analyze market data objectively and provide actionable insights. Focus on statistical patterns and risk assessment.
         Always respond in valid JSON format."""
 
@@ -310,11 +308,11 @@ class OllamaClient:
         """Get default system prompt for each model type"""
         prompts = {
             # Original models (backward compatibility)
-            "analyst": """You are a senior quantitative analyst for a hedge fund specializing in algorithmic trading. 
+            "analyst": """You are a senior quantitative analyst for a hedge fund specializing in algorithmic trading.
             Analyze market data with statistical rigor and provide clear, actionable insights. Be concise and precise.""",
-            "risk": """You are a risk management expert focused on portfolio protection and capital preservation. 
+            "risk": """You are a risk management expert focused on portfolio protection and capital preservation.
             Evaluate trades for potential risks and suggest appropriate safeguards. Prioritize downside protection.""",
-            "strategist": """You are a quantitative strategist who develops algorithmic trading strategies. 
+            "strategist": """You are a quantitative strategist who develops algorithmic trading strategies.
             Generate Python code and mathematical models for trading systems. Focus on statistical edge and risk-adjusted returns.""",
             "chat": """You are an intelligent trading assistant. Help users understand their trading system,
             explain market conditions, and provide guidance in plain English. Be helpful but honest about limitations.""",
@@ -388,7 +386,7 @@ class OllamaClient:
     def get_model_info(self, model_key: str) -> Optional[ModelConfig]:
         """Get information about a specific model"""
         return self.MODELS.get(model_key)
-    
+
     def get_total_memory_usage(self) -> int:
         """Get total estimated memory usage of active models in MB"""
         total_memory = 0
@@ -396,11 +394,11 @@ class OllamaClient:
             model_config = self.MODELS.get(model_key)
             if model_config:
                 total_memory += model_config.memory_usage_mb
-        
+
         # Add context cache overhead (estimated)
         cache_overhead = len(self.context_history) * 50  # ~50MB per cached context
         return total_memory + cache_overhead
-    
+
     def get_memory_budget_status(self, max_memory_mb: int = 7500) -> Dict[str, Any]:
         """
         Get memory budget status for M1 Mac optimization
@@ -413,7 +411,7 @@ class OllamaClient:
         """
         current_usage = self.get_total_memory_usage()
         available_memory = max_memory_mb - current_usage
-        
+
         return {
             "total_usage_mb": current_usage,
             "max_budget_mb": max_memory_mb,
@@ -423,19 +421,20 @@ class OllamaClient:
             "active_model_keys": list(self.active_models),
             "context_cache_size": len(self.context_history),
             "memory_efficient": current_usage < max_memory_mb,
-            "can_load_large_models": available_memory > 4000  # Need ~4GB for largest models
+            "can_load_large_models": available_memory
+            > 4000,  # Need ~4GB for largest models
         }
-    
+
     def optimize_memory_usage(self) -> Dict[str, Any]:
         """
         Optimize memory usage by clearing context cache if needed
-        
+
         Returns:
             Dictionary with optimization actions taken
         """
         actions_taken = []
         memory_freed = 0
-        
+
         # Clear old context history if memory is tight
         current_usage = self.get_total_memory_usage()
         if current_usage > 6000:  # If using more than 6GB
@@ -443,7 +442,7 @@ class OllamaClient:
             memory_freed += contexts_cleared * 50  # Estimated 50MB per context
             self.context_history.clear()
             actions_taken.append(f"Cleared {contexts_cleared} context caches")
-        
+
         # Limit context history size for future
         if len(self.context_history) > 3:
             oldest_contexts = list(self.context_history.keys())[:-3]
@@ -451,31 +450,31 @@ class OllamaClient:
                 del self.context_history[context_key]
                 memory_freed += 50
             actions_taken.append(f"Removed {len(oldest_contexts)} old contexts")
-        
+
         return {
             "actions_taken": actions_taken,
             "estimated_memory_freed_mb": memory_freed,
             "new_usage_mb": self.get_total_memory_usage(),
-            "optimization_successful": len(actions_taken) > 0
+            "optimization_successful": len(actions_taken) > 0,
         }
-    
+
     def get_available_models(self) -> Dict[str, ModelConfig]:
         """Get all available model configurations"""
         return self.MODELS.copy()
-    
+
     def get_recommended_model_for_task(self, task_type: str) -> Optional[str]:
         """
         Get recommended model for a specific task type
-        
+
         Args:
             task_type: Type of task (e.g., "market_analysis", "risk_assessment")
-            
+
         Returns:
             Recommended model key or None
         """
         task_model_mapping = {
             "market_analysis": "analyst",
-            "quantitative_analysis": "strategist", 
+            "quantitative_analysis": "strategist",
             "mathematical_analysis": "strategist",
             "technical_analysis": "analyst",
             "pattern_recognition": "analyst",
@@ -485,7 +484,7 @@ class OllamaClient:
             "strategy_implementation": "strategist",
             "coding": "strategist",
             "algorithm_development": "strategist",
-            "conversational": "chat"
+            "conversational": "chat",
         }
-        
+
         return task_model_mapping.get(task_type.lower(), "analyst")

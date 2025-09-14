@@ -16,6 +16,7 @@ from .ollama_client import OllamaClient
 @dataclass
 class StrategySignal:
     """Strategy signal from AI agent"""
+
     symbol: str
     action: str  # BUY, SELL, HOLD
     confidence: float  # 0.0 to 1.0
@@ -54,20 +55,22 @@ class StrategyOptimizerService(BaseAIAgent):
             # Build data sections
             data_sections = {
                 "Markov Analysis": {
-                    "Current State": markov_analysis.get('current_state', 'Unknown'),
-                    "Transition Probability": markov_analysis.get('transition_prob', 0.0),
-                    "Confidence": markov_analysis.get('confidence', 0.0),
-                    "Predicted Direction": markov_analysis.get('direction', 'Neutral')
+                    "Current State": markov_analysis.get("current_state", "Unknown"),
+                    "Transition Probability": markov_analysis.get(
+                        "transition_prob", 0.0
+                    ),
+                    "Confidence": markov_analysis.get("confidence", 0.0),
+                    "Predicted Direction": markov_analysis.get("direction", "Neutral"),
                 },
                 "Technical Indicators": json.dumps(technical_indicators, indent=2),
                 "Market Context": {
-                    "Market Regime": market_context.get('regime', 'Unknown'),
-                    "Volatility Level": market_context.get('volatility', 'Normal'),
-                    "Trend Strength": market_context.get('trend_strength', 'Moderate')
+                    "Market Regime": market_context.get("regime", "Unknown"),
+                    "Volatility Level": market_context.get("volatility", "Normal"),
+                    "Trend Strength": market_context.get("trend_strength", "Moderate"),
                 },
                 "Recent Performance History": json.dumps(
                     performance_history[-5:] if performance_history else [], indent=2
-                )
+                ),
             }
 
             # JSON schema
@@ -79,11 +82,13 @@ class StrategyOptimizerService(BaseAIAgent):
                 "take_profit": "float or null",
                 "position_size": "float or null",
                 "reasoning": "detailed explanation",
-                "technical_factors": ["factor1", "factor2", "factor3"]
+                "technical_factors": ["factor1", "factor2", "factor3"],
             }
 
             # Build prompt
-            instruction = "Generate an optimized trading signal based on all available data"
+            instruction = (
+                "Generate an optimized trading signal based on all available data"
+            )
             prompt = self._build_standard_prompt_template(
                 symbol, data_sections, instruction, json_schema
             )
@@ -100,16 +105,14 @@ class StrategyOptimizerService(BaseAIAgent):
                 "take_profit": None,
                 "position_size": None,
                 "reasoning": "Signal generation failed",
-                "technical_factors": ["Error in analysis"]
+                "technical_factors": ["Error in analysis"],
             }
 
             signal_data = self._parse_json_response(response, default_values)
 
             # Validate and normalize data
             action = self._validate_choice(
-                signal_data["action"],
-                ["BUY", "SELL", "HOLD"],
-                "HOLD"
+                signal_data["action"], ["BUY", "SELL", "HOLD"], "HOLD"
             )
 
             confidence = self._validate_confidence(signal_data["confidence"])
@@ -130,7 +133,7 @@ class StrategyOptimizerService(BaseAIAgent):
                 position_size=position_size,
                 reasoning=signal_data.get("reasoning", ""),
                 technical_factors=signal_data.get("technical_factors", []),
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
 
         except Exception as e:
@@ -145,7 +148,7 @@ class StrategyOptimizerService(BaseAIAgent):
                 position_size=None,
                 reasoning=f"Error: {str(e)}",
                 technical_factors=["Generation error"],
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
 
     def _parse_optional_float(self, value: Any) -> Optional[float]:
@@ -162,7 +165,7 @@ class StrategyOptimizerService(BaseAIAgent):
         symbol: str,
         current_parameters: Dict[str, Any],
         performance_metrics: Dict[str, float],
-        optimization_target: str = "sharpe_ratio"
+        optimization_target: str = "sharpe_ratio",
     ) -> Dict[str, Any]:
         """Optimize strategy parameters based on performance feedback"""
         try:
@@ -173,22 +176,22 @@ class StrategyOptimizerService(BaseAIAgent):
                     "Win Rate": f"{performance_metrics.get('win_rate', 0):.2%}",
                     "Sharpe Ratio": f"{performance_metrics.get('sharpe_ratio', 0):.2f}",
                     "Max Drawdown": f"{performance_metrics.get('max_drawdown', 0):.2%}",
-                    "Total Return": f"{performance_metrics.get('total_return', 0):.2%}"
+                    "Total Return": f"{performance_metrics.get('total_return', 0):.2%}",
                 },
-                "Optimization Target": optimization_target
+                "Optimization Target": optimization_target,
             }
 
             # JSON schema for parameter optimization
             json_schema = {
-                "optimized_parameters": {
-                    "parameter_name": "new_value"
-                },
+                "optimized_parameters": {"parameter_name": "new_value"},
                 "expected_improvement": "0.0-1.0",
                 "optimization_reasoning": "explanation of changes",
-                "risk_assessment": "low|medium|high"
+                "risk_assessment": "low|medium|high",
             }
 
-            instruction = f"Optimize strategy parameters to improve {optimization_target}"
+            instruction = (
+                f"Optimize strategy parameters to improve {optimization_target}"
+            )
             prompt = self._build_standard_prompt_template(
                 symbol, data_sections, instruction, json_schema
             )
@@ -199,7 +202,7 @@ class StrategyOptimizerService(BaseAIAgent):
                 "optimized_parameters": current_parameters,
                 "expected_improvement": 0.0,
                 "optimization_reasoning": "No optimization performed",
-                "risk_assessment": "medium"
+                "risk_assessment": "medium",
             }
 
             optimization_data = self._parse_json_response(response, default_values)
@@ -207,7 +210,9 @@ class StrategyOptimizerService(BaseAIAgent):
             return {
                 "symbol": symbol,
                 "original_parameters": current_parameters,
-                "optimized_parameters": optimization_data.get("optimized_parameters", {}),
+                "optimized_parameters": optimization_data.get(
+                    "optimized_parameters", {}
+                ),
                 "expected_improvement": self._validate_confidence(
                     optimization_data.get("expected_improvement", 0.0)
                 ),
@@ -215,9 +220,9 @@ class StrategyOptimizerService(BaseAIAgent):
                 "risk_level": self._validate_choice(
                     optimization_data.get("risk_assessment", "medium"),
                     ["low", "medium", "high"],
-                    "medium"
+                    "medium",
                 ),
-                "timestamp": datetime.now()
+                "timestamp": datetime.now(),
             }
 
         except Exception as e:
@@ -227,14 +232,23 @@ class StrategyOptimizerService(BaseAIAgent):
                 "error": str(e),
                 "optimized_parameters": current_parameters,
                 "expected_improvement": 0.0,
-                "timestamp": datetime.now()
+                "timestamp": datetime.now(),
             }
 
-    async def process(self, symbol: str, markov_analysis: Dict[str, Any],
-                     technical_indicators: Dict[str, Any], market_context: Dict[str, Any],
-                     performance_history: List[Dict], **kwargs) -> StrategySignal:
+    async def process(
+        self,
+        symbol: str,
+        markov_analysis: Dict[str, Any],
+        technical_indicators: Dict[str, Any],
+        market_context: Dict[str, Any],
+        performance_history: List[Dict],
+        **kwargs,
+    ) -> StrategySignal:
         """Main processing method for BaseAIAgent interface"""
         return await self.generate_signal(
-            symbol, markov_analysis, technical_indicators,
-            market_context, performance_history
+            symbol,
+            markov_analysis,
+            technical_indicators,
+            market_context,
+            performance_history,
         )

@@ -9,18 +9,18 @@ class TradingSystemException(Exception):
     """Base exception for trading system errors with error code registry integration"""
 
     def __init__(
-        self, 
-        detail: str, 
-        error_code: Optional[str] = None, 
+        self,
+        detail: str,
+        error_code: Optional[str] = None,
         status_code: Optional[int] = None,
-        additional_context: Optional[Dict[str, Any]] = None
+        additional_context: Optional[Dict[str, Any]] = None,
     ):
         from app.core.error_codes import get_error_info
-        
+
         self.detail = detail
         self.error_code = error_code
         self.additional_context = additional_context or {}
-        
+
         # Get error info from registry if error code is provided
         if error_code:
             error_info = get_error_info(error_code)
@@ -48,9 +48,9 @@ class TradingSystemException(Exception):
             self.is_retryable = False
             self.suggested_actions = []
             self.user_message = detail
-        
+
         super().__init__(detail)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert exception to dictionary for API responses"""
         error_dict = {
@@ -63,13 +63,13 @@ class TradingSystemException(Exception):
             "retryable": self.is_retryable,
             "http_status": self.status_code,
         }
-        
+
         if self.suggested_actions:
             error_dict["suggested_actions"] = self.suggested_actions
-            
+
         if self.additional_context:
             error_dict["context"] = self.additional_context
-            
+
         return error_dict
 
 

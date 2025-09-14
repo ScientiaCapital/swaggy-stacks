@@ -22,13 +22,11 @@ class EmbeddingServiceFactory:
 
     @staticmethod
     def create_service(
-        service_type: str = "auto",
-        model_name: Optional[str] = None,
-        **kwargs
+        service_type: str = "auto", model_name: Optional[str] = None, **kwargs
     ) -> EmbeddingServiceInterface:
         """
         Create embedding service based on type and availability
-        
+
         Args:
             service_type: "local", "mock", "auto"
             model_name: Model name for local service
@@ -60,32 +58,33 @@ class EmbeddingServiceFactory:
 
         # Try to detect if ML dependencies are available
         try:
-            import torch
-            import sentence_transformers
+            pass
+
             logger.info("ML dependencies available, using local embedding service")
             return "local"
         except ImportError as e:
-            logger.warning(f"ML dependencies not available ({e}), falling back to mock service")
+            logger.warning(
+                f"ML dependencies not available ({e}), falling back to mock service"
+            )
             return "mock"
 
     @staticmethod
-    def _create_local_service(model_name: Optional[str] = None, **kwargs) -> EmbeddingServiceInterface:
+    def _create_local_service(
+        model_name: Optional[str] = None, **kwargs
+    ) -> EmbeddingServiceInterface:
         """Create local embedding service with lazy import"""
         try:
             # Lazy import to avoid requiring torch/transformers at module level
             from app.rag.services.local_embedding import LocalEmbeddingService
-            
+
             model_name = model_name or os.getenv(
-                "EMBEDDING_MODEL", 
-                "sentence-transformers/all-MiniLM-L6-v2"
+                "EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
             )
             use_mps = os.getenv("USE_MPS_DEVICE", "true").lower() == "true"
-            
+
             logger.info(f"Creating LocalEmbeddingService with model: {model_name}")
             return LocalEmbeddingService(
-                model_name=model_name,
-                use_mps=use_mps,
-                **kwargs
+                model_name=model_name, use_mps=use_mps, **kwargs
             )
         except ImportError as e:
             logger.error(f"Cannot create local embedding service: {e}")
@@ -97,40 +96,48 @@ class EmbeddingServiceFactory:
             return EmbeddingServiceFactory._create_mock_service(model_name, **kwargs)
 
     @staticmethod
-    def _create_mock_service(model_name: Optional[str] = None, **kwargs) -> EmbeddingServiceInterface:
+    def _create_mock_service(
+        model_name: Optional[str] = None, **kwargs
+    ) -> EmbeddingServiceInterface:
         """Create mock embedding service"""
         model_name = model_name or "mock-embedding-service"
         logger.info(f"Creating MockEmbeddingService: {model_name}")
         return MockEmbeddingService(model_name=model_name, **kwargs)
 
 
-async def get_embedding_service(force_recreate: bool = False) -> EmbeddingServiceInterface:
+async def get_embedding_service(
+    force_recreate: bool = False,
+) -> EmbeddingServiceInterface:
     """
     Get singleton embedding service instance
-    
+
     Args:
         force_recreate: Force recreation of service (useful for config changes)
     """
     global _embedding_service, _service_type
-    
+
     # Determine service type from environment
     current_service_type = os.getenv("EMBEDDING_SERVICE_TYPE", "auto")
-    
+
     # Create new service if needed
-    if _embedding_service is None or force_recreate or _service_type != current_service_type:
+    if (
+        _embedding_service is None
+        or force_recreate
+        or _service_type != current_service_type
+    ):
         logger.info(f"Creating embedding service (type: {current_service_type})")
-        
+
         # Create the service
         _embedding_service = EmbeddingServiceFactory.create_service(
             service_type=current_service_type
         )
         _service_type = current_service_type
-        
+
         # Initialize the service
         await _embedding_service.initialize()
-        
+
         logger.info(f"Embedding service initialized successfully")
-    
+
     return _embedding_service
 
 

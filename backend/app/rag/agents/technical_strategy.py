@@ -79,12 +79,14 @@ class TechnicalStrategy:
             prices = market_data.get("prices", [])
             volumes = market_data.get("volumes", [])
             highs = market_data.get("highs", prices)  # Default to close prices
-            lows = market_data.get("lows", prices)
+            market_data.get("lows", prices)
 
-            if len(prices) < max(self.rsi_period, self.macd_slow, self.bollinger_period):
+            if len(prices) < max(
+                self.rsi_period, self.macd_slow, self.bollinger_period
+            ):
                 return {
                     "error": "insufficient_data",
-                    "message": f"Need at least {max(self.rsi_period, self.macd_slow, self.bollinger_period)} periods"
+                    "message": f"Need at least {max(self.rsi_period, self.macd_slow, self.bollinger_period)} periods",
                 }
 
             # Calculate all technical indicators
@@ -92,7 +94,9 @@ class TechnicalStrategy:
             macd_analysis = self._calculate_macd(prices)
             bollinger_analysis = self._calculate_bollinger_bands(prices)
             ma_analysis = self._analyze_moving_averages(prices)
-            volume_analysis = self._analyze_volume_indicators(volumes) if volumes else {}
+            volume_analysis = (
+                self._analyze_volume_indicators(volumes) if volumes else {}
+            )
 
             # Generate composite signal
             signals = {
@@ -129,7 +133,9 @@ class TechnicalStrategy:
             logger.error(f"Technical analysis failed for {symbol}: {str(e)}")
             return {"error": "analysis_failed", "message": str(e)}
 
-    def generate_signal(self, analysis: Dict[str, Any], market_data: Dict[str, Any]) -> Dict[str, str]:
+    def generate_signal(
+        self, analysis: Dict[str, Any], market_data: Dict[str, Any]
+    ) -> Dict[str, str]:
         """Generate technical indicator-based trading signal"""
         if "error" in analysis:
             return {
@@ -150,11 +156,7 @@ class TechnicalStrategy:
             }
 
         # Convert composite signal to trading action
-        action_mapping = {
-            "bullish": "BUY",
-            "bearish": "SELL",
-            "neutral": "HOLD"
-        }
+        action_mapping = {"bullish": "BUY", "bearish": "SELL", "neutral": "HOLD"}
 
         action = action_mapping.get(composite_signal, "HOLD")
 
@@ -162,9 +164,13 @@ class TechnicalStrategy:
         supporting_indicators = []
         for indicator, signal in individual_signals.items():
             if signal.get("direction") == composite_signal:
-                supporting_indicators.append(f"{indicator.upper()}({signal.get('strength', 0.0):.2f})")
+                supporting_indicators.append(
+                    f"{indicator.upper()}({signal.get('strength', 0.0):.2f})"
+                )
 
-        reasoning = f"Technical confluence: {len(supporting_indicators)} indicators aligned"
+        reasoning = (
+            f"Technical confluence: {len(supporting_indicators)} indicators aligned"
+        )
         if supporting_indicators:
             reasoning += f" - {', '.join(supporting_indicators[:3])}"
 
@@ -192,13 +198,15 @@ class TechnicalStrategy:
         losses = np.where(deltas < 0, -deltas, 0)
 
         # Initial average gains and losses (SMA)
-        avg_gain = np.mean(gains[:self.rsi_period])
-        avg_loss = np.mean(losses[:self.rsi_period])
+        avg_gain = np.mean(gains[: self.rsi_period])
+        avg_loss = np.mean(losses[: self.rsi_period])
 
         # Exponential smoothing for subsequent values
         for i in range(self.rsi_period, len(gains)):
             avg_gain = ((avg_gain * (self.rsi_period - 1)) + gains[i]) / self.rsi_period
-            avg_loss = ((avg_loss * (self.rsi_period - 1)) + losses[i]) / self.rsi_period
+            avg_loss = (
+                (avg_loss * (self.rsi_period - 1)) + losses[i]
+            ) / self.rsi_period
 
         if avg_loss == 0:
             rsi = 100
@@ -229,7 +237,7 @@ class TechnicalStrategy:
 
         # Calculate signal line (EMA of MACD)
         if len(prices) >= self.macd_slow + self.macd_signal:
-            macd_history = ema_fast[-self.macd_signal:] - ema_slow[-self.macd_signal:]
+            macd_history = ema_fast[-self.macd_signal :] - ema_slow[-self.macd_signal :]
             signal_line = self._calculate_ema(macd_history, self.macd_signal)[-1]
             histogram = macd_line - signal_line
         else:
@@ -251,7 +259,7 @@ class TechnicalStrategy:
         ema[0] = prices[0]
 
         for i in range(1, len(prices)):
-            ema[i] = alpha * prices[i] + (1 - alpha) * ema[i-1]
+            ema[i] = alpha * prices[i] + (1 - alpha) * ema[i - 1]
 
         return ema
 
@@ -261,8 +269,8 @@ class TechnicalStrategy:
             return {"error": "insufficient_data"}
 
         prices_array = np.array(prices)
-        sma = np.mean(prices_array[-self.bollinger_period:])
-        std = np.std(prices_array[-self.bollinger_period:])
+        sma = np.mean(prices_array[-self.bollinger_period :])
+        std = np.std(prices_array[-self.bollinger_period :])
 
         upper_band = sma + (self.bollinger_std * std)
         lower_band = sma - (self.bollinger_std * std)
@@ -289,18 +297,20 @@ class TechnicalStrategy:
 
         prices_array = np.array(prices)
 
-        sma_short_current = np.mean(prices_array[-self.sma_short:])
-        sma_long_current = np.mean(prices_array[-self.sma_long:])
+        sma_short_current = np.mean(prices_array[-self.sma_short :])
+        sma_long_current = np.mean(prices_array[-self.sma_long :])
 
         # Previous values for crossover detection
         if len(prices) > max(self.sma_short, self.sma_long):
-            sma_short_prev = np.mean(prices_array[-self.sma_short-1:-1])
-            sma_long_prev = np.mean(prices_array[-self.sma_long-1:-1])
+            sma_short_prev = np.mean(prices_array[-self.sma_short - 1 : -1])
+            sma_long_prev = np.mean(prices_array[-self.sma_long - 1 : -1])
 
-            golden_cross = (sma_short_current > sma_long_current and
-                          sma_short_prev <= sma_long_prev)
-            death_cross = (sma_short_current < sma_long_current and
-                         sma_short_prev >= sma_long_prev)
+            golden_cross = (
+                sma_short_current > sma_long_current and sma_short_prev <= sma_long_prev
+            )
+            death_cross = (
+                sma_short_current < sma_long_current and sma_short_prev >= sma_long_prev
+            )
         else:
             golden_cross = False
             death_cross = False
@@ -311,7 +321,8 @@ class TechnicalStrategy:
             "is_uptrend": sma_short_current > sma_long_current,
             "golden_cross": golden_cross,
             "death_cross": death_cross,
-            "trend_strength": abs(sma_short_current - sma_long_current) / sma_long_current,
+            "trend_strength": abs(sma_short_current - sma_long_current)
+            / sma_long_current,
         }
 
     def _analyze_volume_indicators(self, volumes: List[float]) -> Dict[str, Any]:
@@ -341,9 +352,15 @@ class TechnicalStrategy:
         rsi = rsi_analysis["current_rsi"]
 
         if rsi_analysis["is_oversold"]:
-            return {"direction": "bullish", "strength": (self.rsi_oversold - rsi) / self.rsi_oversold}
+            return {
+                "direction": "bullish",
+                "strength": (self.rsi_oversold - rsi) / self.rsi_oversold,
+            }
         elif rsi_analysis["is_overbought"]:
-            return {"direction": "bearish", "strength": (rsi - self.rsi_overbought) / (100 - self.rsi_overbought)}
+            return {
+                "direction": "bearish",
+                "strength": (rsi - self.rsi_overbought) / (100 - self.rsi_overbought),
+            }
         else:
             return {"direction": "neutral", "strength": 0.3}
 
@@ -395,11 +412,16 @@ class TechnicalStrategy:
             return {"direction": "neutral", "strength": 0.0}
 
         if volume_analysis["high_volume"]:
-            return {"direction": "neutral", "strength": 0.3}  # Volume confirms other signals
+            return {
+                "direction": "neutral",
+                "strength": 0.3,
+            }  # Volume confirms other signals
         else:
             return {"direction": "neutral", "strength": 0.1}
 
-    def _calculate_composite_signal(self, signals: Dict[str, Dict[str, Any]]) -> Tuple[str, float]:
+    def _calculate_composite_signal(
+        self, signals: Dict[str, Dict[str, Any]]
+    ) -> Tuple[str, float]:
         """Calculate composite signal from individual indicators"""
         bullish_strength = 0.0
         bearish_strength = 0.0
@@ -411,7 +433,7 @@ class TechnicalStrategy:
             "macd": 0.30,
             "bollinger": 0.20,
             "moving_average": 0.20,
-            "volume": 0.05
+            "volume": 0.05,
         }
 
         for indicator, signal in signals.items():
@@ -485,7 +507,11 @@ class TechnicalStrategy:
                 return "Bollinger Bands calculation failed: insufficient data"
 
             position = bb_analysis["band_position"]
-            status = "Near Upper Band" if position > 0.8 else "Near Lower Band" if position < 0.2 else "Mid-Range"
+            status = (
+                "Near Upper Band"
+                if position > 0.8
+                else "Near Lower Band" if position < 0.2 else "Mid-Range"
+            )
 
             return f"Bollinger Position: {position:.2f} ({status})"
 
@@ -541,6 +567,12 @@ class TechnicalStrategy:
             "confidence": analysis.get("confidence", 0.0),
             "rsi": analysis.get("rsi", {}).get("current_rsi", 50),
             "macd_histogram": analysis.get("macd", {}).get("histogram", 0),
-            "bollinger_position": analysis.get("bollinger_bands", {}).get("band_position", 0.5),
-            "trend_direction": "up" if analysis.get("moving_averages", {}).get("is_uptrend") else "down",
+            "bollinger_position": analysis.get("bollinger_bands", {}).get(
+                "band_position", 0.5
+            ),
+            "trend_direction": (
+                "up"
+                if analysis.get("moving_averages", {}).get("is_uptrend")
+                else "down"
+            ),
         }

@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.api import api_router
 from app.core.config import settings
-from app.core.database import engine, init_db
+from app.core.database import init_db
 from app.core.exceptions import TradingSystemException
 from app.core.middleware import ErrorDiagnosticMiddleware
 

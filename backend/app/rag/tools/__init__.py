@@ -14,9 +14,9 @@ from .risk_tool import RiskTool
 
 __all__ = [
     "MarketDataTool",
-    "IndicatorTool", 
+    "IndicatorTool",
     "RiskTool",
     "ExecutionTool",
     "PatternTool",
-    "AnalysisTool"
+    "AnalysisTool",
 ]

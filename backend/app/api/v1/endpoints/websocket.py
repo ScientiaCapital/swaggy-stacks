@@ -2,12 +2,11 @@
 WebSocket endpoints for real-time trading dashboard
 """
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
-from fastapi.responses import HTMLResponse
 import structlog
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
 
 from app.websockets.trading_socket import dashboard_websocket
-from app.core.deps import get_current_user
 
 logger = structlog.get_logger(__name__)
 
@@ -18,13 +17,13 @@ router = APIRouter()
 async def websocket_trading_dashboard(websocket: WebSocket):
     """
     WebSocket endpoint for real-time trading dashboard.
-    
+
     Provides:
     - Real-time market data updates
-    - Trading signals and recommendations  
+    - Trading signals and recommendations
     - Portfolio performance updates
     - System health monitoring
-    
+
     Message format:
     {
         "action": "subscribe|unsubscribe|add_symbol|remove_symbol",
@@ -35,15 +34,15 @@ async def websocket_trading_dashboard(websocket: WebSocket):
     # Initialize WebSocket service if needed
     if not dashboard_websocket.trading_agent:
         await dashboard_websocket.initialize()
-    
+
     await dashboard_websocket.connect(websocket)
-    
+
     try:
         while True:
             # Receive message from client
             message = await websocket.receive_text()
             await dashboard_websocket.handle_message(websocket, message)
-            
+
     except WebSocketDisconnect:
         logger.info("WebSocket client disconnected")
     except Exception as e:
@@ -84,7 +83,7 @@ async def websocket_demo_page():
 <body>
     <div class="container">
         <h1>🚀 Swaggy Stacks Trading Dashboard</h1>
-        
+
         <div class="section">
             <h3>Connection Status</h3>
             <div id="status" class="status disconnected">Disconnected</div>
@@ -131,17 +130,17 @@ async def websocket_demo_page():
 
         function connect() {
             if (ws) return;
-            
+
             const wsUrl = `ws://localhost:8000/api/v1/ws/trading-dashboard`;
             ws = new WebSocket(wsUrl);
-            
+
             ws.onopen = function() {
                 document.getElementById('status').textContent = 'Connected';
                 document.getElementById('status').className = 'status connected';
                 document.getElementById('connectBtn').disabled = true;
                 document.getElementById('disconnectBtn').disabled = false;
                 log('🟢 WebSocket connected');
-                
+
                 // Auto-subscribe to some data
                 setTimeout(() => {
                     sendMessage({
@@ -164,12 +163,12 @@ async def websocket_demo_page():
                     });
                 }, 500);
             };
-            
+
             ws.onmessage = function(event) {
                 const data = JSON.parse(event.data);
                 displayMessage(data);
             };
-            
+
             ws.onclose = function() {
                 document.getElementById('status').textContent = 'Disconnected';
                 document.getElementById('status').className = 'status disconnected';
@@ -178,7 +177,7 @@ async def websocket_demo_page():
                 log('🔴 WebSocket disconnected');
                 ws = null;
             };
-            
+
             ws.onerror = function(error) {
                 log('❌ WebSocket error: ' + error);
             };
@@ -203,7 +202,7 @@ async def websocket_demo_page():
             const dataType = document.getElementById('dataType').value;
             const symbolsInput = document.getElementById('symbols').value;
             const symbols = symbolsInput ? symbolsInput.split(',').map(s => s.trim()) : [];
-            
+
             sendMessage({
                 action: 'subscribe',
                 data_type: dataType,
@@ -215,7 +214,7 @@ async def websocket_demo_page():
             const dataType = document.getElementById('dataType').value;
             const symbolsInput = document.getElementById('symbols').value;
             const symbols = symbolsInput ? symbolsInput.split(',').map(s => s.trim()) : [];
-            
+
             sendMessage({
                 action: 'unsubscribe',
                 data_type: dataType,
@@ -248,10 +247,10 @@ async def websocket_demo_page():
         function displayMessage(data) {
             messageCount++;
             const display = document.getElementById('dataDisplay');
-            
+
             let className = '';
             let emoji = '';
-            
+
             switch(data.type) {
                 case 'market_update':
                     className = 'market-data';
@@ -273,7 +272,7 @@ async def websocket_demo_page():
                     className = '';
                     emoji = '📊';
             }
-            
+
             const messageDiv = document.createElement('div');
             messageDiv.className = className;
             messageDiv.innerHTML = `
@@ -283,10 +282,10 @@ async def websocket_demo_page():
                 </div>
                 <div>${JSON.stringify(data.data, null, 2)}</div>
             `;
-            
+
             display.appendChild(messageDiv);
             display.scrollTop = display.scrollHeight;
-            
+
             // Limit messages to prevent memory issues
             if (display.children.length > 100) {
                 display.removeChild(display.firstChild);
@@ -321,10 +320,13 @@ async def websocket_demo_page():
 async def websocket_health_check(websocket: WebSocket):
     """Simple WebSocket health check endpoint"""
     await websocket.accept()
-    
+
     try:
-        await websocket.send_text('{"status": "healthy", "service": "websocket", "timestamp": "' + 
-                                 str(websocket) + '"}')
+        await websocket.send_text(
+            '{"status": "healthy", "service": "websocket", "timestamp": "'
+            + str(websocket)
+            + '"}'
+        )
         await websocket.receive_text()  # Wait for acknowledgment
         await websocket.send_text('{"message": "WebSocket connection successful"}')
     except WebSocketDisconnect:

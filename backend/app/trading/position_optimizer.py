@@ -3,11 +3,10 @@ Position sizing optimization using Kelly Criterion, volatility adjustment,
 and portfolio heat management
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-import pandas as pd
 import structlog
 
 logger = structlog.get_logger()

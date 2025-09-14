@@ -5,17 +5,14 @@ Integrates Tavily and Sequential Thinking MCP servers for comprehensive market i
 
 import asyncio
 import json
-from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
-
-import structlog
+from typing import Any, Dict, List, Optional
 
 from app.analysis.markov_system import MarkovSystem
 from app.core.cache import get_market_cache
-from app.core.exceptions import MCPConnectionError, MCPError
+from app.core.exceptions import MCPError
 from app.core.logging import get_logger, log_execution_time
 from app.mcp.orchestrator import MCPOrchestrator, MCPServerType, get_mcp_orchestrator
 from app.trading.trading_manager import TradingManager
@@ -107,7 +104,7 @@ class MarketResearchService:
             self._sentiment_cache: Dict[str, MarketSentiment] = {}
             self._analysis_cache: Dict[str, ComplexAnalysisResult] = {}
             logger.info("MarketResearchService using traditional in-memory cache")
-        
+
         self._cache_duration = timedelta(minutes=15)  # Cache for 15 minutes
 
         logger.info("MarketResearchService initialized")
@@ -542,16 +539,16 @@ class MarketResearchService:
 
         base_prompt = f"""
         Analyze {symbol} for {analysis_type} with {complexity.value} complexity level.
-        
+
         Context Data: {json.dumps(context_data, indent=2)}
-        
+
         Please provide a thorough analysis considering:
         1. Technical analysis and chart patterns
         2. Fundamental analysis and company metrics
         3. Market sentiment and news impact
         4. Risk factors and potential catalysts
         5. Trading strategy recommendations
-        
+
         Focus on actionable insights for trading decisions.
         """
 
@@ -828,7 +825,9 @@ class MarketResearchService:
             analysis_count = len(self._analysis_cache)
             self._sentiment_cache.clear()
             self._analysis_cache.clear()
-            logger.info(f"Traditional market research cache cleared: {sentiment_count + analysis_count} items")
+            logger.info(
+                f"Traditional market research cache cleared: {sentiment_count + analysis_count} items"
+            )
 
     async def get_cache_stats(self) -> Dict[str, Any]:
         """Get cache statistics"""

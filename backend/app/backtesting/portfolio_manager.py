@@ -5,10 +5,11 @@ Handles portfolio tracking, position management, and trade execution for backtes
 """
 
 import logging
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, Dict, List
+
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TradeRecord:
     """Record of a single trade execution"""
+
     trade_id: str
     symbol: str
     action: str  # BUY, SELL
@@ -40,7 +42,9 @@ class PortfolioManager:
     - Transaction cost handling
     """
 
-    def __init__(self, initial_capital: float = 100000, transaction_cost: float = 0.001):
+    def __init__(
+        self, initial_capital: float = 100000, transaction_cost: float = 0.001
+    ):
         self.initial_capital = initial_capital
         self.transaction_cost = transaction_cost
 
@@ -53,7 +57,9 @@ class PortfolioManager:
         self.trades = []
         self.portfolio_history = []
 
-        logger.info(f"PortfolioManager initialized with ${initial_capital:,.2f} capital")
+        logger.info(
+            f"PortfolioManager initialized with ${initial_capital:,.2f} capital"
+        )
 
     def reset_portfolio(self):
         """Reset portfolio to initial state"""
@@ -72,7 +78,7 @@ class PortfolioManager:
         date: datetime,
         position_multiplier: float = 1.0,
         strategy: str = "default",
-        confidence: float = 0.5
+        confidence: float = 0.5,
     ) -> bool:
         """
         Execute a trade and update portfolio state
@@ -90,10 +96,14 @@ class PortfolioManager:
             True if trade was executed successfully
         """
         try:
-            if action == 'BUY':
-                return self._execute_buy(symbol, price, date, position_multiplier, strategy, confidence)
-            elif action == 'SELL':
-                return self._execute_sell(symbol, price, date, position_multiplier, strategy, confidence)
+            if action == "BUY":
+                return self._execute_buy(
+                    symbol, price, date, position_multiplier, strategy, confidence
+                )
+            elif action == "SELL":
+                return self._execute_sell(
+                    symbol, price, date, position_multiplier, strategy, confidence
+                )
             else:
                 logger.warning(f"Unknown action: {action}")
                 return False
@@ -109,15 +119,19 @@ class PortfolioManager:
         date: datetime,
         position_multiplier: float,
         strategy: str,
-        confidence: float
+        confidence: float,
     ) -> bool:
         """Execute buy order"""
         # Calculate position size based on available cash
         max_position_value = self.cash * 0.95  # Leave 5% cash buffer
-        target_position_value = max_position_value * position_multiplier * 0.1  # Default 10% of portfolio per position
+        target_position_value = (
+            max_position_value * position_multiplier * 0.1
+        )  # Default 10% of portfolio per position
 
         if target_position_value < self.cash * 0.001:  # Minimum 0.1% position
-            logger.debug(f"Position too small for {symbol}: ${target_position_value:.2f}")
+            logger.debug(
+                f"Position too small for {symbol}: ${target_position_value:.2f}"
+            )
             return False
 
         quantity = target_position_value / price
@@ -151,17 +165,19 @@ class PortfolioManager:
         trade_record = TradeRecord(
             trade_id=f"{symbol}_{date.isoformat()}_{len(self.trades)}",
             symbol=symbol,
-            action='BUY',
+            action="BUY",
             quantity=quantity,
             price=price,
             timestamp=date,
             strategy=strategy,
             confidence=confidence,
-            transaction_cost=quantity * price * self.transaction_cost
+            transaction_cost=quantity * price * self.transaction_cost,
         )
         self.trades.append(trade_record)
 
-        logger.debug(f"BUY {quantity:.2f} {symbol} @ ${price:.2f} (total: ${total_cost:.2f})")
+        logger.debug(
+            f"BUY {quantity:.2f} {symbol} @ ${price:.2f} (total: ${total_cost:.2f})"
+        )
         return True
 
     def _execute_sell(
@@ -171,7 +187,7 @@ class PortfolioManager:
         date: datetime,
         position_multiplier: float,
         strategy: str,
-        confidence: float
+        confidence: float,
     ) -> bool:
         """Execute sell order"""
         current_position = self.positions[symbol]
@@ -205,27 +221,31 @@ class PortfolioManager:
         trade_record = TradeRecord(
             trade_id=f"{symbol}_{date.isoformat()}_{len(self.trades)}",
             symbol=symbol,
-            action='SELL',
+            action="SELL",
             quantity=quantity_to_sell,
             price=price,
             timestamp=date,
             strategy=strategy,
             confidence=confidence,
-            transaction_cost=transaction_cost
+            transaction_cost=transaction_cost,
         )
         self.trades.append(trade_record)
 
-        logger.debug(f"SELL {quantity_to_sell:.2f} {symbol} @ ${price:.2f} (proceeds: ${net_proceeds:.2f})")
+        logger.debug(
+            f"SELL {quantity_to_sell:.2f} {symbol} @ ${price:.2f} (proceeds: ${net_proceeds:.2f})"
+        )
         return True
 
-    def calculate_current_portfolio_value(self, market_data: Dict[str, pd.DataFrame], current_date: datetime) -> float:
+    def calculate_current_portfolio_value(
+        self, market_data: Dict[str, pd.DataFrame], current_date: datetime
+    ) -> float:
         """Calculate total portfolio value at current date"""
         try:
             total_value = self.cash
 
             for symbol, quantity in self.positions.items():
                 if symbol in market_data and current_date in market_data[symbol].index:
-                    current_price = market_data[symbol].loc[current_date, 'Close']
+                    current_price = market_data[symbol].loc[current_date, "Close"]
                     position_value = quantity * current_price
                     total_value += position_value
                 else:
@@ -239,7 +259,9 @@ class PortfolioManager:
             logger.error(f"Portfolio value calculation failed: {e}")
             return self.cash
 
-    def calculate_correlation_adjustment(self, symbol: str, current_price: float) -> float:
+    def calculate_correlation_adjustment(
+        self, symbol: str, current_price: float
+    ) -> float:
         """Calculate position sizing adjustment based on portfolio correlation"""
         try:
             # Simple correlation adjustment based on existing positions
@@ -268,11 +290,11 @@ class PortfolioManager:
     def get_position_summary(self) -> Dict[str, Any]:
         """Get summary of current positions"""
         return {
-            'cash': self.cash,
-            'positions': dict(self.positions),
-            'avg_entry_prices': dict(self.avg_entry_prices),
-            'position_count': len(self.positions),
-            'total_trades': len(self.trades)
+            "cash": self.cash,
+            "positions": dict(self.positions),
+            "avg_entry_prices": dict(self.avg_entry_prices),
+            "position_count": len(self.positions),
+            "total_trades": len(self.trades),
         }
 
     def get_trade_history(self) -> List[TradeRecord]:
@@ -288,19 +310,21 @@ class PortfolioManager:
         date: datetime,
         market_data: Dict[str, pd.DataFrame],
         strategy: str = "",
-        additional_data: Dict[str, Any] = None
+        additional_data: Dict[str, Any] = None,
     ):
         """Record current portfolio state for history tracking"""
         try:
             portfolio_value = self.calculate_current_portfolio_value(market_data, date)
 
             snapshot = {
-                'date': date,
-                'total_value': portfolio_value,
-                'cash': self.cash,
-                'positions': dict(self.positions),
-                'strategy': strategy,
-                'cash_percentage': (self.cash / portfolio_value) * 100 if portfolio_value > 0 else 100
+                "date": date,
+                "total_value": portfolio_value,
+                "cash": self.cash,
+                "positions": dict(self.positions),
+                "strategy": strategy,
+                "cash_percentage": (
+                    (self.cash / portfolio_value) * 100 if portfolio_value > 0 else 100
+                ),
             }
 
             if additional_data:
@@ -315,12 +339,12 @@ class PortfolioManager:
         """Calculate basic portfolio performance metrics"""
         try:
             if not self.portfolio_history:
-                return {'error': 'No portfolio history available'}
+                return {"error": "No portfolio history available"}
 
             # Calculate returns
-            values = [snapshot['total_value'] for snapshot in self.portfolio_history]
+            values = [snapshot["total_value"] for snapshot in self.portfolio_history]
             if len(values) < 2:
-                return {'error': 'Insufficient data for metrics'}
+                return {"error": "Insufficient data for metrics"}
 
             total_return = (values[-1] - values[0]) / values[0]
 
@@ -329,13 +353,18 @@ class PortfolioManager:
             losing_trades = 0
             total_trades = len(self.trades)
 
-            buy_trades = [t for t in self.trades if t.action == 'BUY']
-            sell_trades = [t for t in self.trades if t.action == 'SELL']
+            buy_trades = [t for t in self.trades if t.action == "BUY"]
+            sell_trades = [t for t in self.trades if t.action == "SELL"]
 
             # Simple P&L calculation
             for sell_trade in sell_trades:
                 # Find corresponding buy for this symbol
-                symbol_buys = [t for t in buy_trades if t.symbol == sell_trade.symbol and t.timestamp <= sell_trade.timestamp]
+                symbol_buys = [
+                    t
+                    for t in buy_trades
+                    if t.symbol == sell_trade.symbol
+                    and t.timestamp <= sell_trade.timestamp
+                ]
                 if symbol_buys:
                     avg_buy_price = sum(t.price for t in symbol_buys) / len(symbol_buys)
                     trade_pnl = (sell_trade.price - avg_buy_price) * sell_trade.quantity
@@ -347,16 +376,16 @@ class PortfolioManager:
             win_rate = winning_trades / max(winning_trades + losing_trades, 1)
 
             return {
-                'total_return': total_return,
-                'total_trades': total_trades,
-                'winning_trades': winning_trades,
-                'losing_trades': losing_trades,
-                'win_rate': win_rate,
-                'final_portfolio_value': values[-1],
-                'cash_remaining': self.cash,
-                'positions_held': len(self.positions)
+                "total_return": total_return,
+                "total_trades": total_trades,
+                "winning_trades": winning_trades,
+                "losing_trades": losing_trades,
+                "win_rate": win_rate,
+                "final_portfolio_value": values[-1],
+                "cash_remaining": self.cash,
+                "positions_held": len(self.positions),
             }
 
         except Exception as e:
             logger.error(f"Performance metrics calculation failed: {e}")
-            return {'error': str(e)}
+            return {"error": str(e)}

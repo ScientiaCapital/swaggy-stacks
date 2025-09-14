@@ -3,61 +3,27 @@ Common Imports
 Provides commonly used imports across the application to reduce redundancy
 """
 
-import asyncio
-import json
-
 # Standard library imports (most commonly used)
-import os
-import sys
-import warnings
-from dataclasses import dataclass
-from datetime import datetime, timedelta
-from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
-
-# Third-party imports (frequently used)
-import numpy as np
-import pandas as pd
-
-# FastAPI imports (for API modules)
-from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, validator
-from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String
-
-# Database imports (for data access modules)
-from sqlalchemy.orm import Session
-
-# Analysis imports
-from app.analysis.markov_system import MarkovSystem, MarkovCore
-
-# Common model imports
-from app.api.v1.models import (
-    MarketAnalysisRequest,
-    MarketAnalysisResponse,
-    OrderRequest,
-    OrderResponse,
-    OrderSide,
-    OrderType,
-    RiskLevel,
-    TradingAction,
-)
-
-# Core application imports
-from app.core.config import settings
-from app.core.exceptions import MarketDataError, RiskManagementError, TradingError
+from datetime import datetime
+from typing import Any, Dict, Union
 
 # Logging (centralized)
-from app.core.logging import get_logger, get_trading_logger
+from app.core.logging import get_logger
+
+# Third-party imports (frequently used)
+
+# FastAPI imports (for API modules)
+
+# Database imports (for data access modules)
+
+# Analysis imports
+
+# Common model imports
+
+# Core application imports
+
 
 # Trading system imports
-from app.trading.trading_utils import (
-    calculate_pnl,
-    calculate_risk_metrics,
-    validate_price,
-    validate_quantity,
-    validate_symbol,
-)
 
 # ============================================================================
 # COMMON PATTERNS AND UTILITIES
@@ -158,8 +124,6 @@ def error_response(
 # COMMON DECORATORS (IMPORTS)
 # ============================================================================
 
-from app.core.logging import log_execution_time, log_trading_operation
-from app.trading.trading_utils import handle_trading_error
 
 # ============================================================================
 # COMMON EXCEPTIONS
@@ -169,19 +133,13 @@ from app.trading.trading_utils import handle_trading_error
 class ValidationError(ValueError):
     """Custom validation error"""
 
-    pass
-
 
 class ConfigurationError(Exception):
     """Configuration error"""
 
-    pass
-
 
 class ServiceUnavailableError(Exception):
     """Service unavailable error"""
-
-    pass
 
 
 # ============================================================================

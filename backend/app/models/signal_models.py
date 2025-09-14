@@ -4,9 +4,10 @@ Models for tracking alpha signals and pattern learning
 """
 
 from datetime import datetime
-from sqlalchemy import Column, String, Float, Integer, JSON, Text, Index, DateTime
 
-from .base_models import BaseSignalModel, BaseLearningModel, MarketConditionsMixin
+from sqlalchemy import JSON, Column, DateTime, Float, Index, Integer, String
+
+from .base_models import BaseLearningModel, BaseSignalModel, MarketConditionsMixin
 
 
 class AlphaSignal(BaseSignalModel, MarketConditionsMixin):
@@ -35,7 +36,7 @@ class AlphaSignal(BaseSignalModel, MarketConditionsMixin):
     correlation_to_portfolio = Column(Float, nullable=True)
 
     # Signal status
-    status = Column(String(20), default='active', index=True)
+    status = Column(String(20), default="active", index=True)
     triggered_at = Column(DateTime, nullable=True)
     closed_at = Column(DateTime, nullable=True)
 
@@ -58,10 +59,15 @@ class AlphaSignal(BaseSignalModel, MarketConditionsMixin):
 
     # Indexes for alpha signal tracking
     __table_args__ = (
-        Index('idx_alpha_signals_active', 'status', 'generated_at'),
-        Index('idx_alpha_signal_performance', 'llm_model', 'actual_alpha_generated'),
-        Index('idx_signal_tracking', 'symbol', 'signal_type', 'status'),
-        Index('idx_alpha_generation', 'expected_alpha', 'actual_alpha_generated', 'confidence_score'),
+        Index("idx_alpha_signals_active", "status", "generated_at"),
+        Index("idx_alpha_signal_performance", "llm_model", "actual_alpha_generated"),
+        Index("idx_signal_tracking", "symbol", "signal_type", "status"),
+        Index(
+            "idx_alpha_generation",
+            "expected_alpha",
+            "actual_alpha_generated",
+            "confidence_score",
+        ),
     )
 
 
@@ -104,6 +110,11 @@ class PatternLearning(BaseLearningModel):
 
     # Indexes
     __table_args__ = (
-        Index('idx_pattern_learning', 'pattern_family', 'success_rate', 'avg_alpha_generated'),
-        Index('idx_learning_updates', 'last_learning_update', 'confidence_in_learning'),
+        Index(
+            "idx_pattern_learning",
+            "pattern_family",
+            "success_rate",
+            "avg_alpha_generated",
+        ),
+        Index("idx_learning_updates", "last_learning_update", "confidence_in_learning"),
     )

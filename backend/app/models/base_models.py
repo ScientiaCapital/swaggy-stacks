@@ -3,10 +3,18 @@ Base Database Models
 Common patterns and mixins for database models
 """
 
-from datetime import datetime
-from sqlalchemy import Column, DateTime, String, Float, Integer, Boolean, JSON, Text, Index
-from sqlalchemy.dialects.postgresql import UUID
 import uuid
+from datetime import datetime
+
+from sqlalchemy import (
+    JSON,
+    Column,
+    DateTime,
+    Float,
+    String,
+    Text,
+)
+from sqlalchemy.dialects.postgresql import UUID
 
 from app.core.database import Base
 
@@ -38,7 +46,7 @@ class SymbolMixin:
 
     symbol = Column(String(20), nullable=False, index=True)
     sector = Column(String(50), nullable=True)
-    asset_class = Column(String(20), nullable=False, default='equity')
+    asset_class = Column(String(20), nullable=False, default="equity")
 
 
 class LLMTrackingMixin:
@@ -73,7 +81,9 @@ class BasePerformanceModel(Base, UUIDMixin, TimestampMixin, PerformanceMetricsMi
     __abstract__ = True
 
 
-class BaseSignalModel(Base, UUIDMixin, TimestampMixin, SymbolMixin, LLMTrackingMixin, SignalMixin):
+class BaseSignalModel(
+    Base, UUIDMixin, TimestampMixin, SymbolMixin, LLMTrackingMixin, SignalMixin
+):
     """Abstract base for signal models"""
 
     __abstract__ = True

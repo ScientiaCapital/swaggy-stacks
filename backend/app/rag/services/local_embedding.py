@@ -10,14 +10,14 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import torch
 from cachetools import TTLCache
 from sentence_transformers import SentenceTransformer
 
-from app.core.cache import get_embedding_cache, TTLCache
+from app.core.cache import TTLCache, get_embedding_cache
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +153,7 @@ class LocalEmbeddingService:
         for i, text in enumerate(texts):
             cache_key = self._get_cache_key(text)
             cached_embedding = None
-            
+
             if self.use_two_tier_cache:
                 # Use async two-tier cache
                 cached_embedding = await self.embedding_cache.get(cache_key)
@@ -161,7 +161,7 @@ class LocalEmbeddingService:
                 # Use traditional TTLCache
                 if cache_key in self.embedding_cache:
                     cached_embedding = self.embedding_cache[cache_key]
-            
+
             if cached_embedding is not None:
                 results.append(
                     EmbeddingResult(
@@ -187,14 +187,14 @@ class LocalEmbeddingService:
             # Fill in the results and cache them
             for i, result in enumerate(uncached_results):
                 cache_key = self._get_cache_key(result.text)
-                
+
                 if self.use_two_tier_cache:
                     # Use async two-tier cache
                     await self.embedding_cache.set(cache_key, result.embedding)
                 else:
                     # Use traditional TTLCache
                     self.embedding_cache[cache_key] = result.embedding
-                
+
                 results[uncached_indices[i]] = result
 
         # Update stats
@@ -354,7 +354,7 @@ class LocalEmbeddingService:
                     # Estimate model memory usage
                     if hasattr(self.model, "get_max_seq_length"):
                         memory_usage = 500  # Approximate MB for sentence transformers
-                except:
+                except Exception:
                     memory_usage = 0
 
             self.stats["memory_usage_mb"] = memory_usage
@@ -364,17 +364,14 @@ class LocalEmbeddingService:
             if self.use_two_tier_cache:
                 # Two-tier cache health check
                 cache_health = await self.embedding_cache.health_check()
-                cache_info = {
-                    "type": "two_tier_ttl_redis",
-                    "health": cache_health
-                }
+                cache_info = {"type": "two_tier_ttl_redis", "health": cache_health}
             else:
                 # Traditional cache info
                 cache_info = {
                     "type": "ttl_cache",
                     "size": len(self.embedding_cache),
                     "maxsize": self.cache_size,
-                    "ttl": self.cache_ttl
+                    "ttl": self.cache_ttl,
                 }
 
             return {
@@ -410,7 +407,7 @@ class LocalEmbeddingService:
             # Traditional cache clear
             cleared_count = len(self.embedding_cache)
             self.embedding_cache.clear()
-        
+
         logger.info(f"Cleared {cleared_count} items from embedding cache")
         return cleared_count
 

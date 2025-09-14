@@ -8,23 +8,23 @@ import json
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-import pandas as pd
 
-from langchain.schema import AIMessage, HumanMessage
-from langchain.tools import BaseTool, tool
-from langchain.agents import Tool, AgentType, initialize_agent, AgentExecutor
+import pandas as pd
+from langchain.agents import AgentExecutor, AgentType, Tool, initialize_agent
 from langchain.chains import LLMChain
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
+from langchain.tools import BaseTool, tool
 
-from app.analysis.llm_predictors import LLMPredictor, get_llm_predictor
 from app.ai.ollama_client import OllamaClient
+from app.analysis.llm_predictors import LLMPredictor, get_llm_predictor
 
 logger = logging.getLogger(__name__)
 
 
 class PredictionTool(BaseTool):
     """LangChain tool wrapper for LLM predictions"""
+
     name = "llm_prediction"
     description = """
     Provides AI-powered trading predictions using ensemble of Chinese LLMs.
@@ -41,30 +41,33 @@ class PredictionTool(BaseTool):
         try:
             # Parse query
             params = {}
-            for param in query.split(','):
-                key, value = param.split(':')
+            for param in query.split(","):
+                key, value = param.split(":")
                 params[key.strip()] = value.strip()
 
-            symbol = params.get('symbol', 'AAPL')
-            days = int(params.get('days', 5))
-            pred_type = params.get('type', 'price_direction')
+            symbol = params.get("symbol", "AAPL")
+            days = int(params.get("days", 5))
+            pred_type = params.get("type", "price_direction")
 
             # For demo, create sample data (in production, would fetch from database)
             import yfinance as yf
+
             ticker = yf.Ticker(symbol)
             data = ticker.history(period="3mo")
             data = data.reset_index()
             data.columns = [col.lower() for col in data.columns]
 
             # Get prediction
-            if pred_type == 'price_direction':
-                result = asyncio.run(self.predictor.predict_price_direction(
-                    symbol, data, horizon_days=days
-                ))
-            elif pred_type == 'volatility':
-                result = asyncio.run(self.predictor.predict_volatility(
-                    symbol, data, horizon_days=days
-                ))
+            if pred_type == "price_direction":
+                result = asyncio.run(
+                    self.predictor.predict_price_direction(
+                        symbol, data, horizon_days=days
+                    )
+                )
+            elif pred_type == "volatility":
+                result = asyncio.run(
+                    self.predictor.predict_volatility(symbol, data, horizon_days=days)
+                )
             else:
                 return f"Unknown prediction type: {pred_type}"
 
@@ -84,6 +87,7 @@ def market_context_tool(symbol: str) -> str:
     """Extract market context for a symbol"""
     try:
         import yfinance as yf
+
         ticker = yf.Ticker(symbol)
         info = ticker.info
 
@@ -106,9 +110,11 @@ def model_health_tool(query: str) -> str:
         health = asyncio.run(predictor.get_model_health())
 
         status = f"🏥 Model Health Status: {health['overall_status'].upper()}\n"
-        status += f"Available Models: {health['available_models']}/{health['total_models']}\n"
+        status += (
+            f"Available Models: {health['available_models']}/{health['total_models']}\n"
+        )
 
-        for model, details in health['model_details'].items():
+        for model, details in health["model_details"].items():
             status += f"- {model}: {details['status']} ({details.get('specialization', 'unknown')})\n"
 
         return status
@@ -140,18 +146,18 @@ class PredictionAgent:
             Tool(
                 name="llm_prediction",
                 func=prediction_tool._run,
-                description=prediction_tool.description
+                description=prediction_tool.description,
             ),
             Tool(
                 name="market_context",
                 func=market_context_tool,
-                description="Get market context and fundamental information for a stock symbol"
+                description="Get market context and fundamental information for a stock symbol",
             ),
             Tool(
                 name="model_health",
                 func=model_health_tool,
-                description="Check the health and availability of Chinese LLM models"
-            )
+                description="Check the health and availability of Chinese LLM models",
+            ),
         ]
 
         # Create LLM for agent reasoning (using one of our Chinese models)
@@ -164,16 +170,13 @@ class PredictionAgent:
             agent=AgentType.CONVERSATIONAL_REACT_DESCRIPTION,
             verbose=True,
             memory=self.memory,
-            handle_parsing_errors=True
+            handle_parsing_errors=True,
         )
 
         logger.info("🤖 Prediction Agent initialized with LangChain integration")
 
     async def predict_with_context(
-        self,
-        symbol: str,
-        user_query: str = "",
-        horizon_days: int = 5
+        self, symbol: str, user_query: str = "", horizon_days: int = 5
     ) -> Dict[str, Any]:
         """
         Make predictions with full context and reasoning
@@ -212,7 +215,7 @@ class PredictionAgent:
             direct_prediction = await self.predictor.predict_price_direction(
                 symbol=symbol,
                 historical_data=self._get_sample_data(symbol),
-                horizon_days=horizon_days
+                horizon_days=horizon_days,
             )
 
             return {
@@ -226,7 +229,7 @@ class PredictionAgent:
                 "symbol": symbol,
                 "horizon_days": horizon_days,
                 "timestamp": datetime.now().isoformat(),
-                "conversation_memory": self.memory.load_memory_variables({})
+                "conversation_memory": self.memory.load_memory_variables({}),
             }
 
         except Exception as e:
@@ -234,13 +237,14 @@ class PredictionAgent:
             return {
                 "error": str(e),
                 "symbol": symbol,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
     def _get_sample_data(self, symbol: str) -> pd.DataFrame:
         """Get sample data for predictions (in production, would use proper data source)"""
         try:
             import yfinance as yf
+
             ticker = yf.Ticker(symbol)
             data = ticker.history(period="3mo")
             data = data.reset_index()
@@ -249,12 +253,12 @@ class PredictionAgent:
         except Exception as e:
             logger.error(f"Error fetching data for {symbol}: {e}")
             # Return empty DataFrame with required columns
-            return pd.DataFrame(columns=['date', 'open', 'high', 'low', 'close', 'volume'])
+            return pd.DataFrame(
+                columns=["date", "open", "high", "low", "close", "volume"]
+            )
 
     async def analyze_portfolio_symbols(
-        self,
-        symbols: List[str],
-        user_context: str = ""
+        self, symbols: List[str], user_context: str = ""
     ) -> Dict[str, Any]:
         """
         Analyze multiple symbols for portfolio insights
@@ -273,14 +277,13 @@ class PredictionAgent:
             results = {}
             for symbol in symbols:
                 prediction = await self.predictor.predict_price_direction(
-                    symbol=symbol,
-                    historical_data=self._get_sample_data(symbol)
+                    symbol=symbol, historical_data=self._get_sample_data(symbol)
                 )
 
                 results[symbol] = {
                     "prediction": prediction.prediction_value,
                     "confidence": prediction.confidence,
-                    "reasoning": prediction.reasoning[:100] + "..."  # Truncated
+                    "reasoning": prediction.reasoning[:100] + "...",  # Truncated
                 }
 
             # Agent analysis of portfolio
@@ -305,7 +308,7 @@ class PredictionAgent:
                 "portfolio_analysis": portfolio_analysis,
                 "individual_predictions": results,
                 "symbols_analyzed": len(symbols),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
         except Exception as e:
@@ -313,7 +316,7 @@ class PredictionAgent:
             return {
                 "error": str(e),
                 "symbols": symbols,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
     async def get_agent_conversation_history(self) -> Dict[str, Any]:
@@ -384,7 +387,7 @@ class PredictionReasoningChain(LLMChain):
 4. 潜在的市场催化剂
 
 请用专业但易懂的语言回答。
-            """
+            """,
         )
 
         return cls(llm=ollama_client, prompt=prompt)
@@ -399,7 +402,7 @@ if __name__ == "__main__":
         result = await agent.predict_with_context(
             symbol="AAPL",
             user_query="Is Apple a good buy for a growth portfolio?",
-            horizon_days=10
+            horizon_days=10,
         )
 
         print("Single Symbol Analysis:")
@@ -408,7 +411,7 @@ if __name__ == "__main__":
         # Test portfolio analysis
         portfolio_result = await agent.analyze_portfolio_symbols(
             symbols=["AAPL", "GOOGL", "MSFT"],
-            user_context="Tech-focused growth portfolio"
+            user_context="Tech-focused growth portfolio",
         )
 
         print("\nPortfolio Analysis:")
