@@ -113,9 +113,13 @@ class PatternTool:
             highs = hist['High'].values
             lows = hist['Low'].values
             closes = hist['Close'].values
-            
+            volumes = hist['Volume'].values if 'Volume' in hist.columns else None
+
             patterns = []
-            
+
+            # Calculate trend context for pattern validation
+            trend_context = self._calculate_trend_context(closes)
+
             # Analyze last 20 days for patterns
             lookback = min(20, len(hist))
             
@@ -128,57 +132,177 @@ class PatternTool:
                 total_range = h - l
                 upper_shadow = h - max(o, c)
                 lower_shadow = min(o, c) - l
+
+                # Volume confirmation multiplier
+                volume_conf = self._calculate_volume_confirmation(volumes, abs(idx)) if volumes is not None else 1.0
                 
-                # Pattern detection
-                if body_size / total_range < 0.1 and total_range > 0:  # Doji
+                # Pattern detection with enhanced classifications
+                # Doji patterns (with variations)
+                if body_size / total_range < 0.1 and total_range > 0:
+                    confidence = 0.8 * volume_conf
+
+                    # Classify doji type based on shadows
+                    if lower_shadow > body_size * 3 and upper_shadow < body_size:
+                        doji_type = "dragonfly_doji"
+                        significance = "bullish_reversal" if trend_context == "bearish" else "indecision"
+                        confidence *= 1.1  # Stronger signal
+                    elif upper_shadow > body_size * 3 and lower_shadow < body_size:
+                        doji_type = "gravestone_doji"
+                        significance = "bearish_reversal" if trend_context == "bullish" else "indecision"
+                        confidence *= 1.1  # Stronger signal
+                    else:
+                        doji_type = "doji"
+                        significance = "indecision"
+
                     patterns.append({
-                        "pattern": "doji",
+                        "pattern": doji_type,
                         "date": hist.index[idx].strftime("%Y-%m-%d"),
-                        "significance": "indecision",
-                        "confidence": 0.8
+                        "significance": significance,
+                        "confidence": min(0.95, confidence)
                     })
                 
-                elif (lower_shadow > body_size * 2 and 
-                      upper_shadow < body_size and 
-                      c > o):  # Hammer
+                # Pin Bar patterns (Hammer/Shooting Star)
+                elif (lower_shadow > body_size * 2 and
+                      upper_shadow < body_size and
+                      c > o):  # Hammer/Pin Bar
+                    confidence = 0.7 * volume_conf
+                    # Stronger signal in bearish trend
+                    if trend_context == "bearish":
+                        confidence *= 1.2
                     patterns.append({
                         "pattern": "hammer",
                         "date": hist.index[idx].strftime("%Y-%m-%d"),
                         "significance": "bullish_reversal",
-                        "confidence": 0.7
+                        "confidence": min(0.95, confidence)
                     })
-                
-                elif (upper_shadow > body_size * 2 and 
-                      lower_shadow < body_size and 
-                      o > c):  # Shooting Star
+
+                elif (upper_shadow > body_size * 2 and
+                      lower_shadow < body_size and
+                      o > c):  # Shooting Star/Pin Bar
+                    confidence = 0.7 * volume_conf
+                    # Stronger signal in bullish trend
+                    if trend_context == "bullish":
+                        confidence *= 1.2
                     patterns.append({
                         "pattern": "shooting_star",
                         "date": hist.index[idx].strftime("%Y-%m-%d"),
                         "significance": "bearish_reversal",
-                        "confidence": 0.7
+                        "confidence": min(0.95, confidence)
                     })
                 
-                # Engulfing patterns (requires previous candle)
+                # Multi-candle patterns (requires previous candle data)
                 if i < lookback - 1:
                     prev_idx = idx - 1
-                    prev_o, prev_c = opens[prev_idx], closes[prev_idx]
-                    
+                    prev_o, prev_h, prev_l, prev_c = opens[prev_idx], highs[prev_idx], lows[prev_idx], closes[prev_idx]
+                    prev_body_size = abs(prev_c - prev_o)
+
+                    # Engulfing patterns
                     if (c > o and prev_c < prev_o and  # Current bullish, prev bearish
                         c > prev_o and o < prev_c):    # Current engulfs previous
+                        confidence = 0.8 * volume_conf
+                        if trend_context == "bearish":  # Stronger in bearish trend
+                            confidence *= 1.15
                         patterns.append({
                             "pattern": "bullish_engulfing",
                             "date": hist.index[idx].strftime("%Y-%m-%d"),
                             "significance": "bullish_reversal",
-                            "confidence": 0.8
+                            "confidence": min(0.95, confidence)
                         })
-                    
+
                     elif (o > c and prev_o < prev_c and  # Current bearish, prev bullish
                           o > prev_c and c < prev_o):    # Current engulfs previous
+                        confidence = 0.8 * volume_conf
+                        if trend_context == "bullish":  # Stronger in bullish trend
+                            confidence *= 1.15
                         patterns.append({
                             "pattern": "bearish_engulfing",
                             "date": hist.index[idx].strftime("%Y-%m-%d"),
                             "significance": "bearish_reversal",
-                            "confidence": 0.8
+                            "confidence": min(0.95, confidence)
+                        })
+
+                    # Harami patterns (Inside Bar)
+                    elif (body_size < prev_body_size * 0.8 and  # Current body smaller
+                          max(o, c) < max(prev_o, prev_c) and   # Current highs lower
+                          min(o, c) > min(prev_o, prev_c)):     # Current lows higher
+                        confidence = 0.65 * volume_conf
+                        if prev_c != prev_o:  # Avoid division by zero
+                            significance = "bullish_reversal" if prev_c < prev_o else "bearish_reversal"
+                        else:
+                            significance = "indecision"
+                        patterns.append({
+                            "pattern": "harami",
+                            "date": hist.index[idx].strftime("%Y-%m-%d"),
+                            "significance": significance,
+                            "confidence": min(0.90, confidence)
+                        })
+
+                    # Tweezers patterns (same highs/lows)
+                    tolerance = total_range * 0.002  # 0.2% tolerance
+                    if abs(h - prev_h) < tolerance and h == max(h, prev_h):  # Tweezers Top
+                        confidence = 0.6 * volume_conf
+                        if trend_context == "bullish":
+                            confidence *= 1.2
+                        patterns.append({
+                            "pattern": "tweezers_top",
+                            "date": hist.index[idx].strftime("%Y-%m-%d"),
+                            "significance": "bearish_reversal",
+                            "confidence": min(0.90, confidence)
+                        })
+                    elif abs(l - prev_l) < tolerance and l == min(l, prev_l):  # Tweezers Bottom
+                        confidence = 0.6 * volume_conf
+                        if trend_context == "bearish":
+                            confidence *= 1.2
+                        patterns.append({
+                            "pattern": "tweezers_bottom",
+                            "date": hist.index[idx].strftime("%Y-%m-%d"),
+                            "significance": "bullish_reversal",
+                            "confidence": min(0.90, confidence)
+                        })
+
+                # Morning Star and Evening Star patterns (3-candle patterns)
+                if i < lookback - 2:  # Need 3 candles
+                    candle2_idx = idx - 1
+                    candle1_idx = idx - 2  # First candle (oldest)
+
+                    c1_o, c1_h, c1_l, c1_c = opens[candle1_idx], highs[candle1_idx], lows[candle1_idx], closes[candle1_idx]
+                    c2_o, c2_h, c2_l, c2_c = opens[candle2_idx], highs[candle2_idx], lows[candle2_idx], closes[candle2_idx]
+                    c3_o, c3_h, c3_l, c3_c = o, h, l, c  # Current candle
+
+                    c1_body = abs(c1_c - c1_o)
+                    c2_body = abs(c2_c - c2_o)
+                    c3_body = abs(c3_c - c3_o)
+
+                    # Morning Star: Bearish -> Small body -> Bullish
+                    if (c1_c < c1_o and  # First candle bearish
+                        c2_body < c1_body * 0.3 and  # Middle candle small body
+                        c3_c > c3_o and  # Third candle bullish
+                        c3_c > (c1_o + c1_c) / 2 and  # Third closes above midpoint of first
+                        c2_h < c1_l):  # Gap down condition
+                        confidence = 0.85 * volume_conf
+                        if trend_context == "bearish":
+                            confidence *= 1.2
+                        patterns.append({
+                            "pattern": "morning_star",
+                            "date": hist.index[idx].strftime("%Y-%m-%d"),
+                            "significance": "bullish_reversal",
+                            "confidence": min(0.95, confidence)
+                        })
+
+                    # Evening Star: Bullish -> Small body -> Bearish
+                    elif (c1_c > c1_o and  # First candle bullish
+                          c2_body < c1_body * 0.3 and  # Middle candle small body
+                          c3_c < c3_o and  # Third candle bearish
+                          c3_c < (c1_o + c1_c) / 2 and  # Third closes below midpoint of first
+                          c2_l > c1_h):  # Gap up condition
+                        confidence = 0.85 * volume_conf
+                        if trend_context == "bullish":
+                            confidence *= 1.2
+                        patterns.append({
+                            "pattern": "evening_star",
+                            "date": hist.index[idx].strftime("%Y-%m-%d"),
+                            "significance": "bearish_reversal",
+                            "confidence": min(0.95, confidence)
                         })
             
             return json.dumps({
@@ -196,6 +320,36 @@ class PatternTool:
         except Exception as e:
             logger.error(f"Error detecting candlestick patterns: {e}")
             return f"Error detecting candlestick patterns: {str(e)}"
+
+    def _calculate_trend_context(self, closes):
+        """Calculate trend context for pattern validation"""
+        if len(closes) < 20:
+            return "neutral"
+
+        # Use 20-period simple moving average for trend
+        sma_20 = np.convolve(closes, np.ones(20)/20, mode='valid')
+        current_price = closes[-1]
+
+        if current_price > sma_20[-1] * 1.02:  # 2% above trend
+            return "bullish"
+        elif current_price < sma_20[-1] * 0.98:  # 2% below trend
+            return "bearish"
+        else:
+            return "neutral"
+
+    def _calculate_volume_confirmation(self, volumes, idx, lookback_periods=5):
+        """Calculate volume confirmation for pattern strength"""
+        if volumes is None or idx < lookback_periods:
+            return 1.0  # Default multiplier when volume data unavailable
+
+        current_volume = volumes[idx]
+        avg_volume = np.mean(volumes[idx-lookback_periods:idx])
+
+        if avg_volume > 0:
+            volume_ratio = current_volume / avg_volume
+            # Higher volume = higher confidence (capped at 1.3x)
+            return min(1.3, 1.0 + (volume_ratio - 1.0) * 0.3)
+        return 1.0
     
     def _identify_support_resistance(self, symbol: str) -> str:
         """Identify support and resistance levels"""

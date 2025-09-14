@@ -141,3 +141,10 @@ class MCPTimeoutError(MCPError):
 
     def __init__(self, detail: str, error_code: Optional[str] = None):
         super().__init__(detail, error_code, status_code=504)
+
+
+class BacktestingError(TradingSystemException):
+    """Backtesting specific errors"""
+
+    def __init__(self, detail: str, error_code: Optional[str] = None):
+        super().__init__(detail, error_code, status_code=400)

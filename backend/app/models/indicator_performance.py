@@ -236,7 +236,7 @@ class IndicatorParameters(Base):
 
     # Notes and metadata
     notes = Column(Text, nullable=True)
-    metadata = Column(JSON, nullable=True)
+    metadata_json = Column(JSON, nullable=True)
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), default=func.now())

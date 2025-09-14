@@ -26,10 +26,20 @@ class MetricConfig:
 
 class PrometheusMetrics:
     """Prometheus metrics for the trading system"""
-    
+
+    _instance = None
+    _initialized = False
+
+    def __new__(cls, registry: CollectorRegistry = None):
+        if cls._instance is None:
+            cls._instance = super(PrometheusMetrics, cls).__new__(cls)
+        return cls._instance
+
     def __init__(self, registry: CollectorRegistry = None):
-        self.registry = registry or REGISTRY
-        self._setup_metrics()
+        if not self._initialized:
+            self.registry = registry or REGISTRY
+            self._setup_metrics()
+            PrometheusMetrics._initialized = True
     
     def _setup_metrics(self):
         """Initialize all Prometheus metrics"""

@@ -14,6 +14,7 @@ import structlog
 from app.analysis.markov_system import MarkovSystem
 from app.core.config import settings
 from app.core.exceptions import RiskManagementError, TradingError
+from app.risk.position_manager import IntegratedRiskManager
 from app.trading.alpaca_client import AlpacaClient
 from app.trading.order_manager import OrderManager
 from app.trading.risk_manager import RiskManager
@@ -45,6 +46,7 @@ class TradingManager:
         # Core components
         self._alpaca_client = None
         self._risk_manager = None
+        self._integrated_risk_manager = None
         self._order_manager = None
         self._markov_system = None
 
@@ -93,6 +95,31 @@ class TradingManager:
                     ),
                     max_daily_loss=getattr(settings, "MAX_DAILY_LOSS", 500),
                     max_position_size=getattr(settings, "MAX_POSITION_SIZE", 10000),
+                )
+
+                # Initialize integrated risk manager
+                risk_config = {
+                    "base_risk": {
+                        "max_position_size": getattr(settings, "MAX_POSITION_SIZE", 10000),
+                        "max_daily_loss": getattr(settings, "MAX_DAILY_LOSS", 500),
+                    },
+                    "position_sizing": {
+                        "kelly_max_fraction": 0.25,
+                        "fixed_fraction_default": 0.02,
+                    },
+                    "stop_loss": {
+                        "atr_periods": 14,
+                        "atr_multiplier": 2.0,
+                    },
+                    "portfolio_risk": {
+                        "var_confidence_level": 0.95,
+                        "max_correlation": 0.7,
+                        "max_sector_exposure": 0.30,
+                    }
+                }
+
+                self._integrated_risk_manager = IntegratedRiskManager(
+                    user_id=user_id, config=risk_config
                 )
 
                 # Initialize order manager
@@ -152,6 +179,15 @@ class TradingManager:
                 "TradingManager not initialized. Call initialize() first."
             )
         return self._markov_system
+
+    @property
+    def integrated_risk_manager(self) -> IntegratedRiskManager:
+        """Get integrated risk management system"""
+        if not self._integrated_risk_manager:
+            raise TradingError(
+                "TradingManager not initialized. Call initialize() first."
+            )
+        return self._integrated_risk_manager
 
     async def execute_trade(
         self,

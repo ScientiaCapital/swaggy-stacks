@@ -8,6 +8,7 @@ from app.api.v1.endpoints import (
     ai_trading,
     analysis,
     auth,
+    backtesting,
     github,
     health,
     market_data,
@@ -29,6 +30,7 @@ api_router.include_router(
     market_data.router, prefix="/market-data", tags=["market-data"]
 )
 api_router.include_router(ai_trading.router, prefix="/ai", tags=["ai-trading"])
+api_router.include_router(backtesting.router, prefix="/backtesting", tags=["backtesting"])
 api_router.include_router(github.router, prefix="/github", tags=["github", "ci-cd"])
 api_router.include_router(monitoring.router, prefix="/monitoring", tags=["monitoring", "observability"])
 api_router.include_router(websocket.router, tags=["websocket", "real-time"])

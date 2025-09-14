@@ -60,6 +60,7 @@ class Strategy(Base):
     # Relationships
     user = relationship("User", back_populates="strategies")
     trades = relationship("Trade", back_populates="strategy")
+    backtest_runs = relationship("BacktestRun", back_populates="strategy", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Strategy(id={self.id}, name={self.name}, type={self.strategy_type})>"
