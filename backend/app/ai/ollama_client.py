@@ -28,9 +28,9 @@ class OllamaClient:
     Optimized Ollama client for M1 MacBook with intelligent model management
     """
 
-    # Models optimized for 8GB M1 MacBook
+    # Models optimized for 8GB M1 MacBook - Focus on small, efficient models
     MODELS = {
-        # Public models for general trading tasks
+        # Core models - lightweight and efficient
         "analyst": ModelConfig(
             name="llama3.2:3b",
             context_length=4096,
@@ -53,39 +53,68 @@ class OllamaClient:
             temperature=0.5,
         ),
         "chat": ModelConfig(
-            name="llama3.2:3b",
-            context_length=4096,
-            memory_usage_mb=2048,
+            name="gemma2:2b",  # More efficient than llama3.2:3b
+            context_length=8192,
+            memory_usage_mb=1500,
             use_case="conversational",
             temperature=0.7,
         ),
-        # NEW: Memory-efficient Chinese LLM models
-        "yi_technical": ModelConfig(
-            name="yi-6b-chat",
-            context_length=4096,
-            memory_usage_mb=6144,  # 6GB for Yi-6B
-            use_case="technical_analysis_chinese",
+        # NEW: Ultra-efficient models for M1 MacBook (8GB constraint)
+        "reasoning": ModelConfig(
+            name="deepseek-r1:1.5b",  # Exceptional reasoning in tiny package
+            context_length=8192,
+            memory_usage_mb=1024,
+            use_case="mathematical_reasoning",
             temperature=0.2,
         ),
-        "glm_risk": ModelConfig(
-            name="glm-4-9b-chat",
+        "quant_analysis": ModelConfig(
+            name="qwen2.5:1.5b",  # Compact quantitative analysis
             context_length=8192,
-            memory_usage_mb=7200,  # 7200MB for GLM-4-9B
-            use_case="risk_management_chinese",
-            temperature=0.1,
-        ),
-        "qwen_quant": ModelConfig(
-            name="qwen2.5-7b",
-            context_length=32768,
-            memory_usage_mb=6800,  # 6800MB for Qwen2.5-7B
-            use_case="quantitative_analysis_chinese",
+            memory_usage_mb=1024,
+            use_case="quantitative_analysis",
             temperature=0.3,
         ),
-        "deepseek_lite": ModelConfig(
+        "pattern_detect": ModelConfig(
+            name="gemma2:2b",  # Efficient pattern recognition
+            context_length=8192,
+            memory_usage_mb=1500,
+            use_case="pattern_recognition",
+            temperature=0.4,
+        ),
+        "code_gen": ModelConfig(
+            name="qwen2.5-coder:1.5b",  # Lightweight code generation
+            context_length=8192,
+            memory_usage_mb=1024,
+            use_case="code_generation",
+            temperature=0.2,
+        ),
+        # Legacy models (marked for removal - too large for 8GB)
+        "yi_technical_DEPRECATED": ModelConfig(
+            name="yi-6b-chat",
+            context_length=4096,
+            memory_usage_mb=6144,  # TOO LARGE
+            use_case="technical_analysis_chinese_DEPRECATED",
+            temperature=0.2,
+        ),
+        "glm_risk_DEPRECATED": ModelConfig(
+            name="glm-4-9b-chat",
+            context_length=8192,
+            memory_usage_mb=7200,  # TOO LARGE
+            use_case="risk_management_chinese_DEPRECATED",
+            temperature=0.1,
+        ),
+        "qwen_quant_DEPRECATED": ModelConfig(
+            name="qwen2.5-7b",
+            context_length=32768,
+            memory_usage_mb=6800,  # TOO LARGE
+            use_case="quantitative_analysis_chinese_DEPRECATED",
+            temperature=0.3,
+        ),
+        "deepseek_lite_DEPRECATED": ModelConfig(
             name="deepseek-coder:6.7b",
             context_length=16384,
-            memory_usage_mb=6200,  # 6200MB for DeepSeek Coder 6.7B
-            use_case="strategy_coding_chinese",
+            memory_usage_mb=6200,  # TOO LARGE
+            use_case="strategy_coding_chinese_DEPRECATED",
             temperature=0.2,
         ),
     }
@@ -94,8 +123,12 @@ class OllamaClient:
         self.base_url = base_url
         self.current_model = None
         self.context_history = {}
-        self.max_context_tokens = 2048  # Conservative for 8GB RAM
+        self.max_context_tokens = 1024  # Very conservative for 8GB M1 MacBook
         self.active_models = set()  # Track which models are loaded
+        self.max_memory_mb = 7000  # Strict 7GB limit, leaving 1GB for system
+        self.max_concurrent_models = 2  # Only load 2 models max simultaneously
+        self.model_swap_threshold = 0.85  # Swap when 85% memory used
+        self.last_used_models = {}  # Track last usage for LRU eviction
 
     async def ensure_model_loaded(self, model_key: str) -> bool:
         """Ensure the specified model is loaded and ready"""
