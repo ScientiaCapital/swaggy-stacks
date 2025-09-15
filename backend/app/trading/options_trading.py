@@ -7,7 +7,7 @@ import math
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import structlog
@@ -340,6 +340,205 @@ class BlackScholesCalculator:
                 * norm.cdf(-d2)
                 / 100
             )
+
+
+class EnhancedBlackScholesCalculator:
+    """Enhanced Black-Scholes calculator with GARCH volatility prediction integration"""
+    
+    def __init__(self):
+        from app.ml.volatility_predictor import get_volatility_predictor
+        self.volatility_predictor = get_volatility_predictor()
+        logger.info("EnhancedBlackScholesCalculator initialized with volatility prediction")
+    
+    async def calculate_option_price_with_prediction(
+        self,
+        symbol: str,
+        underlying_price: float,
+        strike_price: float,
+        time_to_expiry: float,
+        risk_free_rate: float,
+        option_type: OptionType,
+        price_data: List[Dict[str, Any]],
+        option_chain: Optional[List[Dict[str, Any]]] = None,
+        expiration: Optional[str] = None,
+        dividend_yield: float = 0.0,
+        use_implied_vol: bool = True
+    ) -> Tuple[float, "VolatilityMetrics"]:
+        """
+        Calculate option price using predicted volatility
+        
+        Returns:
+            Tuple of (option_price, volatility_metrics)
+        """
+        try:
+            # Get volatility prediction
+            vol_metrics = await self.volatility_predictor.predict_volatility(
+                symbol=symbol,
+                price_data=price_data,
+                option_chain=option_chain,
+                expiration=expiration
+            )
+            
+            # Choose best volatility estimate
+            if use_implied_vol and vol_metrics.implied_vol and vol_metrics.implied_vol > 0:
+                volatility = vol_metrics.implied_vol
+                vol_source = "implied"
+            else:
+                volatility = vol_metrics.garch_predicted_vol
+                vol_source = "garch"
+            
+            # Calculate option price
+            option_price = BlackScholesCalculator.calculate_option_price(
+                underlying_price=underlying_price,
+                strike_price=strike_price,
+                time_to_expiry=time_to_expiry,
+                risk_free_rate=risk_free_rate,
+                volatility=volatility,
+                option_type=option_type,
+                dividend_yield=dividend_yield
+            )
+            
+            logger.debug(
+                "Enhanced option pricing completed",
+                symbol=symbol,
+                strike=strike_price,
+                volatility=volatility,
+                vol_source=vol_source,
+                option_price=option_price,
+                confidence=vol_metrics.confidence_score
+            )
+            
+            return option_price, vol_metrics
+            
+        except Exception as e:
+            logger.error(
+                "Enhanced option pricing failed",
+                symbol=symbol,
+                error=str(e)
+            )
+            # Fallback to standard calculation with default volatility
+            fallback_price = BlackScholesCalculator.calculate_option_price(
+                underlying_price, strike_price, time_to_expiry,
+                risk_free_rate, 0.25, option_type, dividend_yield
+            )
+            
+            from app.ml.volatility_predictor import VolatilityMetrics, VolatilityRegime
+            from datetime import datetime
+            
+            fallback_metrics = VolatilityMetrics(
+                historical_vol=0.25,
+                garch_predicted_vol=0.25,
+                implied_vol=None,
+                vol_smile_skew=0.0,
+                vol_regime=VolatilityRegime.NORMAL,
+                confidence_score=0.1,
+                mean_reversion_factor=0.05,
+                persistence_factor=0.95,
+                spike_probability=0.5,
+                expected_move=0.0,
+                garch_alpha=0.1,
+                garch_beta=0.85,
+                garch_omega=0.05,
+                model_r_squared=0.0,
+                timestamp=datetime.now()
+            )
+            
+            return fallback_price, fallback_metrics
+    
+    async def calculate_greeks_with_prediction(
+        self,
+        symbol: str,
+        underlying_price: float,
+        strike_price: float,
+        time_to_expiry: float,
+        risk_free_rate: float,
+        option_type: OptionType,
+        price_data: List[Dict[str, Any]],
+        option_chain: Optional[List[Dict[str, Any]]] = None,
+        expiration: Optional[str] = None,
+        dividend_yield: float = 0.0
+    ) -> Tuple[GreeksData, "VolatilityMetrics"]:
+        """Calculate Greeks with predicted volatility"""
+        try:
+            # Get volatility prediction
+            vol_metrics = await self.volatility_predictor.predict_volatility(
+                symbol=symbol,
+                price_data=price_data,
+                option_chain=option_chain,
+                expiration=expiration
+            )
+            
+            # Use best volatility estimate
+            volatility = vol_metrics.implied_vol if vol_metrics.implied_vol else vol_metrics.garch_predicted_vol
+            
+            # Calculate Greeks
+            greeks = BlackScholesCalculator.calculate_greeks(
+                underlying_price=underlying_price,
+                strike_price=strike_price,
+                time_to_expiry=time_to_expiry,
+                risk_free_rate=risk_free_rate,
+                volatility=volatility,
+                option_type=option_type,
+                dividend_yield=dividend_yield
+            )
+            
+            return greeks, vol_metrics
+            
+        except Exception as e:
+            logger.error("Enhanced Greeks calculation failed", symbol=symbol, error=str(e))
+            # Fallback calculation
+            fallback_greeks = BlackScholesCalculator.calculate_greeks(
+                underlying_price, strike_price, time_to_expiry,
+                risk_free_rate, 0.25, option_type, dividend_yield
+            )
+            
+            from app.ml.volatility_predictor import VolatilityMetrics, VolatilityRegime
+            from datetime import datetime
+            
+            fallback_metrics = VolatilityMetrics(
+                historical_vol=0.25,
+                garch_predicted_vol=0.25,
+                implied_vol=None,
+                vol_smile_skew=0.0,
+                vol_regime=VolatilityRegime.NORMAL,
+                confidence_score=0.1,
+                mean_reversion_factor=0.05,
+                persistence_factor=0.95,
+                spike_probability=0.5,
+                expected_move=0.0,
+                garch_alpha=0.1,
+                garch_beta=0.85,
+                garch_omega=0.05,
+                model_r_squared=0.0,
+                timestamp=datetime.now()
+            )
+            
+            return fallback_greeks, fallback_metrics
+    
+    def get_volatility_for_symbol(
+        self,
+        symbol: str,
+        expiration: Optional[str] = None,
+        strike: Optional[float] = None
+    ) -> float:
+        """Get current volatility estimate for a symbol"""
+        return self.volatility_predictor.get_volatility_for_pricing(
+            symbol=symbol,
+            expiration=expiration,
+            strike=strike
+        )
+
+
+# Global enhanced calculator instance
+_enhanced_calculator: Optional[EnhancedBlackScholesCalculator] = None
+
+
+def get_enhanced_calculator() -> EnhancedBlackScholesCalculator:
+    """Get or create global enhanced calculator instance"""
+    global _enhanced_calculator
+    if _enhanced_calculator is None:
+        _enhanced_calculator = EnhancedBlackScholesCalculator()
+    return _enhanced_calculator
 
 
 class OptionsTrader:
@@ -699,3 +898,16 @@ async def get_options_trader() -> OptionsTrader:
     if _options_trader is None:
         _options_trader = OptionsTrader()
     return _options_trader
+
+
+__all__ = [
+    "OptionType",
+    "OptionStrategy",
+    "GreeksData",
+    "OptionPosition",
+    "BlackScholesCalculator",
+    "EnhancedBlackScholesCalculator",
+    "OptionsTrader",
+    "get_options_trader",
+    "get_enhanced_calculator"
+]

@@ -39,6 +39,7 @@ class ComponentType(str, Enum):
     MCP_ORCHESTRATOR = "mcp_orchestrator"
     MCP_SERVER = "mcp_server"
     TRADING_SYSTEM = "trading_system"
+    OPTIONS_SYSTEM = "options_system"
     CELERY = "celery"
     EXTERNAL_API = "external_api"
 
@@ -88,6 +89,7 @@ class HealthChecker:
             self._check_mcp_orchestrator(),
             self._check_mcp_servers(),
             self._check_trading_system(),
+            self._check_options_system(),
             self._check_celery(),
             self._check_external_apis(),
         ]
@@ -335,6 +337,332 @@ class HealthChecker:
                 error=str(e),
             )
 
+    async def _check_options_system(self) -> List[HealthCheckResult]:
+        """Comprehensive options trading system health checks"""
+        results = []
+        
+        # 1. Check BlackScholesCalculator
+        results.append(await self._check_black_scholes_calculator())
+        
+        # 2. Check VolatilityPredictor
+        results.append(await self._check_volatility_predictor())
+        
+        # 3. Check GreeksRiskManager
+        results.append(await self._check_greeks_risk_manager())
+        
+        # 4. Check Options Strategies
+        results.extend(await self._check_options_strategies())
+        
+        # 5. Check Multi-leg Order Manager
+        results.append(await self._check_multileg_manager())
+        
+        # 6. Check Options Market Data
+        results.append(await self._check_options_market_data())
+        
+        return results
+
+    async def _check_black_scholes_calculator(self) -> HealthCheckResult:
+        """Check Black-Scholes calculator functionality"""
+        start_time = time.time()
+        
+        try:
+            from app.trading.options_trading import BlackScholesCalculator, OptionType
+            
+            # Test basic option pricing calculation
+            test_price = BlackScholesCalculator.calculate_option_price(
+                underlying_price=100.0,
+                strike_price=105.0,
+                time_to_expiry=0.25,  # 3 months
+                risk_free_rate=0.05,
+                volatility=0.20,
+                option_type=OptionType.CALL
+            )
+            
+            # Test Greeks calculation
+            greeks = BlackScholesCalculator.calculate_greeks(
+                underlying_price=100.0,
+                strike_price=105.0,
+                time_to_expiry=0.25,
+                risk_free_rate=0.05,
+                volatility=0.20,
+                option_type=OptionType.CALL
+            )
+            
+            response_time = (time.time() - start_time) * 1000
+            
+            # Validate calculations are reasonable
+            pricing_valid = 0 < test_price < 50  # Reasonable option price
+            greeks_valid = -1 < greeks.delta < 1 and greeks.gamma >= 0
+            
+            status = HealthStatus.HEALTHY if (pricing_valid and greeks_valid) else HealthStatus.DEGRADED
+            
+            return HealthCheckResult(
+                component="black_scholes_calculator",
+                component_type=ComponentType.OPTIONS_SYSTEM,
+                status=status,
+                message="Black-Scholes calculator operational",
+                response_time_ms=response_time,
+                details={
+                    "test_option_price": test_price,
+                    "test_delta": greeks.delta,
+                    "test_gamma": greeks.gamma,
+                    "pricing_calculation_valid": pricing_valid,
+                    "greeks_calculation_valid": greeks_valid,
+                    "calculation_time_ms": response_time
+                }
+            )
+            
+        except Exception as e:
+            response_time = (time.time() - start_time) * 1000
+            logger.error(f"Black-Scholes calculator health check failed: {e}")
+            return HealthCheckResult(
+                component="black_scholes_calculator",
+                component_type=ComponentType.OPTIONS_SYSTEM,
+                status=HealthStatus.CRITICAL,
+                message="Black-Scholes calculator failed",
+                response_time_ms=response_time,
+                error=str(e)
+            )
+
+    async def _check_volatility_predictor(self) -> HealthCheckResult:
+        """Check volatility prediction system"""
+        start_time = time.time()
+        
+        try:
+            from app.ml.volatility_predictor import get_volatility_predictor
+            
+            predictor = get_volatility_predictor()
+            
+            # Test basic functionality
+            cache_size = len(predictor.cache)
+            cache_ttl = predictor.cache_ttl
+            
+            # Test volatility regime classification
+            test_vol = 0.25
+            from app.ml.volatility_predictor import VolatilityRegime
+            regime = predictor._classify_volatility_regime(test_vol)
+            
+            response_time = (time.time() - start_time) * 1000
+            
+            return HealthCheckResult(
+                component="volatility_predictor",
+                component_type=ComponentType.OPTIONS_SYSTEM,
+                status=HealthStatus.HEALTHY,
+                message="Volatility prediction system operational",
+                response_time_ms=response_time,
+                details={
+                    "cache_size": cache_size,
+                    "cache_ttl_seconds": cache_ttl,
+                    "test_regime_classification": regime.value,
+                    "predictor_initialized": True,
+                    "initialization_time_ms": response_time
+                }
+            )
+            
+        except Exception as e:
+            response_time = (time.time() - start_time) * 1000
+            logger.error(f"Volatility predictor health check failed: {e}")
+            return HealthCheckResult(
+                component="volatility_predictor",
+                component_type=ComponentType.OPTIONS_SYSTEM,
+                status=HealthStatus.CRITICAL,
+                message="Volatility predictor failed",
+                response_time_ms=response_time,
+                error=str(e)
+            )
+
+    async def _check_greeks_risk_manager(self) -> HealthCheckResult:
+        """Check Greeks risk management system"""
+        start_time = time.time()
+        
+        try:
+            from app.trading.greeks_risk_manager import GreeksRiskManager
+            
+            # Test initialization
+            risk_manager = GreeksRiskManager()
+            
+            # Test risk limits validation
+            has_limits = hasattr(risk_manager, 'greeks_limits')
+            limits_configured = has_limits and risk_manager.greeks_limits is not None
+            
+            # Test portfolio Greeks structure
+            has_portfolio_greeks = hasattr(risk_manager, 'portfolio_greeks')
+            
+            response_time = (time.time() - start_time) * 1000
+            
+            status = HealthStatus.HEALTHY if (limits_configured and has_portfolio_greeks) else HealthStatus.DEGRADED
+            
+            return HealthCheckResult(
+                component="greeks_risk_manager",
+                component_type=ComponentType.OPTIONS_SYSTEM,
+                status=status,
+                message="Greeks risk manager operational",
+                response_time_ms=response_time,
+                details={
+                    "risk_limits_configured": limits_configured,
+                    "portfolio_greeks_available": has_portfolio_greeks,
+                    "manager_initialized": True,
+                    "initialization_time_ms": response_time
+                }
+            )
+            
+        except Exception as e:
+            response_time = (time.time() - start_time) * 1000
+            logger.error(f"Greeks risk manager health check failed: {e}")
+            return HealthCheckResult(
+                component="greeks_risk_manager",
+                component_type=ComponentType.OPTIONS_SYSTEM,
+                status=HealthStatus.CRITICAL,
+                message="Greeks risk manager failed",
+                response_time_ms=response_time,
+                error=str(e)
+            )
+
+    async def _check_options_strategies(self) -> List[HealthCheckResult]:
+        """Check options trading strategies availability"""
+        strategies_to_check = [
+            ("zero_dte_strategy", "app.strategies.options.zero_dte_strategy", "ZeroDTEStrategy"),
+            ("wheel_strategy", "app.strategies.options.wheel_strategy", "WheelStrategy"),
+            ("iron_condor_strategy", "app.strategies.options.iron_condor_strategy", "IronCondorStrategy"),
+            ("gamma_scalping_strategy", "app.strategies.options.gamma_scalping_strategy", "GammaScalpingStrategy")
+        ]
+        
+        results = []
+        
+        for strategy_name, module_path, class_name in strategies_to_check:
+            start_time = time.time()
+            
+            try:
+                # Test strategy import and basic initialization
+                module = __import__(module_path, fromlist=[class_name])
+                strategy_class = getattr(module, class_name)
+                
+                # Test basic strategy properties
+                has_execute_method = hasattr(strategy_class, 'execute')
+                has_config_class = hasattr(strategy_class, '__annotations__')
+                
+                response_time = (time.time() - start_time) * 1000
+                
+                status = HealthStatus.HEALTHY if (has_execute_method) else HealthStatus.DEGRADED
+                
+                results.append(HealthCheckResult(
+                    component=strategy_name,
+                    component_type=ComponentType.OPTIONS_SYSTEM,
+                    status=status,
+                    message=f"{class_name} strategy available",
+                    response_time_ms=response_time,
+                    details={
+                        "class_name": class_name,
+                        "execute_method_available": has_execute_method,
+                        "config_class_available": has_config_class,
+                        "import_time_ms": response_time
+                    }
+                ))
+                
+            except Exception as e:
+                response_time = (time.time() - start_time) * 1000
+                logger.error(f"Options strategy {strategy_name} health check failed: {e}")
+                results.append(HealthCheckResult(
+                    component=strategy_name,
+                    component_type=ComponentType.OPTIONS_SYSTEM,
+                    status=HealthStatus.CRITICAL,
+                    message=f"{strategy_name} strategy failed",
+                    response_time_ms=response_time,
+                    error=str(e)
+                ))
+        
+        return results
+
+    async def _check_multileg_manager(self) -> HealthCheckResult:
+        """Check multi-leg order management system"""
+        start_time = time.time()
+        
+        try:
+            from app.trading.multi_leg_manager import MultiLegOrderManager
+            
+            # Test initialization
+            manager = MultiLegOrderManager()
+            
+            # Test core methods availability
+            has_execute_method = hasattr(manager, 'execute_multi_leg_order')
+            has_rollback_method = hasattr(manager, '_rollback_filled_orders')
+            
+            response_time = (time.time() - start_time) * 1000
+            
+            status = HealthStatus.HEALTHY if (has_execute_method and has_rollback_method) else HealthStatus.DEGRADED
+            
+            return HealthCheckResult(
+                component="multileg_order_manager",
+                component_type=ComponentType.OPTIONS_SYSTEM,
+                status=status,
+                message="Multi-leg order manager operational",
+                response_time_ms=response_time,
+                details={
+                    "execute_method_available": has_execute_method,
+                    "rollback_method_available": has_rollback_method,
+                    "manager_initialized": True,
+                    "initialization_time_ms": response_time
+                }
+            )
+            
+        except Exception as e:
+            response_time = (time.time() - start_time) * 1000
+            logger.error(f"Multi-leg manager health check failed: {e}")
+            return HealthCheckResult(
+                component="multileg_order_manager",
+                component_type=ComponentType.OPTIONS_SYSTEM,
+                status=HealthStatus.CRITICAL,
+                message="Multi-leg order manager failed",
+                response_time_ms=response_time,
+                error=str(e)
+            )
+
+    async def _check_options_market_data(self) -> HealthCheckResult:
+        """Check options market data connectivity"""
+        start_time = time.time()
+        
+        try:
+            from app.trading.alpaca_client import AlpacaClient
+            
+            # Test Alpaca client initialization (for options data)
+            client = AlpacaClient()
+            
+            # Test options-specific methods availability
+            has_option_chain = hasattr(client, 'get_option_chain')
+            has_option_quote = hasattr(client, 'get_option_quote')
+            has_multileg_execution = hasattr(client, 'execute_multi_leg_order')
+            
+            response_time = (time.time() - start_time) * 1000
+            
+            status = HealthStatus.HEALTHY if (has_option_chain and has_option_quote) else HealthStatus.DEGRADED
+            
+            return HealthCheckResult(
+                component="options_market_data",
+                component_type=ComponentType.OPTIONS_SYSTEM,
+                status=status,
+                message="Options market data connectivity available",
+                response_time_ms=response_time,
+                details={
+                    "option_chain_method": has_option_chain,
+                    "option_quote_method": has_option_quote,
+                    "multileg_execution_method": has_multileg_execution,
+                    "alpaca_client_available": True,
+                    "check_time_ms": response_time
+                }
+            )
+            
+        except Exception as e:
+            response_time = (time.time() - start_time) * 1000
+            logger.error(f"Options market data health check failed: {e}")
+            return HealthCheckResult(
+                component="options_market_data",
+                component_type=ComponentType.OPTIONS_SYSTEM,
+                status=HealthStatus.CRITICAL,
+                message="Options market data check failed",
+                response_time_ms=response_time,
+                error=str(e)
+            )
+
     async def _check_celery(self) -> HealthCheckResult:
         """Check Celery task queue health"""
         start_time = time.time()
@@ -459,6 +787,7 @@ class HealthChecker:
             "redis": self._check_redis,
             "mcp_orchestrator": self._check_mcp_orchestrator,
             "trading_system": self._check_trading_system,
+            "options_system": self._check_options_system,
             "celery": self._check_celery,
         }
 

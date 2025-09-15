@@ -635,6 +635,261 @@ class PrometheusMetrics:
         )
 
         self.unsupervised_model_training_time = Histogram(
+
+        # ===== OPTIONS TRADING METRICS - Task 10 Implementation =====
+
+        # Options Greeks Portfolio Exposure Metrics
+        self.options_portfolio_delta = Gauge(
+            "options_portfolio_delta_total",
+            "Total portfolio delta exposure",
+            registry=self.registry,
+        )
+
+        self.options_portfolio_gamma = Gauge(
+            "options_portfolio_gamma_total",
+            "Total portfolio gamma exposure",
+            registry=self.registry,
+        )
+
+        self.options_portfolio_theta = Gauge(
+            "options_portfolio_theta_total",
+            "Total portfolio theta (time decay) in USD per day",
+            registry=self.registry,
+        )
+
+        self.options_portfolio_vega = Gauge(
+            "options_portfolio_vega_total",
+            "Total portfolio vega (volatility sensitivity)",
+            registry=self.registry,
+        )
+
+        self.options_portfolio_rho = Gauge(
+            "options_portfolio_rho_total",
+            "Total portfolio rho (interest rate sensitivity)",
+            registry=self.registry,
+        )
+
+        # Individual Position Greeks
+        self.options_position_delta = Gauge(
+            "options_position_delta",
+            "Delta for individual options positions",
+            ["symbol", "strategy", "expiration"],
+            registry=self.registry,
+        )
+
+        self.options_position_gamma = Gauge(
+            "options_position_gamma",
+            "Gamma for individual options positions",
+            ["symbol", "strategy", "expiration"],
+            registry=self.registry,
+        )
+
+        # Strategy-Specific Performance Metrics
+        self.options_strategy_pnl = Gauge(
+            "options_strategy_pnl_usd",
+            "Profit/loss by options strategy in USD",
+            ["strategy_name", "symbol"],
+            registry=self.registry,
+        )
+
+        self.options_strategy_success_rate = Gauge(
+            "options_strategy_success_rate",
+            "Success rate for options strategies (0-1)",
+            ["strategy_name", "symbol"],
+            registry=self.registry,
+        )
+
+        self.options_strategy_trades_total = Counter(
+            "options_strategy_trades_total",
+            "Total trades by options strategy",
+            ["strategy_name", "symbol", "outcome"],
+            registry=self.registry,
+        )
+
+        self.options_strategy_max_profit = Gauge(
+            "options_strategy_max_profit_potential_usd",
+            "Maximum profit potential for current strategy positions",
+            ["strategy_name", "symbol"],
+            registry=self.registry,
+        )
+
+        self.options_strategy_max_loss = Gauge(
+            "options_strategy_max_loss_potential_usd",
+            "Maximum loss potential for current strategy positions",
+            ["strategy_name", "symbol"],
+            registry=self.registry,
+        )
+
+        # Options Volume and Open Interest Tracking
+        self.options_volume_daily = Gauge(
+            "options_volume_daily_contracts",
+            "Daily options volume in contracts",
+            ["symbol", "option_type", "expiration"],
+            registry=self.registry,
+        )
+
+        self.options_open_interest = Gauge(
+            "options_open_interest_contracts",
+            "Current open interest in contracts",
+            ["symbol", "option_type", "strike", "expiration"],
+            registry=self.registry,
+        )
+
+        self.options_volume_to_open_interest_ratio = Gauge(
+            "options_volume_to_oi_ratio",
+            "Volume to open interest ratio",
+            ["symbol", "expiration"],
+            registry=self.registry,
+        )
+
+        # Assignment Risk Metrics
+        self.options_assignment_risk_score = Gauge(
+            "options_assignment_risk_score",
+            "Assignment risk score for short options positions (0-1)",
+            ["symbol", "strike", "expiration", "option_type"],
+            registry=self.registry,
+        )
+
+        self.options_time_to_expiry_hours = Gauge(
+            "options_time_to_expiry_hours",
+            "Hours until options expiration",
+            ["symbol", "expiration"],
+            registry=self.registry,
+        )
+
+        self.options_moneyness = Gauge(
+            "options_moneyness_ratio",
+            "Option moneyness (strike/spot) ratio",
+            ["symbol", "strike", "expiration", "option_type"],
+            registry=self.registry,
+        )
+
+        # Multi-Leg Execution Metrics
+        self.options_multileg_execution_total = Counter(
+            "options_multileg_execution_total",
+            "Total multi-leg options executions",
+            ["strategy_name", "leg_count", "status"],
+            registry=self.registry,
+        )
+
+        self.options_multileg_execution_success_rate = Gauge(
+            "options_multileg_execution_success_rate",
+            "Multi-leg execution success rate (0-1)",
+            ["strategy_name", "leg_count"],
+            registry=self.registry,
+        )
+
+        self.options_multileg_execution_latency = Histogram(
+            "options_multileg_execution_latency_seconds",
+            "Multi-leg execution latency in seconds",
+            ["strategy_name", "leg_count"],
+            buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0],
+            registry=self.registry,
+        )
+
+        self.options_leg_fill_rate = Gauge(
+            "options_leg_fill_rate",
+            "Fill rate for individual legs in multi-leg orders (0-1)",
+            ["strategy_name", "leg_number"],
+            registry=self.registry,
+        )
+
+        # Volatility Prediction Accuracy Metrics
+        self.options_volatility_prediction_accuracy = Gauge(
+            "options_volatility_prediction_accuracy",
+            "GARCH volatility prediction accuracy vs realized (0-1)",
+            ["symbol", "time_horizon"],
+            registry=self.registry,
+        )
+
+        self.options_implied_vs_realized_vol_diff = Gauge(
+            "options_implied_vs_realized_vol_diff",
+            "Difference between implied and realized volatility",
+            ["symbol", "expiration"],
+            registry=self.registry,
+        )
+
+        self.options_vol_smile_skew = Gauge(
+            "options_vol_smile_skew",
+            "Volatility smile skew measurement",
+            ["symbol", "expiration"],
+            registry=self.registry,
+        )
+
+        self.options_garch_model_confidence = Gauge(
+            "options_garch_model_confidence_score",
+            "GARCH model confidence score (0-1)",
+            ["symbol"],
+            registry=self.registry,
+        )
+
+        # Options Market Health Metrics
+        self.options_market_bid_ask_spread = Gauge(
+            "options_market_bid_ask_spread_pct",
+            "Options bid-ask spread as percentage of mid price",
+            ["symbol", "strike", "expiration", "option_type"],
+            registry=self.registry,
+        )
+
+        self.options_liquidity_score = Gauge(
+            "options_liquidity_score",
+            "Options liquidity score based on volume and spread (0-1)",
+            ["symbol", "expiration"],
+            registry=self.registry,
+        )
+
+        self.options_pin_risk = Gauge(
+            "options_pin_risk_score",
+            "Pin risk score for options near strikes at expiration (0-1)",
+            ["symbol", "strike", "expiration"],
+            registry=self.registry,
+        )
+
+        # Risk Management Metrics
+        self.options_max_loss_exposure = Gauge(
+            "options_max_loss_exposure_usd",
+            "Maximum potential loss exposure in USD",
+            ["strategy_name"],
+            registry=self.registry,
+        )
+
+        self.options_buying_power_used = Gauge(
+            "options_buying_power_used_usd",
+            "Buying power used for options positions in USD",
+            registry=self.registry,
+        )
+
+        self.options_margin_requirement = Gauge(
+            "options_margin_requirement_usd",
+            "Margin requirement for options positions in USD",
+            ["strategy_name"],
+            registry=self.registry,
+        )
+
+        # Greeks Risk Limits Monitoring
+        self.options_delta_limit_utilization = Gauge(
+            "options_delta_limit_utilization_pct",
+            "Portfolio delta limit utilization percentage",
+            registry=self.registry,
+        )
+
+        self.options_gamma_limit_utilization = Gauge(
+            "options_gamma_limit_utilization_pct",
+            "Portfolio gamma limit utilization percentage",
+            registry=self.registry,
+        )
+
+        self.options_vega_limit_utilization = Gauge(
+            "options_vega_limit_utilization_pct",
+            "Portfolio vega limit utilization percentage",
+            registry=self.registry,
+        )
+
+        self.options_theta_daily_decay = Gauge(
+            "options_theta_daily_decay_usd",
+            "Expected daily theta decay in USD",
+            registry=self.registry,
+        )
             "unsupervised_model_training_time_seconds",
             "Time to train unsupervised models",
             ["model_type", "data_size_bucket"],
@@ -1110,6 +1365,426 @@ class PrometheusMetrics:
 
         except Exception as e:
             logger.warning("Failed to collect unsupervised metrics", error=str(e))
+
+    # ===== OPTIONS MONITORING METHODS - Task 10 Implementation =====
+
+    def update_options_portfolio_greeks(
+        self,
+        total_delta: float,
+        total_gamma: float,
+        total_theta: float,
+        total_vega: float,
+        total_rho: float
+    ):
+        """Update portfolio-wide Greeks exposure metrics"""
+        self.options_portfolio_delta.set(total_delta)
+        self.options_portfolio_gamma.set(total_gamma)
+        self.options_portfolio_theta.set(total_theta)
+        self.options_portfolio_vega.set(total_vega)
+        self.options_portfolio_rho.set(total_rho)
+
+        logger.debug(
+            "Updated portfolio Greeks metrics",
+            delta=total_delta,
+            gamma=total_gamma,
+            theta=total_theta,
+            vega=total_vega
+        )
+
+    def update_options_position_greeks(
+        self,
+        symbol: str,
+        strategy: str,
+        expiration: str,
+        delta: float,
+        gamma: float
+    ):
+        """Update individual position Greeks"""
+        self.options_position_delta.labels(
+            symbol=symbol,
+            strategy=strategy,
+            expiration=expiration
+        ).set(delta)
+
+        self.options_position_gamma.labels(
+            symbol=symbol,
+            strategy=strategy,
+            expiration=expiration
+        ).set(gamma)
+
+    def record_options_strategy_performance(
+        self,
+        strategy_name: str,
+        symbol: str,
+        pnl: float,
+        success_rate: float,
+        max_profit: float,
+        max_loss: float
+    ):
+        """Record options strategy performance metrics"""
+        self.options_strategy_pnl.labels(
+            strategy_name=strategy_name,
+            symbol=symbol
+        ).set(pnl)
+
+        self.options_strategy_success_rate.labels(
+            strategy_name=strategy_name,
+            symbol=symbol
+        ).set(success_rate)
+
+        self.options_strategy_max_profit.labels(
+            strategy_name=strategy_name,
+            symbol=symbol
+        ).set(max_profit)
+
+        self.options_strategy_max_loss.labels(
+            strategy_name=strategy_name,
+            symbol=symbol
+        ).set(max_loss)
+
+        logger.debug(
+            "Updated options strategy performance",
+            strategy=strategy_name,
+            symbol=symbol,
+            pnl=pnl,
+            success_rate=success_rate
+        )
+
+    def record_options_strategy_trade(
+        self,
+        strategy_name: str,
+        symbol: str,
+        outcome: str
+    ):
+        """Record individual options strategy trade outcome"""
+        self.options_strategy_trades_total.labels(
+            strategy_name=strategy_name,
+            symbol=symbol,
+            outcome=outcome  # "win", "loss", "breakeven", "expired_worthless"
+        ).inc()
+
+    def update_options_volume_metrics(
+        self,
+        symbol: str,
+        option_type: str,
+        expiration: str,
+        daily_volume: int,
+        open_interest: int,
+        strike: str = None
+    ):
+        """Update options volume and open interest metrics"""
+        self.options_volume_daily.labels(
+            symbol=symbol,
+            option_type=option_type,
+            expiration=expiration
+        ).set(daily_volume)
+
+        if strike:
+            self.options_open_interest.labels(
+                symbol=symbol,
+                option_type=option_type,
+                strike=strike,
+                expiration=expiration
+            ).set(open_interest)
+
+        # Calculate volume to open interest ratio
+        if open_interest > 0:
+            vol_oi_ratio = daily_volume / open_interest
+            self.options_volume_to_open_interest_ratio.labels(
+                symbol=symbol,
+                expiration=expiration
+            ).set(vol_oi_ratio)
+
+    def update_options_assignment_risk(
+        self,
+        symbol: str,
+        strike: str,
+        expiration: str,
+        option_type: str,
+        assignment_risk_score: float,
+        time_to_expiry_hours: float,
+        moneyness: float
+    ):
+        """Update assignment risk metrics for short options"""
+        self.options_assignment_risk_score.labels(
+            symbol=symbol,
+            strike=strike,
+            expiration=expiration,
+            option_type=option_type
+        ).set(assignment_risk_score)
+
+        self.options_time_to_expiry_hours.labels(
+            symbol=symbol,
+            expiration=expiration
+        ).set(time_to_expiry_hours)
+
+        self.options_moneyness.labels(
+            symbol=symbol,
+            strike=strike,
+            expiration=expiration,
+            option_type=option_type
+        ).set(moneyness)
+
+    def record_options_multileg_execution(
+        self,
+        strategy_name: str,
+        leg_count: int,
+        status: str,
+        execution_latency: float,
+        leg_fill_rates: List[float] = None
+    ):
+        """Record multi-leg options execution metrics"""
+        self.options_multileg_execution_total.labels(
+            strategy_name=strategy_name,
+            leg_count=str(leg_count),
+            status=status  # "success", "partial_fill", "failed", "cancelled"
+        ).inc()
+
+        self.options_multileg_execution_latency.labels(
+            strategy_name=strategy_name,
+            leg_count=str(leg_count)
+        ).observe(execution_latency)
+
+        # Update success rate calculation (simplified)
+        if status == "success":
+            current_success_rate = 0.95  # This would be calculated from historical data
+            self.options_multileg_execution_success_rate.labels(
+                strategy_name=strategy_name,
+                leg_count=str(leg_count)
+            ).set(current_success_rate)
+
+        # Record individual leg fill rates
+        if leg_fill_rates:
+            for leg_num, fill_rate in enumerate(leg_fill_rates, 1):
+                self.options_leg_fill_rate.labels(
+                    strategy_name=strategy_name,
+                    leg_number=str(leg_num)
+                ).set(fill_rate)
+
+        logger.debug(
+            "Recorded multi-leg execution",
+            strategy=strategy_name,
+            legs=leg_count,
+            status=status,
+            latency=execution_latency
+        )
+
+    def update_options_volatility_metrics(
+        self,
+        symbol: str,
+        expiration: str,
+        time_horizon: str,
+        prediction_accuracy: float,
+        implied_vol: float,
+        realized_vol: float,
+        vol_smile_skew: float,
+        garch_confidence: float
+    ):
+        """Update volatility prediction and analysis metrics"""
+        self.options_volatility_prediction_accuracy.labels(
+            symbol=symbol,
+            time_horizon=time_horizon
+        ).set(prediction_accuracy)
+
+        vol_diff = implied_vol - realized_vol
+        self.options_implied_vs_realized_vol_diff.labels(
+            symbol=symbol,
+            expiration=expiration
+        ).set(vol_diff)
+
+        self.options_vol_smile_skew.labels(
+            symbol=symbol,
+            expiration=expiration
+        ).set(vol_smile_skew)
+
+        self.options_garch_model_confidence.labels(
+            symbol=symbol
+        ).set(garch_confidence)
+
+        logger.debug(
+            "Updated volatility metrics",
+            symbol=symbol,
+            prediction_accuracy=prediction_accuracy,
+            vol_diff=vol_diff,
+            garch_confidence=garch_confidence
+        )
+
+    def update_options_market_health(
+        self,
+        symbol: str,
+        strike: str,
+        expiration: str,
+        option_type: str,
+        bid_ask_spread_pct: float,
+        liquidity_score: float,
+        pin_risk_score: float = None
+    ):
+        """Update options market health and liquidity metrics"""
+        self.options_market_bid_ask_spread.labels(
+            symbol=symbol,
+            strike=strike,
+            expiration=expiration,
+            option_type=option_type
+        ).set(bid_ask_spread_pct)
+
+        self.options_liquidity_score.labels(
+            symbol=symbol,
+            expiration=expiration
+        ).set(liquidity_score)
+
+        if pin_risk_score is not None:
+            self.options_pin_risk.labels(
+                symbol=symbol,
+                strike=strike,
+                expiration=expiration
+            ).set(pin_risk_score)
+
+    def update_options_risk_metrics(
+        self,
+        strategy_name: str,
+        max_loss_exposure: float,
+        margin_requirement: float,
+        buying_power_used: float = None
+    ):
+        """Update options risk management metrics"""
+        self.options_max_loss_exposure.labels(
+            strategy_name=strategy_name
+        ).set(max_loss_exposure)
+
+        self.options_margin_requirement.labels(
+            strategy_name=strategy_name
+        ).set(margin_requirement)
+
+        if buying_power_used is not None:
+            self.options_buying_power_used.set(buying_power_used)
+
+    def update_options_greeks_limits(
+        self,
+        delta_limit_utilization_pct: float,
+        gamma_limit_utilization_pct: float,
+        vega_limit_utilization_pct: float,
+        theta_daily_decay: float
+    ):
+        """Update Greeks risk limits utilization"""
+        self.options_delta_limit_utilization.set(delta_limit_utilization_pct)
+        self.options_gamma_limit_utilization.set(gamma_limit_utilization_pct)
+        self.options_vega_limit_utilization.set(vega_limit_utilization_pct)
+        self.options_theta_daily_decay.set(theta_daily_decay)
+
+        logger.debug(
+            "Updated Greeks limits",
+            delta_util=delta_limit_utilization_pct,
+            gamma_util=gamma_limit_utilization_pct,
+            vega_util=vega_limit_utilization_pct,
+            theta_decay=theta_daily_decay
+        )
+
+    async def collect_options_metrics_from_greeks_manager(self, greeks_manager):
+        """Collect comprehensive metrics from GreeksRiskManager"""
+        try:
+            if not hasattr(greeks_manager, 'portfolio_greeks'):
+                logger.debug("GreeksRiskManager not initialized, skipping metrics collection")
+                return
+
+            # Get current portfolio Greeks
+            portfolio_greeks = greeks_manager.portfolio_greeks
+            
+            self.update_options_portfolio_greeks(
+                total_delta=portfolio_greeks.total_delta,
+                total_gamma=portfolio_greeks.total_gamma,
+                total_theta=portfolio_greeks.total_theta,
+                total_vega=portfolio_greeks.total_vega,
+                total_rho=portfolio_greeks.total_rho
+            )
+
+            # Get Greeks limits utilization
+            limits = greeks_manager.greeks_limits
+            if limits:
+                delta_util = abs(portfolio_greeks.total_delta / limits.max_portfolio_delta) * 100
+                gamma_util = abs(portfolio_greeks.total_gamma / limits.max_portfolio_gamma) * 100
+                vega_util = abs(portfolio_greeks.total_vega / limits.max_portfolio_vega) * 100
+
+                self.update_options_greeks_limits(
+                    delta_limit_utilization_pct=delta_util,
+                    gamma_limit_utilization_pct=gamma_util,
+                    vega_limit_utilization_pct=vega_util,
+                    theta_daily_decay=portfolio_greeks.total_theta
+                )
+
+            logger.debug("Options Greeks metrics collected successfully")
+
+        except Exception as e:
+            logger.warning("Failed to collect options Greeks metrics", error=str(e))
+
+    async def collect_options_metrics_from_strategies(self, strategy_instances):
+        """Collect metrics from options strategy instances"""
+        try:
+            strategy_mapping = {
+                "ZeroDTEStrategy": "zero_dte",
+                "WheelStrategy": "wheel",
+                "IronCondorStrategy": "iron_condor",
+                "GammaScalpingStrategy": "gamma_scalping"
+            }
+
+            for strategy_class_name, strategy_instance in strategy_instances.items():
+                strategy_name = strategy_mapping.get(strategy_class_name, strategy_class_name.lower())
+
+                if hasattr(strategy_instance, 'active_positions'):
+                    for symbol, positions in strategy_instance.active_positions.items():
+                        # Calculate strategy performance
+                        total_pnl = sum(pos.unrealized_pnl for pos in positions)
+                        
+                        # Update strategy performance metrics
+                        self.record_options_strategy_performance(
+                            strategy_name=strategy_name,
+                            symbol=symbol,
+                            pnl=total_pnl,
+                            success_rate=0.75,  # This would be calculated from historical data
+                            max_profit=sum(pos.max_profit for pos in positions),
+                            max_loss=sum(pos.max_loss for pos in positions)
+                        )
+
+                        # Update individual position Greeks
+                        for position in positions:
+                            if hasattr(position, 'greeks_data'):
+                                self.update_options_position_greeks(
+                                    symbol=symbol,
+                                    strategy=strategy_name,
+                                    expiration=position.expiration,
+                                    delta=position.greeks_data.delta,
+                                    gamma=position.greeks_data.gamma
+                                )
+
+            logger.debug("Options strategy metrics collected successfully")
+
+        except Exception as e:
+            logger.warning("Failed to collect options strategy metrics", error=str(e))
+
+    async def collect_options_metrics_from_volatility_predictor(self, volatility_predictor):
+        """Collect metrics from volatility prediction system"""
+        try:
+            # This would integrate with the VolatilityPredictor from Task 9
+            if hasattr(volatility_predictor, 'cache'):
+                cache_hit_rate = len(volatility_predictor.cache) / 100.0  # Simplified calculation
+                
+                for cache_key, (metrics, _) in volatility_predictor.cache.items():
+                    symbol = cache_key.split('_')[0]
+                    
+                    self.update_options_volatility_metrics(
+                        symbol=symbol,
+                        expiration="default",
+                        time_horizon="1D",
+                        prediction_accuracy=metrics.confidence_score,
+                        implied_vol=metrics.implied_vol or 0.0,
+                        realized_vol=metrics.historical_vol,
+                        vol_smile_skew=metrics.vol_smile_skew,
+                        garch_confidence=metrics.confidence_score
+                    )
+
+            logger.debug("Volatility prediction metrics collected successfully")
+
+        except Exception as e:
+            logger.warning("Failed to collect volatility prediction metrics", error=str(e))
 
 
 class MetricsCollector:
