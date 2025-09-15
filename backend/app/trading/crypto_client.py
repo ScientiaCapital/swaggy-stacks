@@ -387,14 +387,36 @@ class CryptoClient:
 
             logger.info("Starting crypto data stream", symbols=symbols, data_types=data_types)
 
-            # This would typically integrate with Alpaca's WebSocket streaming
-            # For now, return a placeholder that indicates streaming capability
+            # Import here to avoid circular imports
+            from app.trading.alpaca_stream_manager import get_stream_manager
+
+            # Get the stream manager instance
+            stream_manager = await get_stream_manager()
+
+            # Create crypto-specific callbacks if provided
+            callbacks = {}
+            if callback:
+                if "trades" in data_types:
+                    callbacks['trade'] = callback
+                if "quotes" in data_types:
+                    callbacks['quote'] = callback
+
+            # Subscribe to crypto data streams
+            if not stream_manager.is_connected:
+                await stream_manager.connect()
+
+            if "trades" in data_types:
+                await stream_manager.subscribe_trades(symbols, callbacks.get('trade'))
+            if "quotes" in data_types:
+                await stream_manager.subscribe_quotes(symbols, callbacks.get('quote'))
+
             return {
                 "status": "streaming",
                 "symbols": symbols,
                 "data_types": data_types,
                 "24_7_support": True,
-                "message": "Crypto streaming supports 24/7 market data",
+                "message": "Crypto streaming active via Alpaca WebSocket",
+                "connection_health": await stream_manager.get_connection_health()
             }
 
         except Exception as e:

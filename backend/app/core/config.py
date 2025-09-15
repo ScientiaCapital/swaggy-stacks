@@ -108,6 +108,19 @@ class Settings(BaseSettings):
     EMAIL_USE_TLS: bool = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
     ALERT_EMAIL_TO: str = os.getenv("ALERT_EMAIL_TO", "tkipper@gmail.com")
 
+    # Streaming Configuration
+    ALPACA_DATA_FEED: str = os.getenv("ALPACA_DATA_FEED", "iex")  # "iex" for free, "sip" for pro
+    STREAMING_ENABLED: bool = os.getenv("STREAMING_ENABLED", "true").lower() == "true"
+    STREAMING_BUFFER_SIZE: int = int(os.getenv("STREAMING_BUFFER_SIZE", "10000"))
+    STREAMING_RECONNECT_ATTEMPTS: int = int(os.getenv("STREAMING_RECONNECT_ATTEMPTS", "10"))
+    STREAMING_RECONNECT_DELAY: int = int(os.getenv("STREAMING_RECONNECT_DELAY", "5"))
+
+    # Event Trigger Configuration
+    EVENT_TRIGGERS_ENABLED: bool = os.getenv("EVENT_TRIGGERS_ENABLED", "true").lower() == "true"
+    PRICE_MOVE_THRESHOLD: float = float(os.getenv("PRICE_MOVE_THRESHOLD", "2.0"))  # 2% price move
+    VOLUME_SPIKE_THRESHOLD: float = float(os.getenv("VOLUME_SPIKE_THRESHOLD", "3.0"))  # 3x volume
+    VOLATILITY_SPIKE_THRESHOLD: float = float(os.getenv("VOLATILITY_SPIKE_THRESHOLD", "20.0"))  # 20% IV spike
+
     # SMS Notification Settings (Twilio) - Commented out (no Twilio account)
     # TWILIO_ACCOUNT_SID: str = os.getenv("TWILIO_ACCOUNT_SID", "")
     # TWILIO_AUTH_TOKEN: str = os.getenv("TWILIO_AUTH_TOKEN", "")

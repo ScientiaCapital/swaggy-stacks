@@ -15,6 +15,8 @@ class RiskManager:
     """Risk management system for trading operations"""
 
     def __init__(self, user_id: int, user_risk_params: Optional[Dict] = None):
+        self.user_id = user_id
+        self.anomaly_detector = None
 
     def set_anomaly_detector(self, anomaly_detector) -> None:
         """
@@ -285,15 +287,15 @@ class RiskManager:
     Returns:
         Tuple[bool, str]: (is_valid, reason)
     """
-    try:
-        # Update risk parameters based on current anomaly conditions
-        anomaly_update = self.update_risk_from_anomalies(market_data)
-        
-        # Calculate order value
-        order_value = quantity * price
+        try:
+            # Update risk parameters based on current anomaly conditions
+            anomaly_update = self.update_risk_from_anomalies(market_data)
 
-        # Check maximum position size (now adjusted for anomalies)
-        if order_value > self.max_position_size:
+            # Calculate order value
+            order_value = quantity * price
+
+            # Check maximum position size (now adjusted for anomalies)
+            if order_value > self.max_position_size:
             reason = f"Order value ${order_value:.2f} exceeds maximum position size ${self.max_position_size:.2f}"
             if self.risk_adjustment_active:
                 reason += f" (adjusted for {self.current_anomaly_level} anomaly level)"

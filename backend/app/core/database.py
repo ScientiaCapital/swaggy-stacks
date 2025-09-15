@@ -26,13 +26,6 @@ engine = create_engine(
     connect_args={
         "application_name": "swaggy_stacks_trading",
         "connect_timeout": 10,
-        # Optimize for trading system performance
-        "statement_timeout": "30s",   # Prevent long-running queries
-        "idle_in_transaction_session_timeout": "60s",
-        # Connection-level settings for better performance
-        "tcp_keepalives_idle": "300",
-        "tcp_keepalives_interval": "30",
-        "tcp_keepalives_count": "3",
     } if "postgresql" in settings.DATABASE_URL else (
         {"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {}
     ),
@@ -70,21 +63,16 @@ def set_postgresql_pragmas(dbapi_connection, connection_record):
     """Set PostgreSQL connection-level optimizations for trading system"""
     if hasattr(dbapi_connection, 'cursor'):
         with dbapi_connection.cursor() as cursor:
-            # Optimize for trading system workloads
+            # Session-level optimizations (only parameters that can be changed at session level)
             cursor.execute("SET synchronous_commit = off")  # Faster writes (acceptable for trading analysis)
-            cursor.execute("SET wal_buffers = '16MB'")      # Larger WAL buffers
-            cursor.execute("SET checkpoint_completion_target = 0.9")
-            cursor.execute("SET random_page_cost = 1.1")    # SSD-optimized
-            cursor.execute("SET effective_cache_size = '1GB'")
             cursor.execute("SET work_mem = '256MB'")        # Larger work memory for complex queries
             cursor.execute("SET maintenance_work_mem = '512MB'")
-            cursor.execute("SET max_connections = 200")
-            cursor.execute("SET shared_buffers = '512MB'")
-            # Optimize for analytical queries
             cursor.execute("SET default_statistics_target = 100")
             # Connection-specific optimizations
             cursor.execute("SET lock_timeout = '10s'")
             cursor.execute("SET deadlock_timeout = '1s'")
+            cursor.execute("SET statement_timeout = '30s'")  # Prevent long-running queries
+            cursor.execute("SET idle_in_transaction_session_timeout = '60s'")
 
 
 @event.listens_for(Engine, "first_connect")
