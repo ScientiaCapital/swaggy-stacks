@@ -5,7 +5,7 @@ Application configuration settings
 import os
 from typing import List, Union
 
-from pydantic import AnyHttpUrl, field_validator
+from pydantic import AnyHttpUrl, field_validator, ConfigDict
 from pydantic_settings import BaseSettings
 
 
@@ -127,9 +127,11 @@ class Settings(BaseSettings):
     # TWILIO_FROM_NUMBER: str = os.getenv("TWILIO_FROM_NUMBER", "")
     # ALERT_SMS_TO: str = os.getenv("ALERT_SMS_TO", "+14773535838")
 
-    class Config:
-        case_sensitive = True
-        env_file = ".env"
+    model_config = ConfigDict(
+        case_sensitive=True,
+        env_file=".env",
+        extra="ignore"  # Ignore extra environment variables
+    )
 
 
 # Global settings instance

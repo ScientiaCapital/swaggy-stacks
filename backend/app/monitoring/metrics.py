@@ -4,7 +4,7 @@ Prometheus metrics collection for system monitoring.
 
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any, Dict, List
 
 from prometheus_client import (
     CollectorRegistry,
@@ -635,6 +635,10 @@ class PrometheusMetrics:
         )
 
         self.unsupervised_model_training_time = Histogram(
+            "unsupervised_model_training_time_seconds",
+            "Time taken to train unsupervised models",
+            registry=self.registry,
+        )
 
         # ===== OPTIONS TRADING METRICS - Task 10 Implementation =====
 
@@ -888,12 +892,6 @@ class PrometheusMetrics:
         self.options_theta_daily_decay = Gauge(
             "options_theta_daily_decay_usd",
             "Expected daily theta decay in USD",
-            registry=self.registry,
-        )
-            "unsupervised_model_training_time_seconds",
-            "Time to train unsupervised models",
-            ["model_type", "data_size_bucket"],
-            buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 300.0],
             registry=self.registry,
         )
 
