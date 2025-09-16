@@ -18,7 +18,57 @@ class RiskManager:
 
     def __init__(self, user_id: int, user_risk_params: Optional[Dict] = None):
         self.user_id = user_id
+        self.risk_params = user_risk_params or {}
+
+        # Default risk parameters
+        self.max_position_size = self.risk_params.get(
+            "max_position_size", settings.MAX_POSITION_SIZE
+        )
+        self.max_daily_loss = self.risk_params.get(
+            "max_daily_loss", settings.MAX_DAILY_LOSS
+        )
+        self.max_portfolio_exposure = self.risk_params.get(
+            "max_portfolio_exposure", 0.95
+        )  # 95% max exposure
+        self.max_single_stock_exposure = self.risk_params.get(
+            "max_single_stock_exposure", 0.20
+        )  # 20% max per stock
+        self.stop_loss_percentage = self.risk_params.get(
+            "stop_loss_percentage", 0.05
+        )  # 5% stop loss
+        self.take_profit_percentage = self.risk_params.get(
+            "take_profit_percentage", 0.15
+        )  # 15% take profit
+
+        # Store original risk parameters for dynamic adjustment
+        self.base_max_position_size = self.max_position_size
+        self.base_max_daily_loss = self.max_daily_loss
+        self.base_max_portfolio_exposure = self.max_portfolio_exposure
+        self.base_max_single_stock_exposure = self.max_single_stock_exposure
+
+        # Anomaly detection integration
         self.anomaly_detector = None
+        self.anomaly_risk_adjustment_enabled = self.risk_params.get(
+            "anomaly_risk_adjustment_enabled", True
+        )
+        self.anomaly_risk_multipliers = {
+            'low': 1.0,
+            'medium': 1.2,
+            'high': 1.5,
+            'critical': 2.0
+        }
+
+        # Risk state tracking
+        self.current_anomaly_level = 'low'
+        self.risk_adjustment_active = False
+        self.last_anomaly_check = None
+
+        logger.info(
+            "Risk manager initialized",
+            user_id=user_id,
+            risk_params=self.risk_params,
+            anomaly_adjustment_enabled=self.anomaly_risk_adjustment_enabled
+        )
 
     def set_anomaly_detector(self, anomaly_detector) -> None:
         """
@@ -209,58 +259,6 @@ class RiskManager:
             "Risk parameters reset to base values",
             user_id=self.user_id
         )
-    self.user_id = user_id
-    self.risk_params = user_risk_params or {}
-
-    # Default risk parameters
-    self.max_position_size = self.risk_params.get(
-        "max_position_size", settings.MAX_POSITION_SIZE
-    )
-    self.max_daily_loss = self.risk_params.get(
-        "max_daily_loss", settings.MAX_DAILY_LOSS
-    )
-    self.max_portfolio_exposure = self.risk_params.get(
-        "max_portfolio_exposure", 0.95
-    )  # 95% max exposure
-    self.max_single_stock_exposure = self.risk_params.get(
-        "max_single_stock_exposure", 0.20
-    )  # 20% max per stock
-    self.stop_loss_percentage = self.risk_params.get(
-        "stop_loss_percentage", 0.05
-    )  # 5% stop loss
-    self.take_profit_percentage = self.risk_params.get(
-        "take_profit_percentage", 0.15
-    )  # 15% take profit
-
-    # Store original risk parameters for dynamic adjustment
-    self.base_max_position_size = self.max_position_size
-    self.base_max_daily_loss = self.max_daily_loss
-    self.base_max_portfolio_exposure = self.max_portfolio_exposure
-    self.base_max_single_stock_exposure = self.max_single_stock_exposure
-
-    # Anomaly detection integration
-    self.anomaly_detector = None
-    self.anomaly_risk_adjustment_enabled = self.risk_params.get(
-        "anomaly_risk_adjustment_enabled", True
-    )
-    self.anomaly_risk_multipliers = {
-        'low': 1.0,
-        'medium': 1.2,
-        'high': 1.5,
-        'critical': 2.0
-    }
-    
-    # Risk state tracking
-    self.current_anomaly_level = 'low'
-    self.risk_adjustment_active = False
-    self.last_anomaly_check = None
-
-    logger.info(
-        "Risk manager initialized", 
-        user_id=user_id, 
-        risk_params=self.risk_params,
-        anomaly_adjustment_enabled=self.anomaly_risk_adjustment_enabled
-    )
 
     def validate_order(
         self,
