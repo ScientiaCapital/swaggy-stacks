@@ -36,7 +36,13 @@ check_command() {
 # Check required tools
 echo -e "${YELLOW}Checking required tools...${NC}"
 check_command docker
-check_command runpodctl
+
+# Use the local runpodctl
+RUNPODCTL="./runpodctl"
+if [ ! -f "$RUNPODCTL" ]; then
+    echo -e "${RED}Error: $RUNPODCTL not found in current directory${NC}"
+    exit 1
+fi
 
 # Step 1: Build Docker image locally
 echo -e "${YELLOW}Building Docker image...${NC}"
@@ -149,25 +155,25 @@ EOF
 echo -e "${YELLOW}Deploying to RunPod...${NC}"
 
 # Login to RunPod
-runpodctl config --apiKey $RUNPOD_API_KEY
+$RUNPODCTL config --apiKey $RUNPOD_API_KEY
 
 # Create a pod with the configuration
 echo -e "${YELLOW}Creating RunPod instance...${NC}"
-POD_ID=$(runpodctl create pod \
+POD_ID=$($RUNPODCTL create pod \
     --name "swaggy-stacks-trading" \
     --imageName "swaggy-stacks-trading:latest" \
-    --gpuType "NONE" \
-    --containerDiskInGb 20 \
-    --volumeInGb 10 \
-    --minMemoryInGb 4 \
-    --minVcpuCount 2 \
+    --gpuCount 0 \
+    --containerDiskSize 20 \
+    --volumeSize 10 \
+    --mem 4 \
+    --vcpu 2 \
     --ports "8000/http,9090/http" \
     --env "ENVIRONMENT=production" \
     --env "ALPACA_API_KEY=${ALPACA_API_KEY}" \
     --env "ALPACA_SECRET_KEY=${ALPACA_SECRET_KEY}" \
     --env "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
     --env "SECRET_KEY=${SECRET_KEY}" \
-    --bid 0.10 | grep -oP 'Pod ID: \K\S+')
+    --cost 0.10 | grep -oP 'Pod ID: \K\S+')
 
 if [ -z "$POD_ID" ]; then
     echo -e "${RED}Failed to create pod${NC}"
@@ -181,7 +187,7 @@ echo -e "${YELLOW}Waiting for pod to be ready...${NC}"
 MAX_WAIT=300  # 5 minutes
 WAIT_TIME=0
 while [ $WAIT_TIME -lt $MAX_WAIT ]; do
-    STATUS=$(runpodctl get pod $POD_ID | grep -oP 'Status: \K\S+')
+    STATUS=$($RUNPODCTL get pod $POD_ID | grep -oP 'Status: \K\S+')
     if [ "$STATUS" = "RUNNING" ]; then
         echo -e "${GREEN}Pod is running!${NC}"
         break
@@ -198,7 +204,7 @@ fi
 
 # Step 7: Get pod endpoint
 echo -e "${YELLOW}Getting pod endpoint...${NC}"
-ENDPOINT=$(runpodctl get pod $POD_ID | grep -oP 'Endpoint: \K\S+')
+ENDPOINT=$($RUNPODCTL get pod $POD_ID | grep -oP 'Endpoint: \K\S+')
 
 if [ -z "$ENDPOINT" ]; then
     echo -e "${RED}Failed to get endpoint${NC}"
@@ -216,16 +222,16 @@ echo "API URL: https://$ENDPOINT-8000.proxy.runpod.net"
 echo "Metrics URL: https://$ENDPOINT-9090.proxy.runpod.net"
 echo ""
 echo "To check logs:"
-echo "  runpodctl logs $POD_ID"
+echo "  $RUNPODCTL logs $POD_ID"
 echo ""
 echo "To SSH into the pod:"
-echo "  runpodctl ssh $POD_ID"
+echo "  $RUNPODCTL ssh $POD_ID"
 echo ""
 echo "To stop the pod:"
-echo "  runpodctl stop pod $POD_ID"
+echo "  $RUNPODCTL stop pod $POD_ID"
 echo ""
 echo "To delete the pod:"
-echo "  runpodctl delete pod $POD_ID"
+echo "  $RUNPODCTL delete pod $POD_ID"
 echo ""
 echo -e "${GREEN}Your trading system is now running autonomously on RunPod!${NC}"
 
@@ -239,7 +245,7 @@ if curl -f -s "$HEALTH_URL" > /dev/null; then
     echo -e "${GREEN}Health check passed! System is operational.${NC}"
 else
     echo -e "${YELLOW}Health check failed. The system might still be starting up.${NC}"
-    echo "Check the logs with: runpodctl logs $POD_ID"
+    echo "Check the logs with: $RUNPODCTL logs $POD_ID"
 fi
 
 # Save deployment info
