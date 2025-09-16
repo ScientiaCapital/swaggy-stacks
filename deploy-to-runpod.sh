@@ -159,10 +159,11 @@ $RUNPODCTL config --apiKey $RUNPOD_API_KEY
 
 # Create a pod with the configuration
 echo -e "${YELLOW}Creating RunPod instance...${NC}"
-POD_ID=$($RUNPODCTL create pod \
+POD_OUTPUT=$($RUNPODCTL create pod \
     --name "swaggy-stacks-trading" \
     --imageName "swaggy-stacks-trading:latest" \
-    --gpuCount 0 \
+    --gpuType "NVIDIA RTX A4000" \
+    --gpuCount 1 \
     --containerDiskSize 20 \
     --volumeSize 10 \
     --mem 4 \
@@ -173,7 +174,10 @@ POD_ID=$($RUNPODCTL create pod \
     --env "ALPACA_SECRET_KEY=${ALPACA_SECRET_KEY}" \
     --env "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
     --env "SECRET_KEY=${SECRET_KEY}" \
-    --cost 0.10 | grep -oP 'Pod ID: \K\S+')
+    --cost 0.10 2>&1)
+
+# Extract Pod ID from output (macOS compatible)
+POD_ID=$(echo "$POD_OUTPUT" | sed -n 's/.*Pod ID: \([^ ]*\).*/\1/p')
 
 if [ -z "$POD_ID" ]; then
     echo -e "${RED}Failed to create pod${NC}"
@@ -187,7 +191,7 @@ echo -e "${YELLOW}Waiting for pod to be ready...${NC}"
 MAX_WAIT=300  # 5 minutes
 WAIT_TIME=0
 while [ $WAIT_TIME -lt $MAX_WAIT ]; do
-    STATUS=$($RUNPODCTL get pod $POD_ID | grep -oP 'Status: \K\S+')
+    STATUS=$($RUNPODCTL get pod $POD_ID | sed -n 's/.*Status: \([^ ]*\).*/\1/p')
     if [ "$STATUS" = "RUNNING" ]; then
         echo -e "${GREEN}Pod is running!${NC}"
         break
@@ -204,7 +208,7 @@ fi
 
 # Step 7: Get pod endpoint
 echo -e "${YELLOW}Getting pod endpoint...${NC}"
-ENDPOINT=$($RUNPODCTL get pod $POD_ID | grep -oP 'Endpoint: \K\S+')
+ENDPOINT=$($RUNPODCTL get pod $POD_ID | sed -n 's/.*Endpoint: \([^ ]*\).*/\1/p')
 
 if [ -z "$ENDPOINT" ]; then
     echo -e "${RED}Failed to get endpoint${NC}"
