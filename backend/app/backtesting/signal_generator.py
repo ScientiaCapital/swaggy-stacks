@@ -10,8 +10,8 @@ from typing import Any, Dict, Optional
 import numpy as np
 import pandas as pd
 
-from app.analysis.indicator_factory import IndicatorFactory, IndicatorType
-from app.analysis.llm_predictors import get_llm_predictor
+from app.indicators.indicator_factory import IndicatorFactory, IndicatorType
+from app.ml.llm_predictors import get_llm_predictor
 
 logger = logging.getLogger(__name__)
 

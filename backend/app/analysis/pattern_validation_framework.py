@@ -11,8 +11,15 @@ from enum import Enum
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
-from backend.private_ai_modules.superbpe_trading_tokenizer import ALPHA_PATTERN_MAPPINGS
 from sqlalchemy.orm import Session
+
+# Placeholder for alpha pattern mappings (to be implemented)
+ALPHA_PATTERN_MAPPINGS = {
+    "momentum": ["RSI_DIVERGENCE", "MACD_CROSS", "MOMENTUM_BREAKOUT"],
+    "trend": ["SMA_CROSS", "EMA_CROSS", "TREND_REVERSAL"],
+    "volatility": ["BOLLINGER_SQUEEZE", "ATR_SPIKE", "VOLATILITY_BREAKOUT"],
+    "volume": ["VOLUME_SPIKE", "OBV_DIVERGENCE", "VOLUME_CONFIRMATION"],
+}
 
 from app.core.database import get_db
 from app.models.pattern_performance import PatternPerformance

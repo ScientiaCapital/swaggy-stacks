@@ -10,8 +10,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.analysis.indicator_factory import IndicatorFactory, IndicatorType
-from app.analysis.llm_predictors import get_llm_predictor
+from app.indicators.indicator_factory import IndicatorFactory, IndicatorType
+from app.ml.llm_predictors import get_llm_predictor
 from app.core.database import get_db
 from app.services.backtest_service import BacktestService
 
