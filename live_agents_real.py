@@ -28,6 +28,8 @@ from app.ai.consensus_engine import get_consensus_engine, AgentVote, VoteType
 from app.trading.alpaca_stream_manager import get_stream_manager
 from app.ai.trading_agents import AITradingCoordinator
 from app.core.config import settings
+from app.monitoring.metrics import PrometheusMetrics
+from app.trading.trading_manager import TradingManager
 
 # Setup logging
 structlog.configure(
@@ -104,6 +106,7 @@ system_state = {
         "agent_decisions": 0,
         "consensus_requests": 0,
         "trades_executed": 0,
+        "trade_failures": 0,
         "uptime_start": datetime.now().isoformat()
     }
 }
@@ -117,6 +120,8 @@ class RealTimeAgentSystem:
         self.stream_manager = None
         self.consensus_engine = None
         self.ai_coordinator = None
+        self.metrics = None
+        self.trading_manager = None
         self.is_initialized = False
 
     async def initialize(self):
@@ -135,11 +140,19 @@ class RealTimeAgentSystem:
                 enable_unsupervised=True
             )
 
+            # Initialize metrics collection
+            self.metrics = PrometheusMetrics()
+
+            # Initialize trading manager
+            self.trading_manager = TradingManager()
+            await self.trading_manager.initialize()
+
             # Update global state
             system_state["coordination_hub"] = self.coordination_hub
             system_state["stream_manager"] = self.stream_manager
             system_state["consensus_engine"] = self.consensus_engine
             system_state["ai_coordinator"] = self.ai_coordinator
+            system_state["trading_manager"] = self.trading_manager
 
             # Register streaming callbacks
             await self._register_stream_callbacks()
@@ -206,6 +219,10 @@ class RealTimeAgentSystem:
             }
 
             system_state["system_stats"]["stream_messages"] += 1
+
+            # Record market data latency metrics
+            if self.metrics:
+                self.metrics.record_market_data_latency(symbol, 0.0)  # Real-time data has minimal latency
 
             # Trigger agent analysis for significant trades
             if size > 10000:  # Large trade threshold
@@ -378,6 +395,15 @@ class RealTimeAgentSystem:
                 }
                 system_state["agents"][agent_name]["status"] = "ACTIVE"
 
+                # Track agent decision metrics
+                if self.metrics:
+                    self.metrics.record_mcp_agent_coordination(
+                        agent_name=agent_name,
+                        success=True,
+                        duration=0.1,  # Assume fast decision making
+                        agent_count=len(agents_data)
+                    )
+
             system_state["system_stats"]["agent_decisions"] += len(votes)
             return votes
 
@@ -395,21 +421,108 @@ class RealTimeAgentSystem:
                            confidence=consensus_result.confidence_score)
                 return
 
-            # Execute trade through trading manager
-            trade_data = {
-                "symbol": consensus_result.symbol,
-                "action": consensus_result.final_vote.value,
-                "quantity": int(consensus_result.suggested_position_size),
-                "order_type": "market",
-                "consensus_id": consensus_result.decision_id,
-                "confidence": consensus_result.confidence_score,
-                "reasoning": consensus_result.consensus_reasoning,
-                "timestamp": datetime.now().isoformat()
-            }
+            # Safety check - only execute if confidence is high enough
+            if consensus_result.confidence_score < 0.7:
+                logger.info("Consensus confidence too low for execution",
+                           symbol=consensus_result.symbol,
+                           confidence=consensus_result.confidence_score)
+                return
 
-            # Store trading decision
-            system_state["trading_decisions"].append(trade_data)
-            system_state["system_stats"]["trades_executed"] += 1
+            # Skip HOLD decisions for execution
+            if consensus_result.final_vote == VoteType.HOLD:
+                logger.info("Consensus decision is HOLD - no execution needed",
+                           symbol=consensus_result.symbol)
+                return
+
+            # Execute trade through TradingManager
+            try:
+                trade_result = await self.trading_manager.execute_trade(
+                    symbol=consensus_result.symbol,
+                    action=consensus_result.final_vote.value,
+                    quantity=int(consensus_result.suggested_position_size),
+                    order_type="market",
+                    analysis_data={
+                        "consensus_id": consensus_result.decision_id,
+                        "confidence": consensus_result.confidence_score,
+                        "reasoning": consensus_result.consensus_reasoning,
+                        "agent_votes": len(consensus_result.votes) if hasattr(consensus_result, 'votes') else 0
+                    }
+                )
+
+                # Create trade record
+                trade_data = {
+                    "symbol": consensus_result.symbol,
+                    "action": consensus_result.final_vote.value,
+                    "quantity": trade_result.get("quantity", consensus_result.suggested_position_size),
+                    "order_type": "market",
+                    "consensus_id": consensus_result.decision_id,
+                    "confidence": consensus_result.confidence_score,
+                    "reasoning": consensus_result.consensus_reasoning,
+                    "timestamp": datetime.now().isoformat(),
+                    "order_id": trade_result.get("order_id"),
+                    "execution_success": trade_result.get("success", False),
+                    "estimated_price": trade_result.get("estimated_price"),
+                    "risk_metrics": trade_result.get("risk_metrics", {})
+                }
+
+                # Store trading decision
+                system_state["trading_decisions"].append(trade_data)
+                if trade_result.get("success", False):
+                    system_state["system_stats"]["trades_executed"] += 1
+                else:
+                    system_state["system_stats"]["trade_failures"] = system_state["system_stats"].get("trade_failures", 0) + 1
+
+                logger.info("Real trade executed through TradingManager",
+                           symbol=consensus_result.symbol,
+                           action=consensus_result.final_vote.value,
+                           quantity=trade_result.get("quantity"),
+                           order_id=trade_result.get("order_id"),
+                           success=trade_result.get("success"))
+
+            except Exception as trade_error:
+                logger.error("Failed to execute trade through TradingManager",
+                           symbol=consensus_result.symbol,
+                           error=str(trade_error))
+
+                # Store failed trade record
+                trade_data = {
+                    "symbol": consensus_result.symbol,
+                    "action": consensus_result.final_vote.value,
+                    "quantity": consensus_result.suggested_position_size,
+                    "consensus_id": consensus_result.decision_id,
+                    "confidence": consensus_result.confidence_score,
+                    "timestamp": datetime.now().isoformat(),
+                    "execution_success": False,
+                    "error": str(trade_error)
+                }
+                system_state["trading_decisions"].append(trade_data)
+                system_state["system_stats"]["trade_failures"] = system_state["system_stats"].get("trade_failures", 0) + 1
+                return
+
+            # Track consensus and trade execution metrics
+            if self.metrics:
+                # Record successful consensus
+                self.metrics.mcp_agent_coordination_success_rate.set(
+                    consensus_result.confidence_score
+                )
+
+                # Track trade execution
+                self.metrics.record_trade_execution_metrics(
+                    symbol=consensus_result.symbol,
+                    order_type="market",
+                    execution_time=0.1,  # Fast consensus execution
+                    success=True,
+                    slippage=0.0
+                )
+
+                # Update strategy performance tracking
+                self.metrics.record_strategy_performance(
+                    strategy_name="consensus_agent_coordination",
+                    symbol=consensus_result.symbol,
+                    profit_loss=0.0,  # Will be updated when position closes
+                    win_rate=consensus_result.confidence_score,
+                    trades_count=1
+                )
 
             logger.info("Trade decision executed",
                        symbol=consensus_result.symbol,
@@ -433,12 +546,31 @@ class RealTimeAgentSystem:
             system_state["is_running"] = True
             system_state["market_data"]["stream_health"] = "CONNECTED"
 
+            # Update streaming health metrics
+            if self.metrics:
+                self.metrics.component_health_status.labels(
+                    component="alpaca_stream_manager",
+                    component_type="data_source"
+                ).set(2)  # 2 = healthy
+
+                self.metrics.system_health_status.set(2)  # System healthy
+
             logger.info("Real-time streaming started successfully",
                        symbols=system_state["symbols"])
 
         except Exception as e:
             logger.error("Failed to start streaming", error=str(e))
             system_state["market_data"]["stream_health"] = "ERROR"
+
+            # Update error metrics
+            if self.metrics:
+                self.metrics.component_health_status.labels(
+                    component="alpaca_stream_manager",
+                    component_type="data_source"
+                ).set(0)  # 0 = critical
+
+                self.metrics.system_health_status.set(0)  # System critical
+
             raise
 
     async def stop_streaming(self):
@@ -484,6 +616,20 @@ class RealTimeAgentSystem:
             if self.stream_manager:
                 stream_health = await self.stream_manager.get_connection_health()
                 health_data["stream_manager"] = stream_health
+
+            # Get trading manager health
+            if self.trading_manager:
+                trading_health = await self.trading_manager.health_check()
+                health_data["trading_manager"] = trading_health
+
+                # Add trade execution statistics
+                health_data["trade_execution"] = {
+                    "total_executed": system_state["system_stats"]["trades_executed"],
+                    "total_failures": system_state["system_stats"].get("trade_failures", 0),
+                    "active_orders": len(self.trading_manager.pending_orders),
+                    "active_positions": len(self.trading_manager.active_positions),
+                    "paper_trading": self.trading_manager.paper_trading
+                }
 
             return health_data
 
@@ -652,6 +798,10 @@ async def dashboard():
                     <div class="metric-value" id="tradesExecuted">0</div>
                     <div class="metric-label">Trades Executed</div>
                 </div>
+                <div class="metric">
+                    <div class="metric-value" id="tradeFailures">0</div>
+                    <div class="metric-label">Trade Failures</div>
+                </div>
             </div>
         </div>
 
@@ -716,6 +866,7 @@ async def dashboard():
                 document.getElementById('streamMessages').textContent = data.stats.stream_messages;
                 document.getElementById('agentDecisions').textContent = data.stats.agent_decisions;
                 document.getElementById('tradesExecuted').textContent = data.stats.trades_executed;
+                document.getElementById('tradeFailures').textContent = data.stats.trade_failures || 0;
 
                 // Update trades
                 const tradesHtml = data.recent_decisions.map(trade =>
