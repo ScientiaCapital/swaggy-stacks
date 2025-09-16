@@ -632,33 +632,102 @@ class AgentCoordinationHub:
             if symbol == 'UNKNOWN' or not self.ai_coordinator:
                 return
 
-            # Create mock data for comprehensive analysis
-            # In production, this would come from real market data
+            # Get real market data from stream manager
             market_data = event_data.get('market_data', {})
-            if not market_data:
+            if not market_data and self.stream_manager:
+                # Get latest buffered data from stream
+                buffered_data = await self.stream_manager.get_buffered_data(symbol, limit=1)
+                latest_trade = buffered_data.get('trades', [{}])[-1] if buffered_data.get('trades') else {}
+                latest_quote = buffered_data.get('quotes', [{}])[-1] if buffered_data.get('quotes') else {}
+                latest_bar = buffered_data.get('bars', [{}])[-1] if buffered_data.get('bars') else {}
+
                 market_data = {
-                    "price": event_data.get('current_value', 100.0),
-                    "volume": 1000000,
-                    "price_change_pct": 0.0,
-                    "volume_ratio": 1.0
+                    "price": latest_trade.get('price', event_data.get('current_value', 0.0)),
+                    "volume": latest_bar.get('volume', latest_trade.get('size', 0)),
+                    "bid_price": latest_quote.get('bid_price', 0.0),
+                    "ask_price": latest_quote.get('ask_price', 0.0),
+                    "high": latest_bar.get('high', 0.0),
+                    "low": latest_bar.get('low', 0.0),
+                    "open": latest_bar.get('open', 0.0),
+                    "close": latest_bar.get('close', 0.0),
+                    "price_change_pct": 0.0,  # Calculate if needed
+                    "volume_ratio": 1.0  # Calculate if needed
                 }
 
-            technical_indicators = {
-                "rsi": 50.0,
-                "macd": 0.0,
-                "bb_position": 0.5,
-                "atr": 1.0
-            }
+            # Use real technical indicators if available (integrate with indicators module)
+            from ..indicators.technical_indicators import TechnicalIndicators
+            try:
+                tech_calc = TechnicalIndicators()
+                # Get historical data for indicator calculation
+                buffered_bars = await self.stream_manager.get_buffered_data(symbol, limit=50)
+                bars_data = buffered_bars.get('bars', [])
 
-            account_info = {
-                "equity": 100000,
-                "buying_power": 50000
-            }
+                if len(bars_data) >= 20:  # Need minimum data for indicators
+                    prices = [bar['close'] for bar in bars_data[-20:]]
+                    highs = [bar['high'] for bar in bars_data[-20:]]
+                    lows = [bar['low'] for bar in bars_data[-20:]]
+                    volumes = [bar['volume'] for bar in bars_data[-20:]]
 
-            markov_analysis = {
-                "current_state": "trending",
-                "transition_probability": 0.7
-            }
+                    technical_indicators = {
+                        "rsi": tech_calc.calculate_rsi(prices)[-1] if prices else 50.0,
+                        "macd": tech_calc.calculate_macd(prices)[-1][0] if prices else 0.0,
+                        "bb_position": 0.5,  # Calculate Bollinger Band position
+                        "atr": tech_calc.calculate_atr(highs, lows, prices)[-1] if prices else 1.0
+                    }
+                else:
+                    # Fallback when insufficient data
+                    technical_indicators = {
+                        "rsi": 50.0,
+                        "macd": 0.0,
+                        "bb_position": 0.5,
+                        "atr": 1.0
+                    }
+            except ImportError:
+                logger.warning("Technical indicators module not available, using defaults")
+                technical_indicators = {
+                    "rsi": 50.0,
+                    "macd": 0.0,
+                    "bb_position": 0.5,
+                    "atr": 1.0
+                }
+
+            # Get real account info from trading manager
+            from ..trading.trading_manager import get_trading_manager
+            try:
+                trading_manager = await get_trading_manager()
+                account_data = await trading_manager.get_account_info()
+                account_info = {
+                    "equity": float(account_data.get('equity', 100000)),
+                    "buying_power": float(account_data.get('buying_power', 50000))
+                }
+            except Exception as e:
+                logger.warning("Could not get real account info", error=str(e))
+                account_info = {
+                    "equity": 100000,
+                    "buying_power": 50000
+                }
+
+            # Get real Markov analysis if available
+            from ..analysis.consolidated_markov_system import EnhancedMarkovSystem
+            try:
+                markov_system = EnhancedMarkovSystem()
+                if len(bars_data) >= 10:
+                    markov_result = markov_system.analyze_market_regime(bars_data[-10:])
+                    markov_analysis = {
+                        "current_state": markov_result.get("current_regime", "trending"),
+                        "transition_probability": markov_result.get("confidence", 0.7)
+                    }
+                else:
+                    markov_analysis = {
+                        "current_state": "insufficient_data",
+                        "transition_probability": 0.5
+                    }
+            except Exception as e:
+                logger.warning("Could not get Markov analysis", error=str(e))
+                markov_analysis = {
+                    "current_state": "trending",
+                    "transition_probability": 0.7
+                }
 
             # Run comprehensive analysis
             result = await self.ai_coordinator.comprehensive_analysis(
