@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from app.analysis.markov_system import MarkovSystem
+from app.ml.markov_system import MarkovSystem
 from app.core.cache import get_market_cache
 from app.core.exceptions import MCPError
 from app.core.logging import get_logger, log_execution_time

@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from app.analysis.enhanced_markov_system import MarkovChainAnalyzer
+from app.ml.markov_system import MarkovSystem as MarkovChainAnalyzer
 
 logger = logging.getLogger(__name__)
 

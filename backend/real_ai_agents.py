@@ -21,7 +21,7 @@ from app.core.database import SessionLocal
 from app.trading.alpaca_client import AlpacaClient
 from app.trading.trading_manager import TradingManager
 from app.trading.risk_manager import RiskManager
-from app.analysis.markov_system import MarkovSystem
+from app.ml.markov_system import MarkovSystem
 import yfinance as yf
 import structlog
 

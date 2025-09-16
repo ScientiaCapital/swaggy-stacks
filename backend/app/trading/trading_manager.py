@@ -11,7 +11,7 @@ from typing import Dict, Optional
 
 import structlog
 
-from app.analysis.markov_system import MarkovSystem
+from app.ml.markov_system import MarkovSystem
 from app.core.config import settings
 from app.core.exceptions import RiskManagementError, TradingError
 from app.risk.position_manager import IntegratedRiskManager

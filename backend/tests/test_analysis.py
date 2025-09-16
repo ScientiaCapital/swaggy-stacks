@@ -6,7 +6,7 @@ import pytest
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from app.analysis.markov_system import MarkovSystem
+from app.ml.markov_system import MarkovSystem
 from app.analysis.fibonacci_analysis import FibonacciAnalyzer
 from app.analysis.wyckoff_analysis import WyckoffAnalyzer
 

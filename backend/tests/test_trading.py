@@ -5,7 +5,7 @@ Trading system tests for Swaggy Stacks
 import pytest
 from app.trading.trading_manager import TradingManager
 from app.trading.risk_manager import RiskManager
-from app.analysis.markov_system import MarkovSystem
+from app.ml.markov_system import MarkovSystem
 
 
 def test_trading_manager_singleton():

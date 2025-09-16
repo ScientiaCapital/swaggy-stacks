@@ -11,7 +11,7 @@ from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.analysis.markov_system import MarkovSystem
+from app.ml.markov_system import MarkovSystem
 from app.core.auth import create_jwt_exception, verify_token
 from app.core.config import settings
 from app.core.database import get_db

@@ -11,8 +11,8 @@ from typing import Any, Dict, Literal, Optional
 import pandas as pd
 import structlog
 
-from app.analysis.modern_indicators import ModernIndicators
-from app.analysis.technical_indicators import TechnicalIndicators
+from app.indicators.modern_indicators import ModernIndicators
+from app.indicators.technical_indicators import TechnicalIndicators
 from app.core.database import get_redis
 from app.core.exceptions import TradingError
 

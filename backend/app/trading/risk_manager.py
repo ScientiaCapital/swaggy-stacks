@@ -2,8 +2,10 @@
 Risk management system for the trading engine
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
+import numpy as np
+import pandas as pd
 import structlog
 
 from app.core.config import settings
@@ -261,32 +263,32 @@ class RiskManager:
     )
 
     def validate_order(
-    self,
-    symbol: str,
-    quantity: float,
-    price: float,
-    side: str,
-    current_positions: List[Dict],
-    account_value: float,
-    daily_pnl: float,
-    market_data: Optional[Union[pd.DataFrame, np.ndarray]] = None,
-) -> Tuple[bool, str]:
-    """
-    Validate if an order meets risk management criteria
+        self,
+        symbol: str,
+        quantity: float,
+        price: float,
+        side: str,
+        current_positions: List[Dict],
+        account_value: float,
+        daily_pnl: float,
+        market_data: Optional[Union[pd.DataFrame, np.ndarray]] = None,
+    ) -> Tuple[bool, str]:
+        """
+        Validate if an order meets risk management criteria
 
-    Args:
-        symbol: Stock symbol
-        quantity: Order quantity
-        price: Order price
-        side: Order side (BUY/SELL)
-        current_positions: Current portfolio positions
-        account_value: Total account value
-        daily_pnl: Daily P&L
-        market_data: Recent market data for anomaly analysis
+        Args:
+            symbol: Stock symbol
+            quantity: Order quantity
+            price: Order price
+            side: Order side (BUY/SELL)
+            current_positions: Current portfolio positions
+            account_value: Total account value
+            daily_pnl: Daily P&L
+            market_data: Recent market data for anomaly analysis
 
-    Returns:
-        Tuple[bool, str]: (is_valid, reason)
-    """
+        Returns:
+            Tuple[bool, str]: (is_valid, reason)
+        """
         try:
             # Update risk parameters based on current anomaly conditions
             anomaly_update = self.update_risk_from_anomalies(market_data)
@@ -296,84 +298,84 @@ class RiskManager:
 
             # Check maximum position size (now adjusted for anomalies)
             if order_value > self.max_position_size:
-            reason = f"Order value ${order_value:.2f} exceeds maximum position size ${self.max_position_size:.2f}"
+                reason = f"Order value ${order_value:.2f} exceeds maximum position size ${self.max_position_size:.2f}"
+                if self.risk_adjustment_active:
+                    reason += f" (adjusted for {self.current_anomaly_level} anomaly level)"
+                return False, reason
+
+            # Check daily loss limit (now adjusted for anomalies)
+            if daily_pnl < -self.max_daily_loss:
+                reason = f"Daily loss ${abs(daily_pnl):.2f} exceeds limit ${self.max_daily_loss:.2f}"
+                if self.risk_adjustment_active:
+                    reason += f" (tightened due to {self.current_anomaly_level} anomaly level)"
+                return False, reason
+
+            # Check portfolio exposure (now adjusted for anomalies)
+            current_exposure = self._calculate_portfolio_exposure(
+                current_positions, account_value
+            )
+            new_exposure = current_exposure + (order_value / account_value)
+
+            if new_exposure > self.max_portfolio_exposure:
+                reason = f"Portfolio exposure {new_exposure:.2%} would exceed limit {self.max_portfolio_exposure:.2%}"
+                if self.risk_adjustment_active:
+                    reason += f" (reduced due to {self.current_anomaly_level} anomaly level)"
+                return False, reason
+
+            # Check single stock exposure (now adjusted for anomalies)
+            current_stock_exposure = self._calculate_stock_exposure(
+                symbol, current_positions, account_value
+            )
+            new_stock_exposure = current_stock_exposure + (order_value / account_value)
+
+            if new_stock_exposure > self.max_single_stock_exposure:
+                reason = f"Stock exposure {new_stock_exposure:.2%} would exceed limit {self.max_single_stock_exposure:.2%}"
+                if self.risk_adjustment_active:
+                    reason += f" (reduced due to {self.current_anomaly_level} anomaly level)"
+                return False, reason
+
+            # Additional anomaly-specific checks
+            if anomaly_update.get('anomaly_system_active', False):
+                # Block new positions during critical anomalies
+                if self.current_anomaly_level == 'critical' and side.upper() == 'BUY':
+                    return False, "New buy orders blocked due to critical market anomalies detected"
+
+                # Reduce position sizes during high anomaly periods
+                if self.current_anomaly_level in ['high', 'critical']:
+                    recommended_adjustment = anomaly_update.get('recommended_position_adjustment', 0.0)
+                    if recommended_adjustment < -0.1:  # More than 10% reduction recommended
+                        max_recommended_value = order_value * (1 + recommended_adjustment)
+                        if order_value > max_recommended_value:
+                            return False, f"Order size should be reduced by {abs(recommended_adjustment)*100:.0f}% due to detected market anomalies"
+
+            # Check if we have enough buying power
+            if (
+                side.upper() == "BUY" and order_value > account_value * 0.95
+            ):  # Leave 5% buffer
+                return False, "Insufficient buying power for order"
+
+            # Log successful validation with anomaly context
+            logger.info(
+                "Order validation passed",
+                symbol=symbol,
+                quantity=quantity,
+                price=price,
+                side=side,
+                order_value=order_value,
+                anomaly_level=self.current_anomaly_level,
+                risk_adjustment_active=self.risk_adjustment_active,
+                anomaly_adjustments=anomaly_update.get('risk_adjustments_made', False)
+            )
+
+            success_message = "Order passes risk management checks"
             if self.risk_adjustment_active:
-                reason += f" (adjusted for {self.current_anomaly_level} anomaly level)"
-            return False, reason
+                success_message += f" (risk parameters adjusted for {self.current_anomaly_level} anomaly conditions)"
 
-        # Check daily loss limit (now adjusted for anomalies)
-        if daily_pnl < -self.max_daily_loss:
-            reason = f"Daily loss ${abs(daily_pnl):.2f} exceeds limit ${self.max_daily_loss:.2f}"
-            if self.risk_adjustment_active:
-                reason += f" (tightened due to {self.current_anomaly_level} anomaly level)"
-            return False, reason
+            return True, success_message
 
-        # Check portfolio exposure (now adjusted for anomalies)
-        current_exposure = self._calculate_portfolio_exposure(
-            current_positions, account_value
-        )
-        new_exposure = current_exposure + (order_value / account_value)
-
-        if new_exposure > self.max_portfolio_exposure:
-            reason = f"Portfolio exposure {new_exposure:.2%} would exceed limit {self.max_portfolio_exposure:.2%}"
-            if self.risk_adjustment_active:
-                reason += f" (reduced due to {self.current_anomaly_level} anomaly level)"
-            return False, reason
-
-        # Check single stock exposure (now adjusted for anomalies)
-        current_stock_exposure = self._calculate_stock_exposure(
-            symbol, current_positions, account_value
-        )
-        new_stock_exposure = current_stock_exposure + (order_value / account_value)
-
-        if new_stock_exposure > self.max_single_stock_exposure:
-            reason = f"Stock exposure {new_stock_exposure:.2%} would exceed limit {self.max_single_stock_exposure:.2%}"
-            if self.risk_adjustment_active:
-                reason += f" (reduced due to {self.current_anomaly_level} anomaly level)"
-            return False, reason
-
-        # Additional anomaly-specific checks
-        if anomaly_update.get('anomaly_system_active', False):
-            # Block new positions during critical anomalies
-            if self.current_anomaly_level == 'critical' and side.upper() == 'BUY':
-                return False, "New buy orders blocked due to critical market anomalies detected"
-            
-            # Reduce position sizes during high anomaly periods
-            if self.current_anomaly_level in ['high', 'critical']:
-                recommended_adjustment = anomaly_update.get('recommended_position_adjustment', 0.0)
-                if recommended_adjustment < -0.1:  # More than 10% reduction recommended
-                    max_recommended_value = order_value * (1 + recommended_adjustment)
-                    if order_value > max_recommended_value:
-                        return False, f"Order size should be reduced by {abs(recommended_adjustment)*100:.0f}% due to detected market anomalies"
-
-        # Check if we have enough buying power
-        if (
-            side.upper() == "BUY" and order_value > account_value * 0.95
-        ):  # Leave 5% buffer
-            return False, "Insufficient buying power for order"
-
-        # Log successful validation with anomaly context
-        logger.info(
-            "Order validation passed",
-            symbol=symbol,
-            quantity=quantity,
-            price=price,
-            side=side,
-            order_value=order_value,
-            anomaly_level=self.current_anomaly_level,
-            risk_adjustment_active=self.risk_adjustment_active,
-            anomaly_adjustments=anomaly_update.get('risk_adjustments_made', False)
-        )
-
-        success_message = "Order passes risk management checks"
-        if self.risk_adjustment_active:
-            success_message += f" (risk parameters adjusted for {self.current_anomaly_level} anomaly conditions)"
-
-        return True, success_message
-
-    except Exception as e:
-        logger.error("Error validating order", error=str(e), symbol=symbol)
-        return False, f"Risk validation error: {str(e)}"
+        except Exception as e:
+            logger.error("Error validating order", error=str(e), symbol=symbol)
+            return False, f"Risk validation error: {str(e)}"
 
     def calculate_position_size(
         self,

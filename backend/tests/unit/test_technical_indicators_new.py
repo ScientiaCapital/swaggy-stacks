@@ -5,7 +5,7 @@ Comprehensive unit tests for technical indicators based on actual API
 import pytest
 import numpy as np
 import pandas as pd
-from app.analysis.technical_indicators import TechnicalIndicators
+from app.indicators.technical_indicators import TechnicalIndicators
 
 
 class TestTechnicalIndicators:
