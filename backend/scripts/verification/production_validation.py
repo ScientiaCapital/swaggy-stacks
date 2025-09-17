@@ -18,11 +18,11 @@ def validate_core_files() -> Dict[str, Any]:
         "components": {}
     }
 
-    project_root = Path(__file__).parent
+    project_root = Path(__file__).parent.parent.parent.parent  # Go from scripts/verification/ back to root
 
     # Core system files
     core_files = {
-        "live_agents_real.py": "Real-time agent coordination system",
+        "backend/run_production.py": "Real-time agent coordination system",
         "backend/app/trading/trading_manager.py": "Trade execution engine",
         "backend/app/monitoring/metrics.py": "Prometheus metrics collection",
         "backend/app/ai/coordination_hub.py": "Agent coordination hub",
@@ -138,8 +138,8 @@ def validate_agent_integration() -> Dict[str, Any]:
         "integration": {}
     }
 
-    # Check live_agents_real.py for key integration points
-    live_agents_file = Path(__file__).parent / "live_agents_real.py"
+    # Check run_production.py for key integration points
+    live_agents_file = project_root / "backend/run_production.py"
 
     if live_agents_file.exists():
         with open(live_agents_file, 'r') as f:
@@ -178,7 +178,7 @@ def validate_agent_integration() -> Dict[str, Any]:
                 results["status"] = "FAILED"
     else:
         results["integration"]["live_agents_file"] = "❌ MISSING"
-        results["issues"].append("live_agents_real.py not found")
+        results["issues"].append("backend/run_production.py not found")
         results["status"] = "FAILED"
 
     return results
@@ -230,7 +230,7 @@ def run_production_validation():
     if all_passed:
         print("🎉 PRODUCTION VALIDATION: ALL TESTS PASSED")
         print("✅ System is ready for live market testing!")
-        print("🚀 Ready to start: python3 live_agents_real.py")
+        print("🚀 Ready to start: cd backend && python3 run_production.py")
     else:
         print("⚠️  PRODUCTION VALIDATION: ISSUES FOUND")
         print("❌ System needs fixes before live testing")

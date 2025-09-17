@@ -6,8 +6,8 @@ Minimal test script to check if basic trading components work
 import os
 import sys
 
-# Add backend to path
-sys.path.insert(0, 'backend')
+# Add backend to path (now in backend/tests/integration, go up 2 levels)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 print("Testing Swaggy Stacks Trading System")
 print("=" * 50)

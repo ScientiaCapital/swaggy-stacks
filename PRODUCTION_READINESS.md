@@ -3,7 +3,7 @@
 ## ✅ SYSTEM VALIDATION COMPLETE
 
 ### **Core Infrastructure Status**
-- ✅ **Real-time Agent System**: `live_agents_real.py` - Production-ready with full integration
+- ✅ **Real-time Agent System**: `backend/run_production.py` - Production-ready with full integration
 - ✅ **Trade Execution Engine**: `TradingManager` with Alpaca API integration and risk management
 - ✅ **Agent Coordination**: Consensus engine with sophisticated decision-making pipeline
 - ✅ **Monitoring Infrastructure**: 50+ Prometheus metrics with comprehensive tracking
@@ -33,7 +33,7 @@
 ### **Pre-Market Checklist (Before 9:30 AM EST)**
 1. **Start Docker Stack**: `docker-compose up -d`
 2. **Verify Services**: Check Grafana (3001), Prometheus (9090), PostgreSQL (5432)
-3. **Start Live Agents**: `python3 live_agents_real.py`
+3. **Start Live Agents**: `cd backend && python3 run_production.py`
 4. **Verify Dashboard**: http://localhost:8002 - Check all agents show "READY"
 5. **Check Monitoring**: http://localhost:3001 - Verify all dashboards load
 
@@ -53,7 +53,7 @@
 
 ## 🔧 KEY TECHNICAL COMPONENTS
 
-### **Real-Time Agent System** (`live_agents_real.py`)
+### **Real-Time Agent System** (`backend/run_production.py`)
 - **Agent Coordination**: 5 AI agents with different specializations
 - **Consensus Engine**: Sophisticated voting and decision-making
 - **Streaming Integration**: Real-time Alpaca WebSocket data processing
@@ -80,7 +80,7 @@
 docker-compose up -d
 
 # Start live agents (Terminal 1)
-python3 live_agents_real.py
+cd backend && python3 run_production.py
 
 # Monitor system (Terminal 2)
 watch -n 5 "curl -s http://localhost:8002/api/health | python3 -m json.tool"

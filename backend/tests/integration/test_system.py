@@ -10,8 +10,8 @@ import sys
 from pathlib import Path
 import asyncio
 
-# Add backend to path for imports
-backend_path = Path(__file__).parent / "backend"
+# Add backend to path for imports (now in backend/tests/integration, go up 2 levels)
+backend_path = Path(__file__).parent.parent.parent
 sys.path.append(str(backend_path))
 
 async def test_alpaca_connection():

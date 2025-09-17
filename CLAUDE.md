@@ -11,7 +11,12 @@ cd backend
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
+
+# Development server
 uvicorn app.main:app --reload
+
+# Production AI trading system
+python3 run_production.py
 
 # Frontend (Next.js 14 + TypeScript)
 cd frontend
@@ -59,6 +64,9 @@ black app/ --check
 isort app/ --check
 flake8 app/
 mypy app/
+
+# Structure validation (after cleanup)
+python3 backend/scripts/verification/validate_structure.py
 
 # Frontend linting
 cd frontend
