@@ -19,7 +19,7 @@ Built with cutting-edge technology stack featuring Next.js 14, FastAPI, PostgreS
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-org/swaggy-stacks.git
+git clone <repository-url>
 cd swaggy-stacks
 
 # 2. One-click deployment with Docker
@@ -216,7 +216,7 @@ MIT License - Open source and free to use. See [LICENSE](LICENSE) for full detai
 
 **Swaggy Stacks** - *Professional algorithmic trading infrastructure for everyone*
 
-[⭐ Star on GitHub](https://github.com/your-org/swaggy-stacks) | [📖 Documentation](docs/) | [🐛 Report Issues](https://github.com/your-org/swaggy-stacks/issues)
+[⭐ GitHub Repository](#) | [📖 Documentation](docs/) | [🐛 Report Issues](#)
 
 *Empowering developers to build and learn with enterprise-grade trading infrastructure* 🚀
 

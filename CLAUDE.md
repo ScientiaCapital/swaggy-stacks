@@ -127,7 +127,7 @@ The system follows clean separation of concerns with focused modules:
   - `indicator_factory.py` - Factory pattern for indicator creation
 
 - **`app/ml/`** - Machine learning and predictive models
-  - `llm_predictors.py` - LLM-based market predictions with Chinese models
+  - `llm_predictors.py` - LLM-based market predictions and sentiment analysis
   - `prediction_prompts/` - Structured prompt templates for different models
   - **`unsupervised/`** - Comprehensive unsupervised learning infrastructure
     - `clustering/` - K-means, DBSCAN, hierarchical clustering with production optimizations
