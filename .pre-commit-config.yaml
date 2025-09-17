@@ -1,0 +1,33 @@
+repos:
+  - repo: local
+    hooks:
+      - id: structure-validation
+        name: Validate project structure
+        entry: python3 backend/scripts/verification/validate_structure.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: prevent-root-python-files
+        name: Prevent Python files in root directory
+        entry: bash -c 'if [ "$(ls -1 *.py 2>/dev/null | wc -l)" -gt 0 ]; then echo "❌ ERROR: Python files not allowed in root directory"; exit 1; fi'
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: prevent-duplicate-taskmaster
+        name: Prevent duplicate .taskmaster directories
+        entry: bash -c 'if [ -d "backend/.taskmaster" ]; then echo "❌ ERROR: Duplicate .taskmaster found in backend/"; exit 1; fi'
+        language: system
+        pass_filenames: false
+        always_run: true
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-merge-conflict

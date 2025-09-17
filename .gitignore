@@ -428,8 +428,11 @@ backtest_markov.py
 AUDIT_IMPROVEMENTS.md
 BACKUP_LOG.md
 
-# Task Management Folders (Backend Only)
-backend/.taskmaster/
+# Archives and backups (prevent accidental commits)
+/archives/
+**/backup_before_cleanup/
+
+# Task Management Folders (Backend Only) - Note: Keep root .taskmaster/
 backend/.claude/
 backend/.cursor/
 backend/.roo/
