@@ -37,6 +37,12 @@ data:
   # WebSocket configuration
   WS_HEARTBEAT_INTERVAL: "30"
   WS_MAX_CONNECTIONS: "1000"
+
+  # NATS messaging configuration
+  NATS_URL: "nats://nats-service:4222"
+  NATS_MONITORING_URL: "http://nats-service:8222"
+  ENABLE_NATS_MESSAGING: "true"
+  NATS_CLUSTER_NAME: "swaggy-trading"
   
   # Monitoring
   ENABLE_METRICS: "true"

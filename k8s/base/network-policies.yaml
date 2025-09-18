@@ -1,0 +1,204 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-network-policy
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: backend
+spec:
+  podSelector:
+    matchLabels:
+      app: swaggy-stacks-backend
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: swaggy-stacks-frontend
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8000
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: swaggy-stacks-postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  - to:
+    - podSelector:
+        matchLabels:
+          app: swaggy-stacks-redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  - to:
+    - podSelector:
+        matchLabels:
+          app: swaggy-stacks-nats
+    ports:
+    - protocol: TCP
+      port: 4222
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-network-policy
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: frontend
+spec:
+  podSelector:
+    matchLabels:
+      app: swaggy-stacks-frontend
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 3000
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: swaggy-stacks-backend
+    ports:
+    - protocol: TCP
+      port: 8000
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nats-network-policy
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: nats
+spec:
+  podSelector:
+    matchLabels:
+      app: swaggy-stacks-nats
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: swaggy-stacks-backend
+    ports:
+    - protocol: TCP
+      port: 4222
+  - from:
+    - podSelector:
+        matchLabels:
+          app: swaggy-stacks-nats
+    ports:
+    - protocol: TCP
+      port: 6222
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8222
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: swaggy-stacks-nats
+    ports:
+    - protocol: TCP
+      port: 6222
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: database-network-policy
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: database
+spec:
+  podSelector:
+    matchLabels:
+      app: swaggy-stacks-postgres
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: swaggy-stacks-backend
+    ports:
+    - protocol: TCP
+      port: 5432
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9187
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all-default
+  namespace: swaggy-stacks
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress

@@ -1,0 +1,55 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend-pdb
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: backend
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: swaggy-stacks-backend
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: frontend-pdb
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: frontend
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: swaggy-stacks-frontend
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: nats-pdb
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: nats
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: swaggy-stacks-nats
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: database-pdb
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: database
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: swaggy-stacks-postgres

@@ -1,0 +1,217 @@
+apiVersion: velero.io/v1
+kind: BackupStorageLocation
+metadata:
+  name: aws-backup-location
+  namespace: velero
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: backup
+spec:
+  provider: aws
+  objectStorage:
+    bucket: swaggy-stacks-velero-backups
+    prefix: cluster-backups
+  config:
+    region: us-west-2
+    s3ForcePathStyle: "false"
+---
+apiVersion: velero.io/v1
+kind: VolumeSnapshotLocation
+metadata:
+  name: aws-snapshot-location
+  namespace: velero
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: backup
+spec:
+  provider: aws
+  config:
+    region: us-west-2
+---
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: swaggy-stacks-daily-backup
+  namespace: velero
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: backup
+spec:
+  schedule: "0 1 * * *"  # Daily at 1 AM
+  template:
+    includedNamespaces:
+    - swaggy-stacks
+    storageLocation: aws-backup-location
+    volumeSnapshotLocations:
+    - aws-snapshot-location
+    ttl: 720h0m0s  # 30 days retention
+    includedResources:
+    - "*"
+    labelSelector:
+      matchLabels:
+        backup: "true"
+---
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: swaggy-stacks-weekly-backup
+  namespace: velero
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: backup
+spec:
+  schedule: "0 2 * * 0"  # Weekly on Sunday at 2 AM
+  template:
+    includedNamespaces:
+    - swaggy-stacks
+    - kube-system
+    storageLocation: aws-backup-location
+    volumeSnapshotLocations:
+    - aws-snapshot-location
+    ttl: 2160h0m0s  # 90 days retention
+    includedResources:
+    - "*"
+    snapshotVolumes: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: velero-restore-procedures
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: disaster-recovery
+data:
+  cluster-restore.sh: |
+    #!/bin/bash
+    # Full Cluster Restore Procedure
+
+    BACKUP_NAME=$1
+    if [ -z "$BACKUP_NAME" ]; then
+      echo "Usage: $0 <backup_name>"
+      echo "Available backups:"
+      velero backup get
+      exit 1
+    fi
+
+    echo "Starting cluster restore from backup: $BACKUP_NAME"
+
+    # Create restore
+    velero restore create --from-backup $BACKUP_NAME --wait
+
+    # Check restore status
+    velero restore describe $(velero restore get | grep $BACKUP_NAME | awk '{print $1}')
+
+    echo "Cluster restore completed"
+
+  namespace-restore.sh: |
+    #!/bin/bash
+    # Namespace-specific Restore Procedure
+
+    BACKUP_NAME=$1
+    NAMESPACE=$2
+    if [ -z "$BACKUP_NAME" ] || [ -z "$NAMESPACE" ]; then
+      echo "Usage: $0 <backup_name> <namespace>"
+      exit 1
+    fi
+
+    echo "Restoring namespace $NAMESPACE from backup: $BACKUP_NAME"
+
+    # Create namespace-specific restore
+    velero restore create \
+      --from-backup $BACKUP_NAME \
+      --include-namespaces $NAMESPACE \
+      --wait
+
+    echo "Namespace restore completed"
+
+  pv-restore.sh: |
+    #!/bin/bash
+    # Persistent Volume Restore Procedure
+
+    BACKUP_NAME=$1
+    PV_NAME=$2
+    if [ -z "$BACKUP_NAME" ] || [ -z "$PV_NAME" ]; then
+      echo "Usage: $0 <backup_name> <pv_name>"
+      exit 1
+    fi
+
+    echo "Restoring PV $PV_NAME from backup: $BACKUP_NAME"
+
+    # Create PV-specific restore
+    velero restore create \
+      --from-backup $BACKUP_NAME \
+      --include-resources persistentvolumes,persistentvolumeclaims \
+      --selector "volume.beta.kubernetes.io/mount-options=$PV_NAME" \
+      --wait
+
+    echo "PV restore completed"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backup-verification
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: backup
+spec:
+  schedule: "0 6 * * *"  # Daily at 6 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: swaggy-stacks-monitoring-sa
+          containers:
+          - name: backup-verification
+            image: alpine/curl:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Verifying backup integrity..."
+
+              # Check Velero backup status
+              LATEST_BACKUP=$(velero backup get --output json | jq -r '.items[0].metadata.name')
+              BACKUP_STATUS=$(velero backup describe $LATEST_BACKUP --output json | jq -r '.status.phase')
+
+              if [ "$BACKUP_STATUS" != "Completed" ]; then
+                echo "ERROR: Latest backup $LATEST_BACKUP status: $BACKUP_STATUS"
+                # Send alert to monitoring system
+                curl -X POST http://alertmanager-service:9093/api/v1/alerts \
+                  -H "Content-Type: application/json" \
+                  -d '[{
+                    "labels": {
+                      "alertname": "BackupFailed",
+                      "severity": "critical",
+                      "service": "backup-verification"
+                    },
+                    "annotations": {
+                      "summary": "Backup verification failed",
+                      "description": "Latest backup status: '"$BACKUP_STATUS"'"
+                    }
+                  }]'
+                exit 1
+              fi
+
+              # Verify backup size and file count
+              BACKUP_SIZE=$(aws s3 ls s3://swaggy-stacks-velero-backups/cluster-backups/ --recursive --summarize | grep "Total Size" | awk '{print $3}')
+              echo "Total backup size: $BACKUP_SIZE bytes"
+
+              # Check backup freshness (should be less than 25 hours old)
+              BACKUP_TIME=$(velero backup describe $LATEST_BACKUP --output json | jq -r '.status.startTimestamp')
+              BACKUP_AGE=$(( $(date +%s) - $(date -d "$BACKUP_TIME" +%s) ))
+
+              if [ $BACKUP_AGE -gt 90000 ]; then  # 25 hours in seconds
+                echo "WARNING: Latest backup is $(($BACKUP_AGE / 3600)) hours old"
+              fi
+
+              echo "Backup verification completed successfully"
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "50m"
+              limits:
+                memory: "128Mi"
+                cpu: "100m"
+          restartPolicy: OnFailure

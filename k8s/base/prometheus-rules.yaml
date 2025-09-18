@@ -1,0 +1,142 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: monitoring
+data:
+  trading-alerts.yml: |
+    groups:
+    - name: trading-system-alerts
+      rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors per second"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency detected"
+          description: "95th percentile latency is {{ $value }} seconds"
+
+      - alert: NATSConnectionDown
+        expr: nats_core_conn_count == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "NATS connection down"
+          description: "NATS server has no active connections"
+
+      - alert: NATSHighLatency
+        expr: nats_core_rtt > 0.005
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NATS high latency"
+          description: "NATS round-trip time is {{ $value }} seconds"
+
+      - alert: PodCrashLooping
+        expr: rate(kube_pod_container_status_restarts_total[15m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pod crash looping"
+          description: "Pod {{ $labels.pod }} is crash looping"
+
+      - alert: HighMemoryUsage
+        expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Container {{ $labels.container }} memory usage is {{ $value | humanizePercentage }}"
+
+      - alert: HighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "Container {{ $labels.container }} CPU usage is {{ $value | humanizePercentage }}"
+
+      - alert: PersistentVolumeUsage
+        expr: (kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Persistent volume usage high"
+          description: "PV {{ $labels.persistentvolumeclaim }} usage is {{ $value | humanizePercentage }}"
+
+      - alert: DatabaseConnectionFailure
+        expr: up{job="swaggy-stacks-backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend service down"
+          description: "Backend service is not responding to health checks"
+
+  infrastructure-alerts.yml: |
+    groups:
+    - name: infrastructure-alerts
+      rules:
+      - alert: NodeNotReady
+        expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node not ready"
+          description: "Node {{ $labels.node }} is not ready"
+
+      - alert: NodeHighCPU
+        expr: (1 - rate(node_cpu_seconds_total{mode="idle"}[5m])) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node high CPU usage"
+          description: "Node {{ $labels.instance }} CPU usage is {{ $value | humanizePercentage }}"
+
+      - alert: NodeHighMemory
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node high memory usage"
+          description: "Node {{ $labels.instance }} memory usage is {{ $value | humanizePercentage }}"
+
+      - alert: NodeDiskSpaceLow
+        expr: (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node disk space low"
+          description: "Node {{ $labels.instance }} disk usage is {{ $value | humanizePercentage }}"
+
+      - alert: PodPendingTooLong
+        expr: kube_pod_status_phase{phase="Pending"} == 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod pending too long"
+          description: "Pod {{ $labels.pod }} has been pending for more than 10 minutes"

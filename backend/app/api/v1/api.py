@@ -13,6 +13,7 @@ from app.api.v1.endpoints import (
     health,
     market_data,
     monitoring,
+    nats_security,
     portfolio,
     trading,
     websocket,
@@ -36,5 +37,8 @@ api_router.include_router(
 api_router.include_router(github.router, prefix="/github", tags=["github", "ci-cd"])
 api_router.include_router(
     monitoring.router, prefix="/monitoring", tags=["monitoring", "observability"]
+)
+api_router.include_router(
+    nats_security.router, prefix="/nats-security", tags=["nats", "security", "authentication"]
 )
 api_router.include_router(websocket.router, tags=["websocket", "real-time"])

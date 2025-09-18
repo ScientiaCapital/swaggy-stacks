@@ -1,0 +1,153 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nats-deployment
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: nats
+    app.kubernetes.io/version: "2.10"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: swaggy-stacks-nats
+  template:
+    metadata:
+      labels:
+        app: swaggy-stacks-nats
+        app.kubernetes.io/name: swaggy-stacks
+        app.kubernetes.io/component: nats
+    spec:
+      serviceAccountName: swaggy-stacks-sa
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - swaggy-stacks-nats
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: nats
+        image: nats:2.10-alpine
+        ports:
+        - containerPort: 4222
+          name: client
+        - containerPort: 8222
+          name: monitoring
+        - containerPort: 6222
+          name: cluster
+        command:
+        - "nats-server"
+        - "--jetstream"
+        - "--store_dir=/data"
+        - "--http_port=8222"
+        - "--cluster_name=swaggy-trading"
+        - "--cluster=nats://0.0.0.0:6222"
+        - "--routes=nats://nats-service:6222"
+        env:
+        - name: NATS_CLIENT_ADVERTISE
+          value: "nats-service:4222"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8222
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8222
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: 8222
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 12
+        volumeMounts:
+        - name: nats-data
+          mountPath: /data
+      volumes:
+      - name: nats-data
+        persistentVolumeClaim:
+          claimName: nats-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nats-service
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: nats
+spec:
+  type: ClusterIP
+  ports:
+  - port: 4222
+    targetPort: 4222
+    protocol: TCP
+    name: client
+  - port: 8222
+    targetPort: 8222
+    protocol: TCP
+    name: monitoring
+  - port: 6222
+    targetPort: 6222
+    protocol: TCP
+    name: cluster
+  selector:
+    app: swaggy-stacks-nats
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nats-pvc
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: nats
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: fast-ssd
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nats-headless
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: nats
+spec:
+  clusterIP: None
+  ports:
+  - port: 6222
+    targetPort: 6222
+    protocol: TCP
+    name: cluster
+  selector:
+    app: swaggy-stacks-nats

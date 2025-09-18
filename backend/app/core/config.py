@@ -57,6 +57,49 @@ class Settings(BaseSettings):
     NATS_URL: str = os.getenv("NATS_URL", "nats://localhost:4222")
     NATS_MONITORING_URL: str = os.getenv("NATS_MONITORING_URL", "http://localhost:8222")
     ENABLE_NATS_MESSAGING: bool = os.getenv("ENABLE_NATS_MESSAGING", "true").lower() == "true"
+    # NATS Security Configuration
+    NATS_SECURITY_ENABLED: bool = os.getenv("NATS_SECURITY_ENABLED", "true").lower() == "true"
+    NATS_TLS_ENABLED: bool = os.getenv("NATS_TLS_ENABLED", "false").lower() == "true"
+    NATS_TLS_CERT_FILE: str = os.getenv("NATS_TLS_CERT_FILE", "")
+    NATS_TLS_KEY_FILE: str = os.getenv("NATS_TLS_KEY_FILE", "")
+    NATS_TLS_CA_FILE: str = os.getenv("NATS_TLS_CA_FILE", "")
+    NATS_TLS_VERIFY_HOSTNAME: bool = os.getenv("NATS_TLS_VERIFY_HOSTNAME", "true").lower() == "true"
+    
+    # NATS Performance Optimization Settings
+    NATS_CONNECTION_POOL_SIZE: int = int(os.getenv("NATS_CONNECTION_POOL_SIZE", "5"))
+    NATS_MAX_RECONNECT_ATTEMPTS: int = int(os.getenv("NATS_MAX_RECONNECT_ATTEMPTS", "60"))
+    NATS_RECONNECT_TIME_WAIT: int = int(os.getenv("NATS_RECONNECT_TIME_WAIT", "2"))  # seconds
+    NATS_MAX_OUTSTANDING_PINGS: int = int(os.getenv("NATS_MAX_OUTSTANDING_PINGS", "2"))
+    NATS_PING_INTERVAL: int = int(os.getenv("NATS_PING_INTERVAL", "120"))  # seconds
+    NATS_MAX_PAYLOAD: int = int(os.getenv("NATS_MAX_PAYLOAD", "1048576"))  # 1MB
+    NATS_SEND_BUFFER_SIZE: int = int(os.getenv("NATS_SEND_BUFFER_SIZE", "2097152"))  # 2MB
+    NATS_RECEIVE_BUFFER_SIZE: int = int(os.getenv("NATS_RECEIVE_BUFFER_SIZE", "2097152"))  # 2MB
+    NATS_FLUSH_TIMEOUT: float = float(os.getenv("NATS_FLUSH_TIMEOUT", "1.0"))  # seconds
+    
+    # Message Batching Configuration
+    NATS_MESSAGE_BATCH_SIZE: int = int(os.getenv("NATS_MESSAGE_BATCH_SIZE", "100"))
+    NATS_BATCH_TIMEOUT: float = float(os.getenv("NATS_BATCH_TIMEOUT", "0.005"))  # 5ms
+    NATS_HIGH_THROUGHPUT_MODE: bool = os.getenv("NATS_HIGH_THROUGHPUT_MODE", "true").lower() == "true"
+    
+    # NATS Authentication & Encryption
+    NATS_MASTER_KEY: str = os.getenv("NATS_MASTER_KEY", "")
+    NATS_JWT_SECRET: str = os.getenv("NATS_JWT_SECRET", "")
+    NATS_JWT_EXPIRY_HOURS: int = int(os.getenv("NATS_JWT_EXPIRY_HOURS", "24"))
+    
+    # NATS Security Policies
+    NATS_ENCRYPTION_ENABLED: bool = os.getenv("NATS_ENCRYPTION_ENABLED", "true").lower() == "true"
+    NATS_MESSAGE_SIGNING_ENABLED: bool = os.getenv("NATS_MESSAGE_SIGNING_ENABLED", "true").lower() == "true"
+    NATS_RATE_LIMITING_ENABLED: bool = os.getenv("NATS_RATE_LIMITING_ENABLED", "true").lower() == "true"
+    
+    # NATS Rate Limits (messages per minute by agent type)
+    NATS_RATE_LIMIT_MARKET_ANALYST: int = int(os.getenv("NATS_RATE_LIMIT_MARKET_ANALYST", "1000"))
+    NATS_RATE_LIMIT_RISK_ADVISOR: int = int(os.getenv("NATS_RATE_LIMIT_RISK_ADVISOR", "500"))
+    NATS_RATE_LIMIT_STRATEGY_OPTIMIZER: int = int(os.getenv("NATS_RATE_LIMIT_STRATEGY_OPTIMIZER", "300"))
+    NATS_RATE_LIMIT_PERFORMANCE_COACH: int = int(os.getenv("NATS_RATE_LIMIT_PERFORMANCE_COACH", "200"))
+    NATS_RATE_LIMIT_DEFAULT: int = int(os.getenv("NATS_RATE_LIMIT_DEFAULT", "100"))
+    
+    # NATS Audit Configuration
+    NATS_MAX_AUDIT_ENTRIES: int = int(os.getenv("NATS_MAX_AUDIT_ENTRIES", "10000"))
 
     # Alpaca API
     ALPACA_API_KEY: str = os.getenv("ALPACA_API_KEY", "")

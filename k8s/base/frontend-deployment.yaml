@@ -20,6 +20,27 @@ spec:
         app.kubernetes.io/component: frontend
     spec:
       serviceAccountName: swaggy-stacks-sa
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - swaggy-stacks-frontend
+              topologyKey: kubernetes.io/hostname
+          - weight: 50
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                  - frontend
+              topologyKey: topology.kubernetes.io/zone
       containers:
       - name: frontend
         image: swaggy-stacks/frontend:latest

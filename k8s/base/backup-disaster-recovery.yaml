@@ -1,0 +1,373 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: etcd-backup
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: backup
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: etcd-backup-sa
+          hostNetwork: true
+          containers:
+          - name: etcd-backup
+            image: k8s.gcr.io/etcd:3.5.9-0
+            env:
+            - name: ETCDCTL_API
+              value: "3"
+            - name: ETCDCTL_CACERT
+              value: "/etc/kubernetes/pki/etcd/ca.crt"
+            - name: ETCDCTL_CERT
+              value: "/etc/kubernetes/pki/etcd/server.crt"
+            - name: ETCDCTL_KEY
+              value: "/etc/kubernetes/pki/etcd/server.key"
+            command:
+            - /bin/sh
+            - -c
+            - |
+              BACKUP_DIR="/backup/etcd-$(date +%Y%m%d-%H%M%S)"
+              mkdir -p $BACKUP_DIR
+              etcdctl snapshot save $BACKUP_DIR/snapshot.db
+              etcdctl snapshot status $BACKUP_DIR/snapshot.db
+
+              # Upload to S3 (optional)
+              if [ ! -z "$AWS_S3_BUCKET" ]; then
+                aws s3 cp $BACKUP_DIR/snapshot.db s3://$AWS_S3_BUCKET/etcd-backups/
+              fi
+
+              # Cleanup old backups (keep last 7 days)
+              find /backup -name "etcd-*" -mtime +7 -exec rm -rf {} \;
+            volumeMounts:
+            - name: etcd-certs
+              mountPath: /etc/kubernetes/pki/etcd
+              readOnly: true
+            - name: backup-storage
+              mountPath: /backup
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "200m"
+          volumes:
+          - name: etcd-certs
+            hostPath:
+              path: /etc/kubernetes/pki/etcd
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: backup-pvc
+          restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: etcd-backup-sa
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: backup
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: etcd-backup-role
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: backup
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: etcd-backup-binding
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: backup
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: etcd-backup-role
+subjects:
+- kind: ServiceAccount
+  name: etcd-backup-sa
+  namespace: kube-system
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: backup
+spec:
+  schedule: "0 3 * * *"  # Daily at 3 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: swaggy-stacks-sa
+          containers:
+          - name: postgres-backup
+            image: postgres:15-alpine
+            env:
+            - name: PGHOST
+              value: "postgresql-service"
+            - name: PGPORT
+              value: "5432"
+            - name: PGDATABASE
+              value: "swaggy_stacks"
+            - name: PGUSER
+              valueFrom:
+                secretRef:
+                  name: swaggy-stacks-secrets
+                  key: POSTGRES_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretRef:
+                  name: swaggy-stacks-secrets
+                  key: POSTGRES_PASSWORD
+            command:
+            - /bin/sh
+            - -c
+            - |
+              BACKUP_DIR="/backup/postgres-$(date +%Y%m%d-%H%M%S)"
+              mkdir -p $BACKUP_DIR
+
+              # Create full database backup
+              pg_dump -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE \
+                --verbose --clean --no-owner --no-privileges \
+                --format=custom > $BACKUP_DIR/swaggy_stacks.dump
+
+              # Create schema-only backup
+              pg_dump -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE \
+                --schema-only --verbose --clean --no-owner --no-privileges \
+                --format=plain > $BACKUP_DIR/schema.sql
+
+              # Upload to S3 (optional)
+              if [ ! -z "$AWS_S3_BUCKET" ]; then
+                aws s3 cp $BACKUP_DIR/ s3://$AWS_S3_BUCKET/postgres-backups/ --recursive
+              fi
+
+              # Cleanup old backups (keep last 14 days)
+              find /backup -name "postgres-*" -mtime +14 -exec rm -rf {} \;
+
+              echo "Backup completed: $BACKUP_DIR"
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "100m"
+              limits:
+                memory: "512Mi"
+                cpu: "200m"
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: backup-pvc
+          restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nats-backup
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: backup
+spec:
+  schedule: "0 4 * * *"  # Daily at 4 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: swaggy-stacks-sa
+          containers:
+          - name: nats-backup
+            image: nats:2.10-alpine
+            command:
+            - /bin/sh
+            - -c
+            - |
+              BACKUP_DIR="/backup/nats-$(date +%Y%m%d-%H%M%S)"
+              mkdir -p $BACKUP_DIR
+
+              # Backup NATS JetStream data
+              if [ -d "/data" ]; then
+                tar -czf $BACKUP_DIR/jetstream-data.tar.gz -C /data .
+              fi
+
+              # Upload to S3 (optional)
+              if [ ! -z "$AWS_S3_BUCKET" ]; then
+                aws s3 cp $BACKUP_DIR/ s3://$AWS_S3_BUCKET/nats-backups/ --recursive
+              fi
+
+              # Cleanup old backups (keep last 7 days)
+              find /backup -name "nats-*" -mtime +7 -exec rm -rf {} \;
+
+              echo "NATS backup completed: $BACKUP_DIR"
+            volumeMounts:
+            - name: nats-data
+              mountPath: /data
+              readOnly: true
+            - name: backup-storage
+              mountPath: /backup
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "50m"
+              limits:
+                memory: "256Mi"
+                cpu: "100m"
+          volumes:
+          - name: nats-data
+            persistentVolumeClaim:
+              claimName: nats-pvc
+              readOnly: true
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: backup-pvc
+          restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backup-pvc
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: backup
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: fast-ssd
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: disaster-recovery-procedures
+  namespace: swaggy-stacks
+  labels:
+    app.kubernetes.io/name: swaggy-stacks
+    app.kubernetes.io/component: disaster-recovery
+data:
+  etcd-restore.sh: |
+    #!/bin/bash
+    # ETCD Restore Procedure
+
+    BACKUP_FILE=$1
+    if [ -z "$BACKUP_FILE" ]; then
+      echo "Usage: $0 <backup_file>"
+      exit 1
+    fi
+
+    # Stop etcd service
+    systemctl stop etcd
+
+    # Remove existing data
+    rm -rf /var/lib/etcd
+
+    # Restore from backup
+    ETCDCTL_API=3 etcdctl snapshot restore $BACKUP_FILE \
+      --data-dir=/var/lib/etcd \
+      --name=master \
+      --initial-cluster=master=https://127.0.0.1:2380 \
+      --initial-cluster-token=etcd-cluster-1 \
+      --initial-advertise-peer-urls=https://127.0.0.1:2380
+
+    # Fix permissions
+    chown -R etcd:etcd /var/lib/etcd
+
+    # Start etcd service
+    systemctl start etcd
+
+    echo "ETCD restore completed"
+
+  postgres-restore.sh: |
+    #!/bin/bash
+    # PostgreSQL Restore Procedure
+
+    BACKUP_FILE=$1
+    if [ -z "$BACKUP_FILE" ]; then
+      echo "Usage: $0 <backup_file>"
+      exit 1
+    fi
+
+    # Drop and recreate database
+    kubectl exec -n swaggy-stacks deployment/postgresql-deployment -- \
+      psql -U postgres -c "DROP DATABASE IF EXISTS swaggy_stacks;"
+
+    kubectl exec -n swaggy-stacks deployment/postgresql-deployment -- \
+      psql -U postgres -c "CREATE DATABASE swaggy_stacks;"
+
+    # Restore from backup
+    kubectl exec -n swaggy-stacks deployment/postgresql-deployment -- \
+      pg_restore -U postgres -d swaggy_stacks --verbose --clean --no-owner \
+      --no-privileges < $BACKUP_FILE
+
+    echo "PostgreSQL restore completed"
+
+  cross-region-failover.sh: |
+    #!/bin/bash
+    # Cross-Region Failover Procedure
+
+    TARGET_REGION=$1
+    if [ -z "$TARGET_REGION" ]; then
+      echo "Usage: $0 <target_region>"
+      exit 1
+    fi
+
+    echo "Initiating failover to region: $TARGET_REGION"
+
+    # Update DNS to point to new region
+    # This would typically involve updating Route53 records
+
+    # Scale down primary region deployments
+    kubectl scale deployment --all --replicas=0 -n swaggy-stacks
+
+    # Restore latest backups in target region
+    # This would involve restoring from S3 backups
+
+    # Scale up deployments in target region
+    kubectl scale deployment backend-deployment --replicas=3 -n swaggy-stacks
+    kubectl scale deployment frontend-deployment --replicas=2 -n swaggy-stacks
+    kubectl scale deployment nats-deployment --replicas=3 -n swaggy-stacks
+
+    echo "Failover to $TARGET_REGION completed"
+
+  data-consistency-check.sh: |
+    #!/bin/bash
+    # Data Consistency Check
+
+    echo "Running data consistency checks..."
+
+    # Check database integrity
+    kubectl exec -n swaggy-stacks deployment/postgresql-deployment -- \
+      psql -U postgres -d swaggy_stacks -c "SELECT pg_database_size('swaggy_stacks');"
+
+    # Check NATS JetStream streams
+    kubectl exec -n swaggy-stacks deployment/nats-deployment -- \
+      nats stream list --server=nats://localhost:4222
+
+    # Verify backup integrity
+    LATEST_BACKUP=$(find /backup -name "postgres-*" -type d | sort | tail -1)
+    if [ ! -z "$LATEST_BACKUP" ]; then
+      echo "Latest PostgreSQL backup: $LATEST_BACKUP"
+      ls -la $LATEST_BACKUP
+    fi
+
+    echo "Data consistency check completed"

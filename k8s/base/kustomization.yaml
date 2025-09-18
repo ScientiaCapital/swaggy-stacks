@@ -8,11 +8,23 @@ resources:
 - namespace.yaml
 - configmap.yaml
 - secrets.yaml
+- rbac.yaml
+- network-policies.yaml
+- security-policies.yaml
+- external-secrets.yaml
 - backend-deployment.yaml
 - frontend-deployment.yaml
 - database-deployment.yaml
+- nats-deployment.yaml
+- hpa.yaml
+- pdb.yaml
+- cluster-autoscaler.yaml
 - ingress.yaml
 - monitoring.yaml
+- monitoring-stack.yaml
+- prometheus-rules.yaml
+- backup-disaster-recovery.yaml
+- velero-backup.yaml
 
 commonLabels:
   app.kubernetes.io/name: swaggy-stacks

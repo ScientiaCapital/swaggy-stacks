@@ -50,6 +50,9 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password_123}
       - POSTGRES_DB=${POSTGRES_DB:-trading_system}
       - REDIS_URL=redis://redis:6379
+      - NATS_URL=nats://nats:4222
+      - NATS_MONITORING_URL=http://nats:8222
+      - ENABLE_NATS_MESSAGING=${ENABLE_NATS_MESSAGING:-true}
       - ALPACA_API_KEY=${ALPACA_API_KEY}
       - ALPACA_SECRET_KEY=${ALPACA_SECRET_KEY}
       - SECRET_KEY=${SECRET_KEY:-your-secure-secret-key-change-this}
@@ -62,6 +65,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      nats:
         condition: service_healthy
     volumes:
       - ./backend:/app
@@ -173,11 +178,35 @@ services:
     depends_on:
       - prometheus
 
+  # NATS Server for Ultra-Low Latency Messaging
+  nats:
+    image: nats:2.10-alpine
+    container_name: trading_nats
+    ports:
+      - "4222:4222"  # NATS client port
+      - "8222:8222"  # NATS monitoring port
+      - "6222:6222"  # NATS cluster port
+    command: [
+      "--jetstream",               # Enable JetStream for persistence
+      "--store_dir=/data",         # JetStream storage directory
+      "--http_port=8222"           # Enable monitoring
+    ]
+    volumes:
+      - nats_data:/data
+    networks:
+      - trading_network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
   redis_data:
   prometheus_data:
   grafana_data:
+  nats_data:
 
 networks:
   trading_network:
