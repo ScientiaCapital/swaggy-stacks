@@ -40,11 +40,22 @@ class OptionStrategy(Enum):
 class GreeksData:
     """Options Greeks calculation results"""
 
+    # First-order Greeks
     delta: float  # Price sensitivity to underlying
     gamma: float  # Delta sensitivity to underlying
     theta: float  # Time decay
     vega: float  # Volatility sensitivity
     rho: float  # Interest rate sensitivity
+
+    # Second-order Greeks
+    vanna: float = 0.0  # Delta sensitivity to volatility
+    charm: float = 0.0  # Delta sensitivity to time
+    vomma: float = 0.0  # Vega sensitivity to volatility
+    veta: float = 0.0   # Vega sensitivity to time
+    color: float = 0.0  # Gamma sensitivity to time
+    speed: float = 0.0  # Gamma sensitivity to underlying
+    zomma: float = 0.0  # Gamma sensitivity to volatility
+    ultima: float = 0.0 # Vomma sensitivity to volatility
 
     # Additional metrics
     intrinsic_value: float
@@ -340,6 +351,146 @@ class BlackScholesCalculator:
                 * norm.cdf(-d2)
                 / 100
             )
+
+    @staticmethod
+    def calculate_second_order_greeks(
+        underlying_price: float,
+        strike_price: float,
+        time_to_expiry: float,
+        risk_free_rate: float,
+        volatility: float,
+        option_type: OptionType,
+        dividend_yield: float = 0.0,
+    ) -> Dict[str, float]:
+        """Calculate second-order Greeks"""
+        try:
+            if time_to_expiry <= 0:
+                return {
+                    "vanna": 0.0, "charm": 0.0, "vomma": 0.0, "veta": 0.0,
+                    "color": 0.0, "speed": 0.0, "zomma": 0.0, "ultima": 0.0
+                }
+
+            d1 = BlackScholesCalculator._calculate_d1(
+                underlying_price, strike_price, time_to_expiry,
+                risk_free_rate, volatility, dividend_yield
+            )
+            d2 = d1 - volatility * math.sqrt(time_to_expiry)
+
+            sqrt_t = math.sqrt(time_to_expiry)
+            exp_div_t = math.exp(-dividend_yield * time_to_expiry)
+            exp_rf_t = math.exp(-risk_free_rate * time_to_expiry)
+            norm_pdf_d1 = norm.pdf(d1)
+
+            # Vanna: d(Delta)/d(Volatility) = d(Vega)/d(Underlying)
+            vanna = -exp_div_t * norm_pdf_d1 * d2 / volatility / 100
+
+            # Charm: d(Delta)/d(Time)
+            if option_type == OptionType.CALL:
+                charm = dividend_yield * exp_div_t * norm.cdf(d1) - exp_div_t * norm_pdf_d1 * (
+                    (risk_free_rate - dividend_yield) / (volatility * sqrt_t) - d2 / (2 * time_to_expiry)
+                )
+            else:
+                charm = -dividend_yield * exp_div_t * norm.cdf(-d1) - exp_div_t * norm_pdf_d1 * (
+                    (risk_free_rate - dividend_yield) / (volatility * sqrt_t) - d2 / (2 * time_to_expiry)
+                )
+            charm = charm / 365  # Daily charm
+
+            # Vomma: d(Vega)/d(Volatility)
+            vomma = underlying_price * exp_div_t * norm_pdf_d1 * sqrt_t * d1 * d2 / volatility / 10000
+
+            # Veta: d(Vega)/d(Time)
+            veta = underlying_price * exp_div_t * norm_pdf_d1 * sqrt_t * (
+                dividend_yield + ((risk_free_rate - dividend_yield) * d1) / (volatility * sqrt_t) -
+                (1 + d1 * d2) / (2 * time_to_expiry)
+            ) / 365 / 100
+
+            # Color: d(Gamma)/d(Time)
+            color = exp_div_t * norm_pdf_d1 / (underlying_price * volatility * sqrt_t) * (
+                2 * dividend_yield * time_to_expiry + 1 + d1 / (volatility * sqrt_t) * (
+                    2 * (risk_free_rate - dividend_yield) * time_to_expiry - d2 * volatility * sqrt_t
+                )
+            ) / 365
+
+            # Speed: d(Gamma)/d(Underlying)
+            speed = -exp_div_t * norm_pdf_d1 / (underlying_price ** 2 * volatility * sqrt_t) * (
+                d1 / (volatility * sqrt_t) + 1
+            )
+
+            # Zomma: d(Gamma)/d(Volatility)
+            zomma = exp_div_t * norm_pdf_d1 / (underlying_price * volatility ** 2 * sqrt_t) * (
+                d1 * d2 - 1
+            ) / 100
+
+            # Ultima: d(Vomma)/d(Volatility)
+            ultima = underlying_price * exp_div_t * norm_pdf_d1 * sqrt_t / (volatility ** 2) * (
+                d1 * d2 * (1 - d1 * d2) + d1 ** 2 + d2 ** 2
+            ) / 1000000
+
+            return {
+                "vanna": vanna,
+                "charm": charm,
+                "vomma": vomma,
+                "veta": veta,
+                "color": color,
+                "speed": speed,
+                "zomma": zomma,
+                "ultima": ultima
+            }
+
+        except Exception as e:
+            logger.error("Failed to calculate second-order Greeks", error=str(e))
+            return {
+                "vanna": 0.0, "charm": 0.0, "vomma": 0.0, "veta": 0.0,
+                "color": 0.0, "speed": 0.0, "zomma": 0.0, "ultima": 0.0
+            }
+
+    @staticmethod
+    def calculate_enhanced_greeks(
+        underlying_price: float,
+        strike_price: float,
+        time_to_expiry: float,
+        risk_free_rate: float,
+        volatility: float,
+        option_type: OptionType,
+        dividend_yield: float = 0.0,
+    ) -> GreeksData:
+        """Calculate complete Greeks including second-order"""
+        try:
+            # Get first-order Greeks
+            first_order = BlackScholesCalculator.calculate_greeks(
+                underlying_price, strike_price, time_to_expiry,
+                risk_free_rate, volatility, option_type, dividend_yield
+            )
+
+            # Get second-order Greeks
+            second_order = BlackScholesCalculator.calculate_second_order_greeks(
+                underlying_price, strike_price, time_to_expiry,
+                risk_free_rate, volatility, option_type, dividend_yield
+            )
+
+            # Combine all Greeks
+            return GreeksData(
+                delta=first_order.delta,
+                gamma=first_order.gamma,
+                theta=first_order.theta,
+                vega=first_order.vega,
+                rho=first_order.rho,
+                vanna=second_order["vanna"],
+                charm=second_order["charm"],
+                vomma=second_order["vomma"],
+                veta=second_order["veta"],
+                color=second_order["color"],
+                speed=second_order["speed"],
+                zomma=second_order["zomma"],
+                ultima=second_order["ultima"],
+                intrinsic_value=first_order.intrinsic_value,
+                time_value=first_order.time_value,
+                implied_volatility=first_order.implied_volatility
+            )
+
+        except Exception as e:
+            logger.error("Failed to calculate enhanced Greeks", error=str(e))
+            return GreeksData(0, 0, 0, 0, 0, 0, 0)
 
 
 class EnhancedBlackScholesCalculator:

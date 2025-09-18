@@ -1,0 +1,1 @@
+# NATS messaging module for ultra-low latency agent communication

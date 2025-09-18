@@ -53,6 +53,10 @@ class Settings(BaseSettings):
 
     # Redis
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379")
+    # NATS Configuration - Ultra-low latency messaging
+    NATS_URL: str = os.getenv("NATS_URL", "nats://localhost:4222")
+    NATS_MONITORING_URL: str = os.getenv("NATS_MONITORING_URL", "http://localhost:8222")
+    ENABLE_NATS_MESSAGING: bool = os.getenv("ENABLE_NATS_MESSAGING", "true").lower() == "true"
 
     # Alpaca API
     ALPACA_API_KEY: str = os.getenv("ALPACA_API_KEY", "")
