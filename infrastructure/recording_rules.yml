@@ -1,0 +1,93 @@
+# Prometheus Recording Rules for SwaggyStacks Trading System
+# Purpose: Pre-aggregate critical trading metrics for long-term (90-day) storage
+# These rules reduce storage requirements while maintaining historical trend analysis
+
+groups:
+  # 1-minute aggregation rules - High-resolution trading metrics
+  - name: trading_aggregates_1m
+    interval: 60s
+    rules:
+      # Portfolio value tracking with 1-minute granularity
+      - record: trading:portfolio_value:1m
+        expr: avg_over_time(trading_portfolio_value_usd[1m])
+        labels:
+          aggregation: "1m"
+          metric_type: "portfolio"
+
+      # Order execution rate per minute
+      - record: trading:orders_total:1m
+        expr: rate(trading_orders_total[1m])
+        labels:
+          aggregation: "1m"
+          metric_type: "execution"
+
+      # MCP agent coordination success rate
+      - record: mcp:agent_success_rate:1m
+        expr: avg_over_time(mcp_agent_coordination_success_rate[1m])
+        labels:
+          aggregation: "1m"
+          metric_type: "coordination"
+
+      # P&L tracking per minute
+      - record: trading:pnl:1m
+        expr: avg_over_time(trading_pnl_total_usd[1m])
+        labels:
+          aggregation: "1m"
+          metric_type: "pnl"
+
+  # 5-minute aggregation rules - Medium-resolution system health
+  - name: trading_aggregates_5m
+    interval: 300s
+    rules:
+      # Portfolio value 5-minute average
+      - record: trading:portfolio_value:5m
+        expr: avg_over_time(trading_portfolio_value_usd[5m])
+        labels:
+          aggregation: "5m"
+          metric_type: "portfolio"
+
+      # System health status tracking
+      - record: system:health_status:5m
+        expr: avg_over_time(trading_system_health_status[5m])
+        labels:
+          aggregation: "5m"
+          metric_type: "health"
+
+      # Database connection pool utilization
+      - record: db:connection_pool_utilization:5m
+        expr: avg_over_time(db_connection_pool_size[5m])
+        labels:
+          aggregation: "5m"
+          metric_type: "database"
+
+      # Trading strategy success rate
+      - record: trading:strategy_success_rate:5m
+        expr: avg_over_time(trading_execution_success_rate[5m])
+        labels:
+          aggregation: "5m"
+          metric_type: "strategy"
+
+  # 15-minute aggregation rules - Low-resolution trend analysis
+  - name: trading_aggregates_15m
+    interval: 900s
+    rules:
+      # Portfolio value 15-minute trend
+      - record: trading:portfolio_value:15m
+        expr: avg_over_time(trading_portfolio_value_usd[15m])
+        labels:
+          aggregation: "15m"
+          metric_type: "portfolio"
+
+      # Risk exposure tracking
+      - record: trading:risk_exposure:15m
+        expr: avg_over_time(trading_portfolio_exposure_total_usd[15m])
+        labels:
+          aggregation: "15m"
+          metric_type: "risk"
+
+      # AI processing performance
+      - record: ai:processing_duration:15m
+        expr: avg_over_time(ai_processing_duration_seconds[15m])
+        labels:
+          aggregation: "15m"
+          metric_type: "ai"

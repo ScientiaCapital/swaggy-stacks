@@ -3,8 +3,7 @@ global:
   evaluation_interval: 15s
 
 rule_files:
-  # - "first_rules.yml"
-  # - "second_rules.yml"
+  - 'recording_rules.yml'  # Pre-aggregated trading metrics for 90-day retention
 
 scrape_configs:
   # Prometheus itself
@@ -12,13 +11,39 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  # Backend API
-  - job_name: 'trading-backend'
+  # PERFORMANCE VALIDATION NOTES:
+  # When services are running, execute load tests to validate:
+  # - Baseline: Backend without Prometheus scraping
+  # - Load test: 1000 req/s sustained for 10 minutes
+  # - Monitor: CPU usage, memory consumption, p95 latency
+  # - Requirement: All monitoring overheads must remain < 5%
+  # - Tools: Use 'ab' or 'wrk' for load generation, 'docker stats' for metrics
+
+  # Critical trading metrics - 15s interval for real-time trading operations
+  - job_name: 'trading-backend-critical'
     static_configs:
       - targets: ['backend:8000']
     metrics_path: '/api/v1/monitoring/metrics'
-    scrape_interval: 5s
+    scrape_interval: 15s  # Optimized for critical metrics (portfolio, orders, MCP)
     scrape_timeout: 10s
+    metric_relabel_configs:
+      # Include only critical trading and system metrics
+      - source_labels: [__name__]
+        regex: '(trading_.*|mcp_.*|system_health_.*)'
+        action: keep
+
+  # Standard metrics - 30s interval for non-critical infrastructure metrics
+  - job_name: 'trading-backend-standard'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/api/v1/monitoring/metrics'
+    scrape_interval: 30s  # Reduced frequency for DB, Redis, HTTP metrics
+    scrape_timeout: 10s
+    metric_relabel_configs:
+      # Exclude critical metrics (already scraped by critical job)
+      - source_labels: [__name__]
+        regex: '(trading_.*|mcp_.*|system_health_.*)'
+        action: drop
     
   # MCP Health Monitoring
   - job_name: 'mcp-health'

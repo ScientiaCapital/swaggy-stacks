@@ -144,22 +144,24 @@ services:
 
   # Prometheus for Monitoring
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.53.0  # Pinned version for stability and reproducibility
     container_name: trading_prometheus
     ports:
       - "9090:9090"
     volumes:
       - ./infrastructure/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./infrastructure/recording_rules.yml:/etc/prometheus/recording_rules.yml
       - prometheus_data:/prometheus
     networks:
       - trading_network
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'  # 15-day retention for high-resolution trading data
+      - '--storage.tsdb.retention.size=50GB'  # 50GB size limit to prevent disk overflow
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
+      - '--web.enable-lifecycle'  # Enable hot-reload for config changes
 
   # Grafana for Dashboards
   grafana:
