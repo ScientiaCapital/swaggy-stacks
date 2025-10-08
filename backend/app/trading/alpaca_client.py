@@ -2,7 +2,9 @@
 Alpaca API client for trading operations
 """
 
+import time
 from datetime import datetime, timedelta
+from functools import wraps
 from typing import Any, Dict, List, Optional
 
 import alpaca_trade_api as tradeapi
@@ -11,6 +13,7 @@ from alpaca_trade_api.rest import APIError
 
 from app.core.config import settings
 from app.core.exceptions import MarketDataError, TradingError
+from app.monitoring.metrics import PrometheusMetrics
 
 logger = structlog.get_logger()
 
@@ -22,6 +25,7 @@ class AlpacaClient:
         self.api_key = api_key or settings.ALPACA_API_KEY
         self.secret_key = secret_key or settings.ALPACA_SECRET_KEY
         self.paper = paper
+        self.metrics = PrometheusMetrics()
 
         if not self.api_key or not self.secret_key:
             raise TradingError("Alpaca API credentials not provided")
@@ -42,10 +46,48 @@ class AlpacaClient:
 
         logger.info("Alpaca client initialized", paper=paper)
 
+    def _track_api_call(self, endpoint: str, method: str = "GET"):
+        """Context manager for tracking Alpaca API calls with metrics."""
+        class APICallTracker:
+            def __init__(tracker_self, client, endpoint, method):
+                tracker_self.client = client
+                tracker_self.endpoint = endpoint
+                tracker_self.method = method
+                tracker_self.start_time = None
+                
+            def __enter__(tracker_self):
+                tracker_self.start_time = time.time()
+                return tracker_self
+                
+            def __exit__(tracker_self, exc_type, exc_val, exc_tb):
+                duration = time.time() - tracker_self.start_time
+                status_code = 500 if exc_type else 200
+                
+                # Track request metrics
+                tracker_self.client.metrics.track_alpaca_request(
+                    endpoint=tracker_self.endpoint,
+                    method=tracker_self.method,
+                    status_code=status_code,
+                    duration=duration
+                )
+                
+                # Track errors if present
+                if exc_type:
+                    error_type = exc_type.__name__ if exc_type else "unknown"
+                    tracker_self.client.metrics.track_alpaca_error(
+                        error_type=error_type,
+                        endpoint=tracker_self.endpoint
+                    )
+                
+                return False  # Don't suppress exceptions
+        
+        return APICallTracker(self, endpoint, method)
+
     async def get_account(self) -> Dict[str, Any]:
         """Get account information"""
         try:
-            account = self.api.get_account()
+            with self._track_api_call("/account", "GET"):
+                account = self.api.get_account()
             return {
                 "id": account.id,
                 "account_number": account.account_number,
@@ -124,7 +166,8 @@ class AlpacaClient:
             if trail_percent is not None:
                 order_params["trail_percent"] = trail_percent
 
-            order = self.api.submit_order(**order_params)
+            with self._track_api_call("/orders", "POST"):
+                order = self.api.submit_order(**order_params)
 
             logger.info(
                 "Order submitted",

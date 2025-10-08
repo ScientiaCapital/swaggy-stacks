@@ -1,0 +1,300 @@
+apiVersion: 1
+
+groups:
+  - name: mcp_coordination_alerts
+    interval: 30s
+    rules:
+      # MCP Agent Coordination Failure Alert
+      - uid: mcp_agent_coordination_failure
+        title: MCP Agent Coordination Failure
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: (rate(trading_mcp_agent_coordination_total{status="success"}[5m]) / rate(trading_mcp_agent_coordination_total[5m])) * 100 < 80
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 3m
+        annotations:
+          summary: "MCP agent coordination success rate below threshold"
+          description: "MCP agent {{ $labels.agent_name }} coordination success rate is {{ $values.A.Value | printf \"%.2f\" }}% (below 80% threshold). Agent coordination may be impaired."
+          dashboard_uid: system-health
+          panel_id: "12"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/mcp-coordination
+        labels:
+          severity: critical
+          component: mcp
+          team: ai
+          alert_type: coordination
+
+      # MCP Agent Response Time High Alert
+      - uid: mcp_agent_high_response_time
+        title: MCP Agent Response Time High
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: rate(trading_mcp_agent_response_time_seconds_sum[5m]) / rate(trading_mcp_agent_response_time_seconds_count[5m]) > 5
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "MCP agent response time exceeding threshold"
+          description: "MCP agent {{ $labels.agent_name }} average response time is {{ $values.A.Value | humanizeDuration }} (above 5s threshold). Agent performance degraded."
+          dashboard_uid: system-health
+          panel_id: "13"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/mcp-latency
+        labels:
+          severity: warning
+          component: mcp
+          team: ai
+          alert_type: performance
+
+      # MCP Queue Depth High Alert
+      - uid: mcp_agent_queue_depth_high
+        title: MCP Agent Queue Depth High
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: trading_mcp_agent_queue_depth > 50
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 3m
+        annotations:
+          summary: "MCP agent queue depth exceeds threshold"
+          description: "MCP agent {{ $labels.agent_name }} queue depth is {{ $values.A.Value }} operations (above 50 threshold). Agent may be overwhelmed."
+          dashboard_uid: system-health
+          panel_id: "14"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/mcp-queue
+        labels:
+          severity: warning
+          component: mcp
+          team: ai
+          alert_type: capacity
+
+      # MCP Server Unavailable Alert
+      - uid: mcp_server_unavailable
+        title: MCP Server Unavailable
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: trading_mcp_server_status < 1
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: "MCP server connection failed"
+          description: "MCP server {{ $labels.server_name }} is unavailable (status: {{ $values.A.Value }}). Agent coordination disrupted."
+          dashboard_uid: system-health
+          panel_id: "15"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/mcp-server
+        labels:
+          severity: critical
+          component: mcp
+          team: ai
+          alert_type: availability
+
+      # MCP Agent Error Rate High Alert
+      - uid: mcp_agent_error_rate_high
+        title: MCP Agent Error Rate High
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: (rate(trading_mcp_agent_coordination_total{status="error"}[5m]) / rate(trading_mcp_agent_coordination_total[5m])) * 100 > 5
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "MCP agent error rate elevated"
+          description: "MCP agent {{ $labels.agent_name }} error rate is {{ $values.A.Value | printf \"%.2f\" }}% (above 5% threshold). Agent experiencing errors."
+          dashboard_uid: system-health
+          panel_id: "16"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/mcp-errors
+        labels:
+          severity: warning
+          component: mcp
+          team: ai
+          alert_type: errors

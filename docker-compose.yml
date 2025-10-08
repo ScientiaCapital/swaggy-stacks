@@ -171,14 +171,32 @@ services:
       - "3001:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_FEATURE_TOGGLES_ENABLE=ngalert  # Enable unified alerting (Grafana 10+)
+      - GF_UNIFIED_ALERTING_ENABLED=true
+      - GF_ALERTING_ENABLED=false  # Disable legacy alerting
+      - ALERT_EMAIL_TO=${ALERT_EMAIL_TO:-alerts@swaggy-stacks.com}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL:-}
+      - PAGERDUTY_INTEGRATION_KEY=${PAGERDUTY_INTEGRATION_KEY:-}
+      - OPSGENIE_API_KEY=${OPSGENIE_API_KEY:-}
+      # SMTP Configuration for Email Alerts
+      - GF_SMTP_ENABLED=${SMTP_ENABLED:-false}
+      - GF_SMTP_HOST=${SMTP_HOST:-smtp.gmail.com:587}
+      - GF_SMTP_USER=${SMTP_USER:-}
+      - GF_SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - GF_SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS:-alerts@swaggy-stacks.com}
+      - GF_SMTP_FROM_NAME=${SMTP_FROM_NAME:-SwaggyStacks Alerts}
+      - GF_SMTP_SKIP_VERIFY=${SMTP_SKIP_VERIFY:-false}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./infrastructure/grafana/dashboards:/etc/grafana/provisioning/dashboards
       - ./infrastructure/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./infrastructure/grafana/alerting:/etc/grafana/provisioning/alerting
     networks:
       - trading_network
     depends_on:
       - prometheus
+      - backend  # Ensure backend is available for webhook alerts
 
   # Metrics Exporter on Port 9090 (Optional - Prometheus Standard Port)
   metrics-exporter:

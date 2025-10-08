@@ -1,0 +1,418 @@
+apiVersion: 1
+
+groups:
+  - name: risk_management_alerts
+    interval: 30s
+    rules:
+      # Portfolio Exposure Critical Alert
+      - uid: portfolio_exposure_critical
+        title: Portfolio Exposure Critical
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: (trading_portfolio_total_exposure / 1000000) > 0.8
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "Portfolio exposure exceeds 80% limit"
+          description: "Portfolio exposure is ${{ $values.A.Value | humanize1024 }} (above 80% of $1M limit). Immediate risk reduction required."
+          dashboard_uid: trading-risk
+          panel_id: "1"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/portfolio-exposure
+        labels:
+          severity: critical
+          component: risk
+          team: trading
+          alert_type: exposure
+
+      # Position Size Warning Alert
+      - uid: position_size_warning
+        title: Position Size Warning
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: (trading_position_value / trading_portfolio_total_value) * 100 > 15
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 3m
+        annotations:
+          summary: "Single position size exceeds warning threshold"
+          description: "Position {{ $labels.symbol }} is {{ $values.A.Value | printf \"%.2f\" }}% of portfolio (above 15% warning threshold). Consider reducing position."
+          dashboard_uid: trading-risk
+          panel_id: "3"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/position-size
+        labels:
+          severity: warning
+          component: risk
+          team: trading
+          alert_type: concentration
+
+      # Sector Concentration Risk Alert
+      - uid: sector_concentration_risk
+        title: Sector Concentration Risk
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum(trading_position_value) by (sector) > 200000
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Sector exposure exceeds limit"
+          description: "Sector {{ $labels.sector }} exposure is ${{ $values.A.Value | printf \"%.2f\" }} (above $200k limit). Diversification required."
+          dashboard_uid: trading-risk
+          panel_id: "5"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/sector-concentration
+        labels:
+          severity: warning
+          component: risk
+          team: trading
+          alert_type: concentration
+
+      # VaR Threshold Breach Alert
+      - uid: var_threshold_breach
+        title: Value at Risk Threshold Breach
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: trading_portfolio_var_daily > 50000
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Daily Value at Risk exceeds critical threshold"
+          description: "Daily VaR is ${{ $values.A.Value | printf \"%.2f\" }} (above $50k critical threshold). Portfolio risk is elevated."
+          dashboard_uid: advanced-risk
+          panel_id: "2"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/var-breach
+        labels:
+          severity: critical
+          component: risk
+          team: trading
+          alert_type: var
+
+      # Beta Extreme High Alert
+      - uid: portfolio_beta_extreme_high
+        title: Portfolio Beta Extremely High
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: trading_portfolio_beta > 2.0
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Portfolio beta indicates excessive market correlation"
+          description: "Portfolio beta is {{ $values.A.Value | printf \"%.2f\" }} (above 2.0 extreme threshold). Portfolio highly correlated with market movements."
+          dashboard_uid: advanced-risk
+          panel_id: "4"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/beta-extreme
+        labels:
+          severity: warning
+          component: risk
+          team: trading
+          alert_type: beta
+
+      # Volatility Spike Alert
+      - uid: volatility_spike_alert
+        title: Portfolio Volatility Spike
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: trading_portfolio_volatility > 0.30
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Portfolio volatility spike detected"
+          description: "Portfolio volatility is {{ $values.A.Value | printf \"%.2f\" }} (above 30% threshold). Market conditions may be turbulent."
+          dashboard_uid: advanced-risk
+          panel_id: "6"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/volatility-spike
+        labels:
+          severity: warning
+          component: risk
+          team: trading
+          alert_type: volatility
+
+      # Correlation Risk Alert
+      - uid: correlation_risk_alert
+        title: Portfolio Correlation Risk High
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: avg(trading_position_correlation) > 0.75
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Average position correlation too high"
+          description: "Average position correlation is {{ $values.A.Value | printf \"%.2f\" }} (above 0.75 threshold). Portfolio lacks diversification."
+          dashboard_uid: advanced-risk
+          panel_id: "8"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/correlation-risk
+        labels:
+          severity: warning
+          component: risk
+          team: trading
+          alert_type: diversification

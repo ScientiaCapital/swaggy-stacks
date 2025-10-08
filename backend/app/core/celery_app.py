@@ -81,6 +81,10 @@ celery_app.conf.update(
             'task': 'app.tasks.analysis.calculate_portfolio_metrics',
             'schedule': 300.0,  # Every 5 minutes
         },
+        'update-database-metrics': {
+            'task': 'app.tasks.monitoring.update_database_metrics',
+            'schedule': 30.0,  # Every 30 seconds for real-time pool monitoring
+        },
     },
 
     # Security

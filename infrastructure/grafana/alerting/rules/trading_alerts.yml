@@ -1,0 +1,359 @@
+apiVersion: 1
+
+groups:
+  - name: trading_alerts
+    interval: 30s
+    rules:
+      # Portfolio Value Drop Alert
+      - uid: trading_portfolio_value_drop
+        title: Portfolio Value Drop Alert
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: (trading_portfolio_total_value - trading_portfolio_total_value offset 1h) / trading_portfolio_total_value offset 1h * 100 < -5
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Portfolio value declined significantly"
+          description: "Portfolio value dropped {{ $values.A.Value | printf \"%.2f\" }}% in the last hour (threshold: -5%). Current value: ${{ $labels.portfolio_value | printf \"%.2f\" }}"
+          dashboard_uid: trading-pnl
+          panel_id: "1"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/portfolio-drop
+        labels:
+          severity: critical
+          component: trading
+          team: trading
+          alert_type: pnl
+
+      # Order Failure Rate Alert
+      - uid: trading_orders_failure_rate_high
+        title: Order Failure Rate High
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: (rate(trading_order_execution_total{status="failed"}[5m]) / rate(trading_order_execution_total[5m])) * 100 > 10
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 3m
+        annotations:
+          summary: "Order execution failure rate exceeds threshold"
+          description: "Order failure rate is {{ $values.A.Value | printf \"%.2f\" }}% (above 10% threshold). Trading execution may be impaired."
+          dashboard_uid: trading-execution
+          panel_id: "2"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/order-failures
+        labels:
+          severity: critical
+          component: trading
+          team: trading
+          alert_type: execution
+
+      # Strategy Drawdown Alert
+      - uid: strategy_drawdown_alert
+        title: Strategy Drawdown Alert
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: trading_strategy_drawdown_pct > 5
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Strategy experiencing significant drawdown"
+          description: "Strategy {{ $labels.strategy_name }} drawdown is {{ $values.A.Value | printf \"%.2f\" }}% (above 5% threshold). Strategy may need review."
+          dashboard_uid: trading-strategy
+          panel_id: "3"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/strategy-drawdown
+        labels:
+          severity: warning
+          component: strategy
+          team: trading
+          alert_type: performance
+
+      # API Latency Alert
+      - uid: trading_api_latency_high
+        title: Trading API Latency High
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: histogram_quantile(0.95, rate(trading_http_request_duration_seconds_bucket{path=~"/api/v1/trading/.*"}[5m])) > 0.5
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 3m
+        annotations:
+          summary: "Trading API latency exceeds 500ms"
+          description: "Trading API p95 latency is {{ $values.A.Value | humanizeDuration }} (above 500ms threshold). Order execution may be delayed."
+          dashboard_uid: trading-execution
+          panel_id: "5"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/api-latency
+        labels:
+          severity: warning
+          component: api
+          team: trading
+          alert_type: latency
+
+      # Daily P&L Negative Alert
+      - uid: daily_pnl_negative
+        title: Daily P&L Negative
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: trading_portfolio_daily_pnl < 0
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Daily P&L is negative"
+          description: "Daily P&L is ${{ $values.A.Value | printf \"%.2f\" }} (negative). Trading performance needs monitoring."
+          dashboard_uid: trading-pnl
+          panel_id: "2"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/negative-pnl
+        labels:
+          severity: info
+          component: trading
+          team: trading
+          alert_type: pnl
+
+      # Position Count High Alert
+      - uid: position_count_high
+        title: Position Count High
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: trading_portfolio_position_count > 50
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Portfolio position count exceeds limit"
+          description: "Portfolio has {{ $values.A.Value }} positions (above 50 position limit). Consider reducing positions for better management."
+          dashboard_uid: trading-pnl
+          panel_id: "4"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/position-count
+        labels:
+          severity: warning
+          component: trading
+          team: trading
+          alert_type: risk_management

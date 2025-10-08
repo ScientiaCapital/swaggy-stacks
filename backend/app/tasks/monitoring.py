@@ -388,3 +388,26 @@ def collect_performance_metrics(self) -> Dict[str, Any]:
             'timestamp': datetime.utcnow().isoformat(),
             'error': str(e)
         }
+
+
+@celery_app.task(bind=True, name='app.tasks.monitoring.update_database_metrics')
+def update_database_metrics(self) -> Dict[str, Any]:
+    """Update database connection pool metrics for Prometheus monitoring (Task 1.5)"""
+    try:
+        from app.core.database import update_connection_pool_metrics
+        
+        # Update the metrics
+        update_connection_pool_metrics()
+        
+        return {
+            'status': 'success',
+            'timestamp': datetime.utcnow().isoformat(),
+            'message': 'Database connection pool metrics updated'
+        }
+    except Exception as e:
+        logger.error(f"Failed to update database metrics: {e}")
+        return {
+            'status': 'error',
+            'timestamp': datetime.utcnow().isoformat(),
+            'error': str(e)
+        }

@@ -1,0 +1,56 @@
+apiVersion: 1
+
+# Grafana Unified Alerting Provisioning Configuration
+# This file configures how Grafana loads alert rules, contact points, and notification policies
+
+# Alert Rule Groups
+groups:
+  - orgId: 1
+    name: alerting
+    folder: SwaggyStacks Alerts
+    interval: 30s
+    rules:
+      - uid: provisioning
+        title: Alert Rules Provisioned
+        condition: A
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            model:
+              expr: "1"
+              refId: A
+        noDataState: NoData
+        for: 1m
+        annotations:
+          description: Alert rules successfully provisioned from configuration files
+
+# Alert Rule File Paths
+# Grafana will automatically load alert rules from these files
+alerting:
+  rules:
+    path: /etc/grafana/provisioning/alerting/rules
+
+# Contact Points File Path
+# Grafana will automatically load contact points from this file
+contactPoints:
+  path: /etc/grafana/provisioning/alerting/contact-points.yml
+
+# Notification Policies File Path
+# Grafana will automatically load notification policies from this file
+policies:
+  path: /etc/grafana/provisioning/alerting/notification-policies.yml
+
+# Mute Timings (optional)
+# Define maintenance windows when alerts should be suppressed
+muteTimings:
+  - orgId: 1
+    name: maintenance-window
+    time_intervals:
+      - times:
+          - start_time: "02:00"
+            end_time: "04:00"
+        weekdays:
+          - "saturday"
+          - "sunday"
+        months:
+          - "1:12"  # All months

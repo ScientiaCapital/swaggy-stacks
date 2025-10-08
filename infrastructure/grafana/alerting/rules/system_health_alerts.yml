@@ -1,0 +1,359 @@
+apiVersion: 1
+
+groups:
+  - name: system_health_alerts
+    interval: 30s
+    rules:
+      # System Health Status Alert
+      - uid: system_health_degraded
+        title: System Health Degraded
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: trading_system_health_status < 2
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "System health status degraded below healthy threshold"
+          description: "Trading system health status is {{ $values.A.Value }} (below 2 = healthy). Current status: {{ if eq $values.A.Value 0.0 }}DOWN{{ else if eq $values.A.Value 1.0 }}DEGRADED{{ else if eq $values.A.Value 2.0 }}HEALTHY{{ else }}UNKNOWN{{ end }}"
+          dashboard_uid: system-health
+          panel_id: "1"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/system-health
+        labels:
+          severity: critical
+          component: system
+          team: platform
+          alert_type: health
+
+      # System Uptime Alert
+      - uid: system_uptime_low
+        title: System Uptime Low
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: trading_system_uptime_seconds < 300
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: "System uptime critically low"
+          description: "Trading system uptime is {{ $values.A.Value }} seconds (below 300s threshold). System may have recently restarted."
+          dashboard_uid: system-health
+          panel_id: "2"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/uptime
+        labels:
+          severity: critical
+          component: system
+          team: platform
+          alert_type: availability
+
+      # Database Connection Pool Alert
+      - uid: db_connection_pool_exhausted
+        title: Database Connection Pool Exhausted
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: trading_db_connections_available < 2
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "Database connection pool critically low"
+          description: "Database has {{ $values.A.Value }} available connections (below 2). Connection pool may be exhausted."
+          dashboard_uid: system-health
+          panel_id: "5"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/database-pool
+        labels:
+          severity: critical
+          component: database
+          team: platform
+          alert_type: performance
+
+      # Redis Response Time Alert
+      - uid: redis_response_time_high
+        title: Redis Response Time High
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: rate(trading_redis_operation_duration_seconds_sum[5m]) / rate(trading_redis_operation_duration_seconds_count[5m]) > 0.1
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 3m
+        annotations:
+          summary: "Redis response time exceeding threshold"
+          description: "Redis average response time is {{ $values.A.Value | humanizeDuration }} (above 100ms threshold). Cache performance degraded."
+          dashboard_uid: system-health
+          panel_id: "6"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/redis-performance
+        labels:
+          severity: warning
+          component: redis
+          team: platform
+          alert_type: performance
+
+      # HTTP Request Duration Alert
+      - uid: http_request_duration_high
+        title: HTTP API Response Time High
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: histogram_quantile(0.95, rate(trading_http_request_duration_seconds_bucket[5m])) > 5
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "API response time p95 exceeding 5 seconds"
+          description: "HTTP request p95 latency is {{ $values.A.Value | humanizeDuration }} (above 5s threshold). API performance degraded."
+          dashboard_uid: system-health
+          panel_id: "8"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/api-latency
+        labels:
+          severity: warning
+          component: api
+          team: backend
+          alert_type: performance
+
+      # AI Processing Duration Alert
+      - uid: ai_processing_duration_high
+        title: AI Processing Duration High
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: rate(trading_ai_processing_duration_seconds_sum[5m]) / rate(trading_ai_processing_duration_seconds_count[5m]) > 30
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "AI processing taking longer than 30 seconds"
+          description: "AI average processing time is {{ $values.A.Value | humanizeDuration }} (above 30s threshold). AI operations may be degraded."
+          dashboard_uid: system-health
+          panel_id: "10"
+          runbook_url: https://github.com/swaggy-stacks/runbooks/ai-performance
+        labels:
+          severity: warning
+          component: ai
+          team: ml
+          alert_type: performance

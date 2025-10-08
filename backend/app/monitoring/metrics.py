@@ -329,16 +329,84 @@ class PrometheusMetrics:
         )
 
         # Database Metrics
-        self.db_connection_pool_size = Gauge(
-            "db_connection_pool_size",
-            "Database connection pool size",
+        # ===== ALPACA API EXPORTER METRICS - Task 1.5 =====
+        
+        self.alpaca_api_requests_total = Counter(
+            "alpaca_api_requests_total",
+            "Total Alpaca API requests",
+            ["endpoint", "method", "status_code"],
             registry=self.registry,
         )
 
-        self.db_query_duration = Histogram(
+        self.alpaca_api_request_duration = Histogram(
+            "alpaca_api_request_duration_seconds",
+            "Alpaca API request duration in seconds",
+            ["endpoint", "method"],
+            buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
+            registry=self.registry,
+        )
+
+        self.alpaca_api_rate_limit_remaining = Gauge(
+            "alpaca_api_rate_limit_remaining",
+            "Remaining Alpaca API requests in current rate limit window",
+            ["limit_type"],
+            registry=self.registry,
+        )
+
+        self.alpaca_api_rate_limit_reset_timestamp = Gauge(
+            "alpaca_api_rate_limit_reset_timestamp",
+            "Unix timestamp when Alpaca API rate limit resets",
+            ["limit_type"],
+            registry=self.registry,
+        )
+
+        self.alpaca_api_errors_total = Counter(
+            "alpaca_api_errors_total",
+            "Total Alpaca API errors",
+            ["error_type", "endpoint"],
+            registry=self.registry,
+        )
+
+        # ===== DATABASE PERFORMANCE EXPORTER METRICS - Task 1.5 =====
+
+        self.db_connection_pool_size = Gauge(
+            "db_connection_pool_size",
+            "Total database connection pool size (base + overflow)",
+            registry=self.registry,
+        )
+
+        self.db_connection_pool_available = Gauge(
+            "db_connection_pool_available",
+            "Available database connections in pool",
+            registry=self.registry,
+        )
+
+        self.db_connection_pool_in_use = Gauge(
+            "db_connection_pool_in_use",
+            "Database connections currently in use",
+            registry=self.registry,
+        )
+
+        self.db_query_duration_seconds = Histogram(
             "db_query_duration_seconds",
-            "Database query duration in seconds",
-            ["query_type"],
+            "Database query execution duration in seconds",
+            ["query_type", "table"],
+            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
+            registry=self.registry,
+        )
+
+        self.db_transaction_duration_seconds = Histogram(
+            "db_transaction_duration_seconds",
+            "Database transaction duration in seconds",
+            ["operation"],
+            buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
+            registry=self.registry,
+        )
+
+        self.db_connection_errors_total = Counter(
+            "db_connection_errors_total",
+            "Total database connection errors",
+            ["error_type"],
             registry=self.registry,
         )
 
@@ -1066,6 +1134,175 @@ class PrometheusMetrics:
         self.ai_processing_duration.labels(process_type=insight_type).observe(
             processing_time
         )
+
+    # ===== ALPACA API EXPORTER METRICS - Task 1.5 Implementation =====
+
+    def track_alpaca_request(
+        self, endpoint: str, method: str, status_code: int, duration: float
+    ):
+        """
+        Track Alpaca API request metrics.
+        
+        Args:
+            endpoint: API endpoint path (e.g., '/v2/account', '/v2/orders')
+            method: HTTP method (GET, POST, DELETE)
+            status_code: HTTP response status code
+            duration: Request duration in seconds
+            
+        Labels:
+            - endpoint: API endpoint path
+            - method: HTTP method
+            - status_code: Response status code
+            
+        Metric Types:
+            - alpaca_api_requests_total: Counter
+            - alpaca_api_request_duration_seconds: Histogram
+        
+        Examples:
+            metrics.track_alpaca_request('/v2/account', 'GET', 200, 0.123)
+            metrics.track_alpaca_request('/v2/orders', 'POST', 201, 0.456)
+        """
+        self.alpaca_api_requests_total.labels(
+            endpoint=endpoint, method=method, status_code=str(status_code)
+        ).inc()
+        self.alpaca_api_request_duration.labels(endpoint=endpoint, method=method).observe(
+            duration
+        )
+
+    def update_alpaca_rate_limits(
+        self, limit_type: str, remaining: int, reset_timestamp: int
+    ):
+        """
+        Update Alpaca API rate limit metrics from response headers.
+        
+        Args:
+            limit_type: Type of rate limit (orders, data, general)
+            remaining: Remaining requests in current window
+            reset_timestamp: Unix timestamp when limit resets
+            
+        Labels:
+            - limit_type: Type of rate limit
+            
+        Metric Types:
+            - alpaca_api_rate_limit_remaining: Gauge
+            - alpaca_api_rate_limit_reset_timestamp: Gauge
+        
+        Examples:
+            # From X-RateLimit-Remaining and X-RateLimit-Reset headers
+            metrics.update_alpaca_rate_limits('orders', 195, 1735776000)
+        """
+        self.alpaca_api_rate_limit_remaining.labels(limit_type=limit_type).set(remaining)
+        self.alpaca_api_rate_limit_reset_timestamp.labels(limit_type=limit_type).set(
+            reset_timestamp
+        )
+
+    def track_alpaca_error(self, error_type: str, endpoint: str):
+        """
+        Track Alpaca API errors.
+        
+        Args:
+            error_type: Type of error (timeout, rate_limit, invalid_request, server_error)
+            endpoint: API endpoint where error occurred
+            
+        Labels:
+            - error_type: Type of error
+            - endpoint: API endpoint
+            
+        Metric Type: Counter
+        
+        Examples:
+            metrics.track_alpaca_error('rate_limit', '/v2/orders')
+            metrics.track_alpaca_error('timeout', '/v2/account')
+        """
+        self.alpaca_api_errors_total.labels(
+            error_type=error_type, endpoint=endpoint
+        ).inc()
+
+    # ===== DATABASE PERFORMANCE EXPORTER METRICS - Task 1.5 Implementation =====
+
+    def update_connection_pool_stats(
+        self, pool_size: int, available: int, in_use: int
+    ):
+        """
+        Update database connection pool metrics.
+        
+        Args:
+            pool_size: Current total pool size
+            available: Number of available connections
+            in_use: Number of connections in use
+            
+        Metric Types:
+            - db_connection_pool_size: Gauge
+            - db_connection_pool_available: Gauge
+            - db_connection_pool_in_use: Gauge
+        
+        Examples:
+            # From engine.pool.size(), engine.pool.checkedout(), etc.
+            metrics.update_connection_pool_stats(50, 32, 18)
+        """
+        self.db_connection_pool_size.set(pool_size)
+        self.db_connection_pool_available.set(available)
+        self.db_connection_pool_in_use.set(in_use)
+
+    def track_db_query(self, query_type: str, table: str, duration: float):
+        """
+        Track database query performance.
+        
+        Args:
+            query_type: Type of query (SELECT, INSERT, UPDATE, DELETE)
+            table: Primary table involved in query
+            duration: Query execution duration in seconds
+            
+        Labels:
+            - query_type: SQL operation type
+            - table: Primary table name
+            
+        Metric Type: Histogram
+        
+        Examples:
+            metrics.track_db_query('SELECT', 'market_data', 0.023)
+            metrics.track_db_query('INSERT', 'orders', 0.012)
+        """
+        self.db_query_duration_seconds.labels(
+            query_type=query_type, table=table
+        ).observe(duration)
+
+    def track_db_transaction(self, operation: str, duration: float):
+        """
+        Track database transaction duration.
+        
+        Args:
+            operation: Transaction operation (trade_execution, portfolio_update, etc.)
+            duration: Transaction duration in seconds
+            
+        Labels:
+            - operation: Transaction operation type
+            
+        Metric Type: Histogram
+        
+        Examples:
+            metrics.track_db_transaction('trade_execution', 0.145)
+            metrics.track_db_transaction('portfolio_update', 0.089)
+        """
+        self.db_transaction_duration_seconds.labels(operation=operation).observe(duration)
+
+    def track_db_connection_error(self, error_type: str):
+        """
+        Track database connection errors.
+        
+        Args:
+            error_type: Type of error (timeout, pool_exhausted, connection_refused, etc.)
+            
+        Labels:
+            - error_type: Error type
+            
+        Metric Type: Counter
+        
+        Examples:
+            metrics.track_db_connection_error('pool_exhausted')
+            metrics.track_db_connection_error('timeout')
+        """
+        self.db_connection_errors_total.labels(error_type=error_type).inc()
 
     def record_http_request(
         self, method: str, endpoint: str, status_code: int, duration: float

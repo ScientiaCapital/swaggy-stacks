@@ -1,0 +1,175 @@
+apiVersion: 1
+
+# Notification Policies for Grafana Unified Alerting
+# Routes alerts to appropriate contact points based on labels and severity
+
+policies:
+  - orgId: 1
+    receiver: webhook-alerts  # Default contact point
+    group_by:
+      - alertname
+      - severity
+      - component
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    routes:
+      # Critical Alerts - Multi-channel routing
+      - receiver: slack-critical
+        continue: true  # Continue to evaluate other routes
+        matchers:
+          - severity = critical
+        group_wait: 10s
+        group_interval: 2m
+        repeat_interval: 5m
+        routes:
+          # Critical System Health -> Email + Slack + Webhook
+          - receiver: email-alerts
+            continue: true
+            matchers:
+              - severity = critical
+              - component = system
+            group_wait: 10s
+            repeat_interval: 5m
+
+          # Critical Trading Alerts -> Email + Slack + Webhook
+          - receiver: email-alerts
+            continue: true
+            matchers:
+              - severity = critical
+              - component = trading
+            group_wait: 10s
+            repeat_interval: 5m
+
+          # Critical Risk Alerts -> Email + Slack + Webhook
+          - receiver: email-alerts
+            continue: true
+            matchers:
+              - severity = critical
+              - component = risk
+            group_wait: 10s
+            repeat_interval: 5m
+
+          # Critical MCP Alerts -> Email + Slack + Webhook
+          - receiver: email-alerts
+            continue: true
+            matchers:
+              - severity = critical
+              - component = mcp
+            group_wait: 10s
+            repeat_interval: 5m
+
+      # Warning Alerts - Webhook only with longer repeat
+      - receiver: webhook-alerts
+        matchers:
+          - severity = warning
+        group_wait: 1m
+        group_interval: 10m
+        repeat_interval: 15m
+        routes:
+          # Performance degradation warnings
+          - receiver: discord-team
+            continue: true
+            matchers:
+              - severity = warning
+              - alert_type = performance
+            group_wait: 2m
+            repeat_interval: 30m
+
+          # Risk management warnings
+          - receiver: discord-team
+            continue: true
+            matchers:
+              - severity = warning
+              - alert_type =~ "concentration|var|beta|volatility"
+            group_wait: 2m
+            repeat_interval: 30m
+
+      # Info Alerts - Webhook only, minimal repetition
+      - receiver: webhook-alerts
+        matchers:
+          - severity = info
+        group_wait: 5m
+        group_interval: 30m
+        repeat_interval: 1h
+
+      # Platform Team Alerts - System and Database issues
+      - receiver: email-alerts
+        continue: true
+        matchers:
+          - team = platform
+          - severity =~ "critical|warning"
+        group_wait: 1m
+        repeat_interval: 10m
+
+      # Trading Team Alerts - Trading and Risk issues
+      - receiver: email-alerts
+        continue: true
+        matchers:
+          - team = trading
+          - severity =~ "critical|warning"
+        group_wait: 1m
+        repeat_interval: 10m
+
+      # AI/ML Team Alerts - MCP and AI processing issues
+      - receiver: email-alerts
+        continue: true
+        matchers:
+          - team =~ "ai|ml"
+          - severity =~ "critical|warning"
+        group_wait: 1m
+        repeat_interval: 10m
+
+      # Backend Team Alerts - API and execution issues
+      - receiver: discord-team
+        matchers:
+          - team = backend
+          - severity = warning
+        group_wait: 2m
+        repeat_interval: 20m
+
+      # Specific Alert Type Routing
+      # P&L Alerts - Always notify trading team
+      - receiver: email-alerts
+        continue: true
+        matchers:
+          - alert_type = pnl
+          - severity =~ "critical|warning"
+        group_wait: 30s
+        repeat_interval: 5m
+
+      # Execution Alerts - Critical for trading operations
+      - receiver: slack-critical
+        continue: true
+        matchers:
+          - alert_type = execution
+          - severity = critical
+        group_wait: 10s
+        repeat_interval: 3m
+
+      # Exposure Alerts - Immediate attention required
+      - receiver: slack-critical
+        continue: true
+        matchers:
+          - alert_type = exposure
+        group_wait: 10s
+        repeat_interval: 2m
+
+      # Health Check Alerts - System availability
+      - receiver: webhook-alerts
+        matchers:
+          - alert_type = health
+        group_wait: 1m
+        repeat_interval: 10m
+
+      # Latency Alerts - Performance monitoring
+      - receiver: discord-team
+        matchers:
+          - alert_type = latency
+          - severity = warning
+        group_wait: 3m
+        repeat_interval: 20m
+
+    mute_time_intervals: []
+
+resetPolicies: false
