@@ -998,13 +998,50 @@ class PrometheusMetrics:
         ).set(depth)
 
     def record_trading_order(self, symbol: str, side: str, status: str):
-        """Record trading order"""
+        """Record trading order execution for real-time order flow tracking.
+        
+        Increments counter for each order submitted to track trading activity,
+        execution success/failure rates, and order flow patterns by symbol.
+        
+        Args:
+            symbol: Trading symbol (e.g., 'AAPL', 'SPY')
+            side: Order direction - 'buy' or 'sell'
+            status: Execution status - 'filled', 'rejected', 'pending', 'cancelled'
+        
+        Labels:
+            - symbol: Trading instrument identifier
+            - side: Order direction for directional flow analysis
+            - status: Order outcome for success rate calculation
+        
+        Metric Type: Counter
+        
+        Example:
+            trading_orders_total{symbol="AAPL",side="buy",status="filled"} 142
+        """
         self.trading_orders_total.labels(symbol=symbol, side=side, status=status).inc()
 
     def update_portfolio_metrics(
         self, portfolio_value: float, positions: Dict[str, float]
     ):
-        """Update portfolio metrics"""
+        """Update portfolio valuation and position exposure metrics.
+        
+        Sets portfolio-wide value gauge and per-symbol position sizes for
+        real-time portfolio monitoring, risk management, and P&L tracking.
+        
+        Args:
+            portfolio_value: Total portfolio value in USD
+            positions: Dict mapping symbol to position quantity (positive=long, negative=short)
+        
+        Labels:
+            - symbol: Trading symbol for per-position exposure tracking
+        
+        Metric Type: Gauge (portfolio value), Gauge per symbol (positions)
+        
+        Example:
+            trading_portfolio_value_usd 125430.50
+            trading_positions_active{symbol="AAPL"} 100.0
+            trading_positions_active{symbol="SPY"} 50.0
+        """
         self.trading_portfolio_value.set(portfolio_value)
 
         for symbol, quantity in positions.items():
@@ -1070,7 +1107,34 @@ class PrometheusMetrics:
         successful_trades: int,
         timeframe: str = "1D",
     ):
-        """Record comprehensive strategy performance metrics"""
+        """Record comprehensive strategy performance for backtesting and live analysis.
+        
+        Updates multiple strategy metrics including win/loss ratios, average P&L,
+        and success rates. Critical for strategy evaluation and optimization.
+        
+        Args:
+            strategy_name: Trading strategy identifier (e.g., 'MarkovChain', 'Wyckoff')
+            symbol: Trading symbol this strategy trades
+            win_loss_ratio: Ratio of winning trades to losing trades
+            avg_profit: Average profit per winning trade in USD
+            avg_loss: Average loss per losing trade in USD
+            total_trades: Total number of trades executed
+            successful_trades: Number of profitable trades
+            timeframe: Analysis timeframe (default '1D')
+        
+        Labels:
+            - strategy_name: Strategy identifier for comparison
+            - symbol: Symbol-specific performance tracking
+            - timeframe: Temporal granularity for analysis
+            - trade_type: 'profit' or 'loss' for avg P&L metrics
+        
+        Metric Type: Gauge (ratios, averages, success rate)
+        
+        Example:
+            trading_strategy_win_loss_ratio{strategy_name="MarkovChain",symbol="SPY",timeframe="1D"} 2.3
+            trading_strategy_avg_profit_loss_usd{strategy_name="MarkovChain",symbol="SPY",trade_type="profit"} 45.20
+            trading_strategy_success_rate{strategy_name="MarkovChain",symbol="SPY"} 0.67
+        """
 
         # Win/loss ratio
         self.strategy_win_loss_ratio.labels(
@@ -1095,22 +1159,58 @@ class PrometheusMetrics:
     def record_strategy_trade_outcome(
         self, strategy_name: str, symbol: str, outcome: str
     ):
-        """Record individual trade outcome for strategy"""
+        """Record individual trade outcomes for strategy performance tracking.
+        
+        Increments counter for each trade outcome (win/loss/breakeven) to calculate
+        success rates, win/loss ratios, and strategy effectiveness over time.
+        
+        Args:
+            strategy_name: Trading strategy identifier (e.g., 'MarkovChain', 'Elliott')
+            symbol: Trading symbol for the trade
+            outcome: Trade result - 'win', 'loss', or 'breakeven'
+        
+        Labels:
+            - strategy_name: Strategy identifier for performance comparison
+            - symbol: Symbol-specific outcome tracking
+            - outcome: Trade result classification for ratio calculations
+        
+        Metric Type: Counter
+        
+        Example:
+            trading_strategy_total_trades{strategy_name="Wyckoff",symbol="AAPL",outcome="win"} 45
+            trading_strategy_total_trades{strategy_name="Wyckoff",symbol="AAPL",outcome="loss"} 18
+        """
         self.strategy_total_trades.labels(
-            strategy_name=strategy_name,
-            symbol=symbol,
-            outcome=outcome,  # "win", "loss", "breakeven"
+            strategy_name=strategy_name, symbol=symbol, outcome=outcome
         ).inc()
 
     def update_strategy_drawdown(
-        self, strategy_name: str, current_drawdown_pct: float, max_drawdown_pct: float
+        self, strategy_name: str, current_drawdown: float, max_drawdown: float
     ):
-        """Update strategy drawdown metrics"""
+        """Update strategy drawdown metrics for risk monitoring and alert triggers.
+        
+        Tracks both current drawdown from peak and maximum historical drawdown.
+        Critical for risk management alerts and strategy performance evaluation.
+        
+        Args:
+            strategy_name: Trading strategy identifier
+            current_drawdown: Current drawdown percentage from peak (e.g., 5.2 for -5.2%)
+            max_drawdown: Maximum historical drawdown percentage
+        
+        Labels:
+            - strategy_name: Strategy identifier for per-strategy risk tracking
+        
+        Metric Type: Gauge (percentage values)
+        
+        Example:
+            trading_strategy_drawdown_current_pct{strategy_name="MarkovChain"} 3.5
+            trading_strategy_drawdown_max_pct{strategy_name="MarkovChain"} 12.8
+        """
         self.strategy_drawdown_current.labels(strategy_name=strategy_name).set(
-            current_drawdown_pct
+            current_drawdown
         )
         self.strategy_drawdown_max.labels(strategy_name=strategy_name).set(
-            max_drawdown_pct
+            max_drawdown
         )
 
     def record_trade_execution_metrics(
@@ -1119,36 +1219,75 @@ class PrometheusMetrics:
         side: str,
         order_type: str,
         status: str,
-        execution_time: float,
         failure_reason: str = None,
+        error_type: str = None,
+        total_executions: int = 0,
+        successful_executions: int = 0,
+        execution_latency_ms: float = None,
+        broker: str = "alpaca",
     ):
-        """Record trade execution performance and latency"""
-
+        """Record comprehensive trade execution metrics for order flow analysis.
+        
+        Tracks execution attempts, failures, success rates, and latency. Critical
+        for identifying execution issues, broker performance, and system reliability.
+        
+        Args:
+            symbol: Trading symbol (e.g., 'SPY', 'AAPL')
+            side: Order side - 'buy' or 'sell'
+            order_type: Order type - 'market', 'limit', 'stop', 'stop_limit'
+            status: Execution status - 'filled', 'rejected', 'pending', 'cancelled'
+            failure_reason: Optional failure reason if status is 'rejected'
+            error_type: Optional error classification for failures
+            total_executions: Total execution attempts for this symbol/type
+            successful_executions: Successful execution count for success rate
+            execution_latency_ms: Order execution latency in milliseconds
+            broker: Broker identifier (default 'alpaca')
+        
+        Labels:
+            - symbol: Trading instrument
+            - side: Order direction
+            - order_type: Execution type for performance analysis
+            - status: Outcome for success rate calculation
+            - failure_reason: Failure classification for debugging
+            - error_type: Error categorization
+            - broker: Broker performance comparison
+        
+        Metric Type: Counter (attempts/failures), Gauge (success rate), Histogram (latency)
+        
+        Buckets (latency): [1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s]
+        
+        Example:
+            trading_execution_total{symbol="SPY",side="buy",order_type="market",status="filled"} 1245
+            trading_execution_failures_total{symbol="SPY",side="buy",failure_reason="insufficient_funds",error_type="risk_check"} 3
+            trading_execution_success_rate{symbol="SPY",order_type="market"} 0.985
+            trading_execution_latency_seconds{operation_type="order_fill",symbol="SPY",broker="alpaca"} 0.045
+        """
         # Record execution attempt
         self.trade_execution_total.labels(
             symbol=symbol, side=side, order_type=order_type, status=status
         ).inc()
 
-        # Record execution latency
-        self.trade_execution_latency.labels(
-            operation_type="order_placement", symbol=symbol, broker="alpaca"
-        ).observe(execution_time)
-
-        # Record failures if applicable
-        if status == "failed" and failure_reason:
+        # Record failure if applicable
+        if status in ["rejected", "failed"] and failure_reason:
             self.trade_execution_failures.labels(
                 symbol=symbol,
                 side=side,
                 failure_reason=failure_reason,
-                error_type="execution_error",
+                error_type=error_type or "unknown",
             ).inc()
 
-        # Update success rate (simplified calculation)
-        if status == "filled":
-            success_rate = 0.95  # This would be calculated from historical data
+        # Update success rate if provided
+        if total_executions > 0:
+            success_rate = successful_executions / total_executions
             self.trade_execution_success_rate.labels(
                 symbol=symbol, order_type=order_type
             ).set(success_rate)
+
+        # Record execution latency if provided
+        if execution_latency_ms is not None:
+            self.trade_execution_latency.labels(
+                operation_type="order_fill", symbol=symbol, broker=broker
+            ).observe(execution_latency_ms / 1000.0)  # Convert ms to seconds
 
     def update_portfolio_risk_metrics(
         self,
@@ -1156,12 +1295,38 @@ class PrometheusMetrics:
         sector_exposures: Dict[str, float],
         concentration_risk: float,
         var_daily: float,
-        beta: float,
-        position_risks: Dict[str, float],
+        portfolio_beta: float,
+        confidence_level: str = "95",
         benchmark: str = "SPY",
     ):
-        """Update comprehensive portfolio risk metrics"""
-
+        """Update comprehensive portfolio risk metrics for real-time risk management.
+        
+        Tracks total exposure, sector concentration, VaR, and market beta for
+        risk limit monitoring, alert triggers, and regulatory compliance.
+        
+        Args:
+            total_exposure: Total portfolio exposure in USD
+            sector_exposures: Dict mapping sector to exposure in USD
+            concentration_risk: Portfolio concentration risk score (0-1, higher=riskier)
+            var_daily: Daily Value at Risk in USD at specified confidence level
+            portfolio_beta: Portfolio beta relative to benchmark (1.0=market neutral)
+            confidence_level: VaR confidence level (default '95' for 95%)
+            benchmark: Beta benchmark symbol (default 'SPY')
+        
+        Labels:
+            - sector: Industry sector for exposure tracking
+            - confidence_level: VaR confidence level (e.g., '95', '99')
+            - benchmark: Beta calculation benchmark
+        
+        Metric Type: Gauge
+        
+        Example:
+            trading_portfolio_exposure_total_usd 500000.00
+            trading_portfolio_exposure_by_sector_usd{sector="Technology"} 150000.00
+            trading_portfolio_concentration_risk 0.35
+            trading_portfolio_var_daily_usd{confidence_level="95"} 12500.00
+            trading_portfolio_beta{benchmark="SPY"} 1.15
+        """
         # Total exposure
         self.portfolio_exposure_total.set(total_exposure)
 
@@ -1169,47 +1334,131 @@ class PrometheusMetrics:
         for sector, exposure in sector_exposures.items():
             self.portfolio_exposure_by_sector.labels(sector=sector).set(exposure)
 
-        # Risk metrics
+        # Concentration risk
         self.portfolio_concentration_risk.set(concentration_risk)
-        self.portfolio_var_daily.labels(confidence_level="95").set(var_daily)
-        self.portfolio_beta.labels(benchmark=benchmark).set(beta)
 
-        # Position-specific risks
-        for symbol, risk_pct in position_risks.items():
-            self.position_size_risk.labels(symbol=symbol).set(risk_pct)
-
-    def record_market_data_latency(
-        self, data_type: str, symbol: str, source: str, latency: float
-    ):
-        """Record market data retrieval latency"""
-        self.market_data_latency.labels(
-            data_type=data_type,  # "quote", "bars", "trades"
-            symbol=symbol,
-            source=source,  # "alpaca", "polygon", "yahoo"
-        ).observe(latency)
-
-    def record_strategy_analysis_latency(
-        self, strategy_name: str, analysis_type: str, symbol: str, duration: float
-    ):
-        """Record strategy analysis computation time"""
-        self.strategy_analysis_latency.labels(
-            strategy_name=strategy_name,
-            analysis_type=analysis_type,  # "markov", "wyckoff", "fibonacci"
-            symbol=symbol,
-        ).observe(duration)
-
-    def record_order_book_latency(self, symbol: str, exchange: str, latency: float):
-        """Record order book update latency"""
-        self.order_book_latency.labels(symbol=symbol, exchange=exchange).observe(
-            latency
+        # Value at Risk
+        self.portfolio_var_daily.labels(confidence_level=confidence_level).set(
+            var_daily
         )
 
-    def record_risk_check_latency(self, check_type: str, symbol: str, duration: float):
-        """Record risk management check latency"""
-        self.risk_check_latency.labels(
-            check_type=check_type,  # "position_size", "exposure", "drawdown"
-            symbol=symbol,
-        ).observe(duration)
+        # Portfolio beta
+        self.portfolio_beta.labels(benchmark=benchmark).set(portfolio_beta)
+
+    def record_market_data_latency(
+        self, symbol: str, data_type: str, latency_ms: float, source: str = "alpaca"
+    ):
+        """Record market data retrieval latency for data feed monitoring.
+        
+        Tracks latency from market data request to receipt. Critical for
+        identifying data feed issues, broker performance, and stale data detection.
+        
+        Args:
+            symbol: Trading symbol (e.g., 'SPY', 'AAPL')
+            data_type: Data type - 'quote', 'trade', 'bar', 'orderbook'
+            latency_ms: Data retrieval latency in milliseconds
+            source: Data source identifier (default 'alpaca')
+        
+        Labels:
+            - data_type: Type of market data for granular latency tracking
+            - symbol: Symbol-specific data feed performance
+            - source: Data provider performance comparison
+        
+        Metric Type: Histogram
+        
+        Buckets: [1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s]
+        
+        Example:
+            trading_market_data_latency_seconds{data_type="quote",symbol="SPY",source="alpaca"} 0.015
+        """
+        self.market_data_latency.labels(
+            data_type=data_type, symbol=symbol, source=source
+        ).observe(latency_ms / 1000.0)  # Convert ms to seconds
+
+    def record_strategy_analysis_latency(
+        self, strategy_name: str, symbol: str, latency_ms: float
+    ):
+        """Record strategy analysis computation latency for performance monitoring.
+        
+        Tracks time taken for strategy signal generation, pattern recognition,
+        and decision-making. Critical for optimizing strategy performance.
+        
+        Args:
+            strategy_name: Trading strategy identifier (e.g., 'MarkovChain', 'Wyckoff')
+            symbol: Symbol being analyzed
+            latency_ms: Analysis computation time in milliseconds
+        
+        Labels:
+            - strategy_name: Strategy-specific performance tracking
+            - analysis_type: Analysis operation type (set to strategy_name)
+            - symbol: Symbol-specific computation complexity
+        
+        Metric Type: Histogram
+        
+        Buckets: [10ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s, 30s]
+        
+        Example:
+            trading_strategy_analysis_latency_seconds{strategy_name="MarkovChain",analysis_type="MarkovChain",symbol="SPY"} 0.125
+        """
+        self.strategy_analysis_latency.labels(
+            strategy_name=strategy_name, analysis_type=strategy_name, symbol=symbol
+        ).observe(latency_ms / 1000.0)  # Convert ms to seconds
+
+    def record_order_book_latency(
+        self, symbol: str, latency_ms: float, exchange: str = "alpaca"
+    ):
+        """Record order book processing latency for market microstructure monitoring.
+        
+        Tracks time to process order book updates, critical for identifying
+        data feed delays and optimizing high-frequency trading strategies.
+        
+        Args:
+            symbol: Trading symbol (e.g., 'SPY', 'AAPL')
+            latency_ms: Order book update processing time in milliseconds
+            exchange: Exchange identifier (default 'alpaca')
+        
+        Labels:
+            - symbol: Symbol-specific order book complexity
+            - exchange: Exchange performance comparison
+        
+        Metric Type: Histogram
+        
+        Buckets: [1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms]
+        
+        Example:
+            trading_order_book_latency_seconds{symbol="SPY",exchange="alpaca"} 0.008
+        """
+        self.order_book_latency.labels(symbol=symbol, exchange=exchange).observe(
+            latency_ms / 1000.0
+        )  # Convert ms to seconds
+
+    def record_risk_check_latency(
+        self, check_type: str, symbol: str, latency_ms: float
+    ):
+        """Record risk management check latency for order flow optimization.
+        
+        Tracks time for pre-trade risk validation (exposure, VaR, limits).
+        Critical for maintaining fast execution while ensuring risk compliance.
+        
+        Args:
+            check_type: Risk check type - 'exposure', 'var', 'position_limit', 'concentration'
+            symbol: Symbol being risk-checked
+            latency_ms: Risk check computation time in milliseconds
+        
+        Labels:
+            - check_type: Type of risk validation for granular performance tracking
+            - symbol: Symbol-specific risk complexity
+        
+        Metric Type: Histogram
+        
+        Buckets: [1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s]
+        
+        Example:
+            trading_risk_check_latency_seconds{check_type="exposure",symbol="SPY"} 0.003
+        """
+        self.risk_check_latency.labels(check_type=check_type, symbol=symbol).observe(
+            latency_ms / 1000.0
+        )  # Convert ms to seconds
 
     def collect_trading_manager_metrics(self, trading_manager):
         """Collect metrics from TradingManager instance"""

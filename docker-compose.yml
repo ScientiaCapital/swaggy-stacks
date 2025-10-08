@@ -180,6 +180,28 @@ services:
     depends_on:
       - prometheus
 
+  # Metrics Exporter on Port 9090 (Optional - Prometheus Standard Port)
+  metrics-exporter:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: trading_metrics_exporter
+    ports:
+      - "9090:9090"
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - ENABLE_EXPORTER=${ENABLE_METRICS_PORT_9090:-false}
+    volumes:
+      - ./backend:/app
+    networks:
+      - trading_network
+    depends_on:
+      backend:
+        condition: service_started
+    command: python -m app.monitoring.exporter
+    profiles:
+      - metrics-exporter  # Optional service, enable with: docker-compose --profile metrics-exporter up
+
   # NATS Server for Ultra-Low Latency Messaging
   nats:
     image: nats:2.10-alpine
