@@ -101,8 +101,9 @@ fi
 echo "Creating environment configuration..."
 cat > .env << 'EOF'
 # Alpaca API Configuration (Paper Trading)
-ALPACA_API_KEY=PKKR3YKNLL4OGDSNVWE1
-ALPACA_SECRET_KEY=2JkMtMLIcWlRhNcuSCOBPfun9FTofY0c3tVejZ5n
+# IMPORTANT: Get your API keys from https://alpaca.markets/
+ALPACA_API_KEY=your_alpaca_api_key_here
+ALPACA_SECRET_KEY=your_alpaca_secret_key_here
 ALPACA_BASE_URL=https://paper-api.alpaca.markets
 ALPACA_DATA_URL=https://data.alpaca.markets
 
@@ -111,6 +112,11 @@ ENVIRONMENT=production
 DEBUG=false
 SECRET_KEY=your-secret-key-here
 EOF
+
+echo ""
+echo "⚠️  IMPORTANT: Edit .env and add your actual API keys before running!"
+echo "   Get Alpaca API keys from: https://alpaca.markets/"
+echo ""
 
 # Step 7: Create startup script
 echo "Creating startup script..."
