@@ -6,8 +6,13 @@ import pytest
 import asyncio
 import numpy as np
 import pandas as pd
+import os
 from unittest.mock import Mock, AsyncMock
 from datetime import datetime, timedelta
+
+
+# Set up test environment variables
+os.environ.setdefault("ANTHROPIC_API_KEY", "test-key-123")
 
 
 @pytest.fixture(scope="session")

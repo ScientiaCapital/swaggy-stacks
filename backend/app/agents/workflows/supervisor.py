@@ -2,6 +2,7 @@
 Trading Supervisor for LangGraph workflows.
 """
 from typing import List, Dict, Any
+import asyncio
 import os
 from langchain_anthropic import ChatAnthropic
 from langchain_core.tools import Tool
@@ -32,7 +33,7 @@ class TradingSupervisor:
             raise ValueError("ANTHROPIC_API_KEY not found in environment")
 
         self.model = ChatAnthropic(
-            model="claude-sonnet-4.5",
+            model="claude-3-5-sonnet-20241022",
             api_key=anthropic_key
         )
 
@@ -78,10 +79,14 @@ class TradingSupervisor:
         """
         tool_name = agent.name.lower().replace(" ", "_")
 
+        # Create sync wrapper for async invoke
+        def sync_invoke(input_data: Dict[str, Any]) -> Dict[str, Any]:
+            return asyncio.run(agent.invoke(input_data))
+
         return Tool(
             name=tool_name,
             description=agent.description,
-            func=agent.invoke
+            func=sync_invoke
         )
 
     def get_system_prompt(self) -> str:
