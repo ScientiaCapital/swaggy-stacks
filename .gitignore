@@ -441,3 +441,4 @@ backend/.roomodes
 # Task files
 # tasks.json
 # tasks/ 
+.worktrees/
