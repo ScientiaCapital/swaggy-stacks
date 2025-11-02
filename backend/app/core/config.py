@@ -174,6 +174,9 @@ class Settings(BaseSettings):
     # TWILIO_FROM_NUMBER: str = os.getenv("TWILIO_FROM_NUMBER", "")
     # ALERT_SMS_TO: str = os.getenv("ALERT_SMS_TO", "+14773535838")
 
+    # LangGraph Configuration
+    LANGGRAPH_DB_URI: str = os.getenv("LANGGRAPH_DB_URI", "")
+
     model_config = ConfigDict(
         case_sensitive=True,
         env_file=".env",
