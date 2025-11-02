@@ -32,7 +32,7 @@ async-timeout>=4.0.0,<5.0.0; python_version<"3.11"
 
 # Ollama Client and AI Integration - CRITICAL FOR AGENT INITIALIZATION
 ollama>=0.1.7,<1.0.0
-httpx>=0.24.0,<0.26.0  # Required by ollama client
+httpx>=0.24.0,<0.28.0  # Required by ollama client - relaxed for compatibility
 h11>=0.14.0,<0.15.0    # HTTP/1.1 implementation
 h2>=4.1.0,<5.0.0       # HTTP/2 implementation
 
@@ -42,15 +42,15 @@ langgraph>=1.0.0,<2.0.0
 langchain>=1.0.0,<2.0.0
 langchain-core>=1.0.0,<2.0.0
 langchain-anthropic>=1.0.0,<2.0.0
-langchain-community>=1.0.0,<2.0.0
+langchain-community>=0.3.0,<0.4.0  # Note: 1.0.0 not released yet, using stable 0.3.x
 
 # Additional AI Providers
 openai>=1.0.0,<2.0.0  # For OpenRouter multi-model access
 # cerebras>=0.1.0,<1.0.0  # Commented - may not have PyPI package yet, use via OpenRouter
 
 # State Management & Persistence
-langgraph-checkpoint>=1.0.0,<2.0.0
-langgraph-checkpoint-postgres>=1.0.0,<2.0.0
+langgraph-checkpoint>=2.1.0,<4.0.0  # Required by langgraph 1.0.x
+langgraph-checkpoint-postgres>=2.0.0,<3.0.0
 
 # DeepAgents - AI Agent Framework
 deepagents>=0.1.0,<0.2.0
@@ -78,20 +78,21 @@ matplotlib>=3.5.0,<4.0.0
 seaborn>=0.11.0,<0.14.0
 
 # Machine Learning - Controlled versions
-torch>=1.13.0,<2.2.0; python_version>="3.8"
+torch>=2.6.0,<3.0.0; python_version>="3.13"  # Python 3.13 requires PyTorch 2.6+
+torch>=1.13.0,<2.2.0; python_version>="3.8" and python_version<"3.13"
 torch>=1.13.0,<1.14.0; python_version<"3.8"  # Older PyTorch for Python 3.7
 transformers>=4.25.0,<4.37.0
 datasets>=2.10.0,<2.16.0
 
 # MLX Framework for Apple Silicon - Optional with fallback
-mlx>=0.15.0,<0.19.0; platform_machine=="arm64" and sys_platform=="darwin"
-mlx-lm>=0.15.0,<0.19.0; platform_machine=="arm64" and sys_platform=="darwin"
+mlx>=0.19.3,<1.0.0; platform_machine=="arm64" and sys_platform=="darwin"
+mlx-lm>=0.19.0,<1.0.0; platform_machine=="arm64" and sys_platform=="darwin"
 
 # Vector Storage and Embeddings - Stable versions
-sentence-transformers>=2.2.0,<2.4.0
-faiss-cpu>=1.7.4,<1.8.0
-chromadb>=0.4.15,<0.5.0
-pgvector>=0.2.3,<0.3.0
+sentence-transformers>=2.2.0,<3.0.0
+faiss-cpu>=1.9.0,<2.0.0  # Python 3.13 requires faiss-cpu 1.9+
+chromadb>=0.4.15,<0.6.0
+pgvector>=0.2.3,<0.4.0
 
 # Background Tasks and Message Queues
 celery>=5.2.0,<5.4.0
