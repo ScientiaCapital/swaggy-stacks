@@ -162,8 +162,7 @@ echo -e "${YELLOW}Creating RunPod instance...${NC}"
 POD_OUTPUT=$($RUNPODCTL create pod \
     --name "swaggy-stacks-trading" \
     --imageName "swaggy-stacks-trading:latest" \
-    --gpuType "NVIDIA RTX A4000" \
-    --gpuCount 1 \
+    --gpuType "NONE" \
     --containerDiskSize 20 \
     --volumeSize 10 \
     --mem 4 \
@@ -172,8 +171,12 @@ POD_OUTPUT=$($RUNPODCTL create pod \
     --env "ENVIRONMENT=production" \
     --env "ALPACA_API_KEY=${ALPACA_API_KEY}" \
     --env "ALPACA_SECRET_KEY=${ALPACA_SECRET_KEY}" \
+    --env "ALPACA_BASE_URL=${ALPACA_BASE_URL}" \
+    --env "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" \
+    --env "OPENROUTER_API_KEY=${OPENROUTER_API_KEY}" \
     --env "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
     --env "SECRET_KEY=${SECRET_KEY}" \
+    --env "TRADING_SYMBOLS=${TRADING_SYMBOLS}" \
     --cost 0.10 2>&1)
 
 # Extract Pod ID from output (macOS compatible)
