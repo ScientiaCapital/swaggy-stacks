@@ -3,7 +3,22 @@ name = "swaggy-stacks"
 version = "1.0.0"
 description = "Production-ready algorithmic trading system with DeepAgents + LangGraph"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    # AI Agent Framework - DeepAgents + LangGraph
+    "anthropic>=0.40.0,<1.0.0",
+    "langgraph>=1.0.0,<2.0.0",
+    "langchain>=1.0.0,<2.0.0",
+    "langchain-core>=1.0.0,<2.0.0",
+    "langchain-anthropic>=1.0.0,<2.0.0",
+    "langchain-community>=1.0.0,<2.0.0",
+
+    # Additional AI Providers
+    "openai>=1.0.0,<2.0.0",  # For OpenRouter multi-model access
+
+    # State Management & Persistence
+    "langgraph-checkpoint>=1.0.0,<2.0.0",
+    "langgraph-checkpoint-postgres>=1.0.0,<2.0.0",
+]
 
 [tool.setuptools]
 packages = ["app"]

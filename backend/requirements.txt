@@ -36,11 +36,21 @@ httpx>=0.24.0,<0.26.0  # Required by ollama client
 h11>=0.14.0,<0.15.0    # HTTP/1.1 implementation
 h2>=4.1.0,<5.0.0       # HTTP/2 implementation
 
-# LangChain/LangGraph for Multi-Agent System - Version controlled
-langchain>=1.0.0,<1.1.0  # LangChain 1.0+ stable versions
-langchain-community>=0.0.1,<0.1.0
-langgraph>=1.0.0,<1.1.0  # LangGraph 1.0+ stable versions
-langchain-core>=1.0.0,<1.1.0  # LangChain Core 1.0+ stable versions
+# AI Agent Framework - DeepAgents + LangGraph
+anthropic>=0.40.0,<1.0.0
+langgraph>=1.0.0,<2.0.0
+langchain>=1.0.0,<2.0.0
+langchain-core>=1.0.0,<2.0.0
+langchain-anthropic>=1.0.0,<2.0.0
+langchain-community>=1.0.0,<2.0.0
+
+# Additional AI Providers
+openai>=1.0.0,<2.0.0  # For OpenRouter multi-model access
+# cerebras>=0.1.0,<1.0.0  # Commented - may not have PyPI package yet, use via OpenRouter
+
+# State Management & Persistence
+langgraph-checkpoint>=1.0.0,<2.0.0
+langgraph-checkpoint-postgres>=1.0.0,<2.0.0
 
 # DeepAgents - AI Agent Framework
 deepagents>=0.1.0,<0.2.0
