@@ -14,7 +14,6 @@ import os
 from anthropic import Anthropic
 from openai import OpenAI
 from langchain_anthropic import ChatAnthropic
-from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.postgres import PostgresSaver
 import structlog
 
@@ -84,7 +83,9 @@ class BaseAgent:
         self._init_ai_clients()
 
         # Initialize LangGraph checkpointing if enabled
-        self.checkpoint = None
+        self.checkpoint_uri = None
+        self.checkpoint_table = None
+        self.checkpoint_ns = None
         if enable_checkpoints:
             self._init_checkpointing()
 
@@ -99,7 +100,7 @@ class BaseAgent:
 
         self.anthropic = Anthropic(api_key=anthropic_key)
         self.claude_chat = ChatAnthropic(
-            model="claude-sonnet-4.5",
+            model=self.model_config,  # Use instance configuration, not hardcoded
             api_key=anthropic_key,
             max_tokens=4096,
         )
@@ -117,23 +118,38 @@ class BaseAgent:
             self.logger.warning("OpenRouter API key not found, multi-model access disabled")
 
     def _init_checkpointing(self):
-        """Initialize PostgreSQL-backed state persistence."""
-        db_uri = os.getenv("LANGGRAPH_DB_URI")
-        if not db_uri:
+        """Store checkpoint configuration for graph creation."""
+        self.checkpoint_uri = os.getenv("LANGGRAPH_DB_URI")
+        if not self.checkpoint_uri:
             self.logger.warning("LANGGRAPH_DB_URI not set, checkpointing disabled")
+            self.checkpoint_uri = None
             return
 
-        checkpoint_table = os.getenv("LANGGRAPH_CHECKPOINT_TABLE", "agent_checkpoints")
-
-        self.checkpoint = PostgresSaver(
-            conn_string=db_uri,
-        )
+        self.checkpoint_table = os.getenv("LANGGRAPH_CHECKPOINT_TABLE", "agent_checkpoints")
+        self.checkpoint_ns = f"{self.name}_agent"
 
         self.logger.info(
-            "Checkpoint persistence initialized",
-            table=checkpoint_table,
-            namespace=f"{self.name}_agent"
+            "Checkpoint persistence configured",
+            table=self.checkpoint_table,
+            namespace=self.checkpoint_ns,
+            uri_set=True
         )
+
+    def get_checkpointer(self):
+        """
+        Create PostgresSaver checkpointer for graph compilation.
+
+        Usage:
+            with agent.get_checkpointer() as checkpointer:
+                graph = workflow.compile(checkpointer=checkpointer)
+
+        Returns:
+            PostgresSaver context manager or None if checkpointing disabled
+        """
+        if not self.checkpoint_uri:
+            return None
+
+        return PostgresSaver.from_conn_string(self.checkpoint_uri)
 
     async def invoke(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -147,19 +163,39 @@ class BaseAgent:
         """
         raise NotImplementedError("Subclasses must implement invoke()")
 
-    def get_model_client(self, use_case: str = "default"):
+    def get_model_client(self, use_case: str = "default") -> Any:
         """
         Get appropriate AI client based on use case.
 
         Args:
-            use_case: "reasoning", "fast", "cheap", "risk"
+            use_case: "reasoning", "fast", "cheap", "risk", or "default"
 
         Returns:
-            Appropriate AI client for the use case
+            Configured AI client for the use case
         """
-        if use_case == "fast" and self.openrouter:
-            return self.openrouter
-        elif use_case == "cheap" and self.openrouter:
+        # Map use case to model configuration
+        model_map = {
+            "reasoning": ModelConfig.PRIMARY,
+            "fast": ModelConfig.FAST,
+            "cheap": ModelConfig.CHEAP,
+            "risk": ModelConfig.RISK,
+            "default": self.model_config,
+        }
+
+        model = model_map.get(use_case, self.model_config)
+
+        # Route to appropriate provider based on model prefix
+        if model.startswith("cerebras/") or model.startswith("deepseek/"):
+            if not self.openrouter:
+                self.logger.warning(
+                    "OpenRouter unavailable, falling back to Claude",
+                    requested_model=model
+                )
+                return self.claude_chat
+
+            # Return OpenRouter client configured for specific model
+            # Note: Model selection happens at API call time via model parameter
             return self.openrouter
         else:
+            # Claude models use direct Anthropic client
             return self.claude_chat
