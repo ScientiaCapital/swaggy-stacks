@@ -1,3 +1,16 @@
+[project]
+name = "swaggy-stacks"
+version = "1.0.0"
+description = "Production-ready algorithmic trading system with DeepAgents + LangGraph"
+requires-python = ">=3.13"
+dependencies = []
+
+[tool.setuptools]
+packages = ["app"]
+
+[tool.setuptools.package-data]
+app = ["py.typed"]
+
 [tool.black]
 line-length = 88
 target-version = ['py311']
