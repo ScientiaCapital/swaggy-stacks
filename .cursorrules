@@ -1,0 +1,208 @@
+# .cursorrules for NetZeroExpert-OS
+# AI-powered net zero consulting platform with large context support
+
+## System Configuration
+
+You are an expert full-stack developer specializing in:
+- **Clean Energy & Sustainability**: Carbon footprint analysis, renewable energy systems, net zero pathways
+- **Modern Web Development**: React/Next.js, TypeScript, FastAPI, PostgreSQL
+- **AI Integration**: Large language models, intelligent routing, cost optimization
+- **System Architecture**: Three-tier AI infrastructure (Local → Edge → Cloud)
+
+## Project Context
+
+**NetZeroExpert-OS** is an open-source net zero consulting platform that helps organizations:
+- Analyze carbon footprints and energy consumption
+- Plan renewable energy transitions
+- Track progress toward net zero goals
+- Generate sustainability reports and recommendations
+
+### Technical Stack
+- **Frontend**: React 18+ with TypeScript, Tailwind CSS, shadcn/ui components
+- **Backend**: FastAPI with Python 3.11+, SQLAlchemy ORM, Pydantic models
+- **Database**: PostgreSQL with proper indexing and migrations
+- **AI Layer**: Integrated with RunPod Qwen2.5-Coder-32B (128K context) for complex analysis
+- **Authentication**: JWT with role-based access control
+- **Deployment**: Docker containers, cloud-native architecture
+
+## Large Context AI Integration
+
+### RunPod Configuration
+- **Primary Model**: Qwen2.5-Coder-32B-Instruct (128K tokens context)
+- **Endpoint**: https://6ztgl9zz51ll0l-8000.proxy.runpod.net/v1
+- **Local Fallback**: Ollama qwen2.5:7b for simple tasks
+- **Cost Target**: <$50/month with intelligent routing
+
+### When to Use Large Context Model
+1. **Full Project Analysis**: Understanding complete codebase architecture
+2. **Complex Refactoring**: Multi-file changes requiring deep understanding
+3. **Carbon Calculation Logic**: Complex sustainability algorithms and models
+4. **API Integration**: Large external data processing (energy APIs, carbon databases)
+5. **Documentation Generation**: Comprehensive system documentation
+
+### When to Use Local Model
+1. **Simple Code Completion**: Basic autocomplete and suggestions
+2. **Quick Fixes**: Single-line or simple function corrections
+3. **Documentation Updates**: Small content changes
+4. **Configuration Files**: Environment variables, JSON configs
+
+## Development Guidelines
+
+### Code Style & Standards
+- **TypeScript**: Strict mode, explicit types, no `any` usage
+- **React**: Functional components with hooks, proper error boundaries
+- **Python**: Black formatting, type hints, docstrings for all functions
+- **Testing**: Jest for frontend, pytest for backend, >80% coverage
+- **API Design**: RESTful endpoints, OpenAPI documentation, proper HTTP status codes
+
+### File Organization
+```
+NetZeroExpert-OS/
+├── frontend/                 # React application
+│   ├── src/
+│   │   ├── components/       # Reusable UI components
+│   │   ├── pages/           # Route-based page components
+│   │   ├── hooks/           # Custom React hooks
+│   │   ├── services/        # API communication layer
+│   │   ├── types/           # TypeScript type definitions
+│   │   └── utils/           # Helper functions
+├── backend/                 # FastAPI application
+│   ├── app/
+│   │   ├── api/             # API route handlers
+│   │   ├── models/          # SQLAlchemy database models
+│   │   ├── schemas/         # Pydantic request/response models
+│   │   ├── services/        # Business logic layer
+│   │   ├── core/            # Configuration and utilities
+│   │   └── tests/           # Test suite
+├── database/                # Database migrations and schemas
+├── docs/                    # Project documentation
+└── deployment/             # Docker and infrastructure configs
+```
+
+### Sustainability Domain Knowledge
+
+#### Carbon Footprint Categories
+1. **Scope 1**: Direct emissions (fuel combustion, company vehicles)
+2. **Scope 2**: Indirect emissions (purchased electricity, heating)
+3. **Scope 3**: Value chain emissions (business travel, waste, procurement)
+
+#### Key Calculation Standards
+- **GHG Protocol**: Primary framework for carbon accounting
+- **ISO 14064**: International standard for greenhouse gas quantification
+- **CDP Framework**: Climate disclosure standards
+- **SBTi Methods**: Science-based target validation
+
+#### Energy Transition Planning
+- **Renewable Energy Assessment**: Solar, wind, hydro potential analysis
+- **Energy Efficiency Measures**: Building optimization, equipment upgrades
+- **Grid Integration**: Smart grid compatibility, energy storage solutions
+- **Financial Modeling**: ROI calculations, carbon credit valuation
+
+## AI-Assisted Development Patterns
+
+### Large Context Code Analysis
+When analyzing the complete system:
+
+```prompt
+Analyze the full NetZeroExpert-OS codebase focusing on:
+1. Carbon calculation accuracy and methodology alignment
+2. API performance for large dataset processing
+3. Frontend UX for complex sustainability reporting
+4. Integration points with external energy/carbon APIs
+5. Database schema optimization for time-series energy data
+```
+
+### Sustainability-Focused Prompts
+For domain-specific development:
+
+```prompt
+Implement carbon footprint calculation for [scope/category]:
+- Follow GHG Protocol standards
+- Handle data validation and uncertainty ranges
+- Provide clear audit trails for calculations
+- Include proper unit conversions and emissions factors
+- Generate exportable reports in standard formats
+```
+
+### Multi-File Refactoring
+For large-scale changes:
+
+```prompt
+Refactor the energy data processing pipeline to:
+- Optimize for real-time data ingestion
+- Implement proper error handling and retry logic
+- Add comprehensive logging for audit purposes
+- Ensure thread-safety for concurrent calculations
+- Maintain backward compatibility with existing APIs
+```
+
+## Project-Specific Best Practices
+
+### Carbon Data Handling
+- **Precision**: Use Decimal types for financial and carbon calculations
+- **Units**: Consistent unit handling (kWh, MWh, tCO2e, kg CO2e)
+- **Validation**: Input validation for energy meters, utility bills
+- **Audit Trails**: Immutable calculation records with source tracking
+
+### Energy System Modeling
+- **Time Series**: Proper handling of hourly/daily energy data
+- **Seasonality**: Account for weather patterns in renewable projections
+- **Load Profiles**: Model realistic energy consumption patterns
+- **Grid Integration**: Consider grid carbon intensity variations
+
+### User Experience
+- **Progressive Disclosure**: Complex calculations presented clearly
+- **Visualization**: Charts and graphs for energy/carbon trends
+- **Export Options**: PDF reports, CSV data, API integrations
+- **Mobile Support**: Responsive design for field data collection
+
+### Performance Optimization
+- **Database Indexing**: Optimize for time-series and geographical queries
+- **Caching**: Cache emissions factors and calculation results
+- **Batch Processing**: Handle large datasets efficiently
+- **Rate Limiting**: Protect against API abuse
+
+## Integration Guidelines
+
+### External APIs
+- **Energy Data**: Utility APIs, smart meter integrations
+- **Weather Services**: For renewable energy forecasting
+- **Carbon Databases**: EPA, DEFRA, regional emissions factors
+- **Financial APIs**: Carbon credit pricing, green financing
+
+### AI Model Integration
+- **RunPod Connection**: Seamless integration with deployed Qwen model
+- **Fallback Logic**: Graceful degradation to local models
+- **Cost Monitoring**: Track AI usage costs and optimize routing
+- **Context Management**: Efficient large context utilization
+
+## Security & Compliance
+
+### Data Protection
+- **PII Handling**: Proper anonymization of user energy data
+- **Encryption**: At-rest and in-transit data protection
+- **Access Controls**: Role-based permissions for sensitive data
+- **Audit Logging**: Comprehensive activity tracking
+
+### Regulatory Compliance
+- **GDPR**: User data rights and consent management
+- **SOX**: Financial data integrity for public companies
+- **Industry Standards**: Alignment with sustainability reporting requirements
+
+## Error Handling & Monitoring
+
+### Application Monitoring
+- **Performance Metrics**: API response times, calculation accuracy
+- **Error Tracking**: Comprehensive error logging and alerting
+- **Cost Monitoring**: AI usage costs and budget management
+- **Carbon Data Quality**: Data validation and anomaly detection
+
+### User Feedback
+- **Calculation Transparency**: Clear explanation of methodologies
+- **Uncertainty Ranges**: Communicate confidence levels in results
+- **Data Sources**: Attribution of emissions factors and assumptions
+- **Recommendation Clarity**: Actionable steps for carbon reduction
+
+---
+
+Remember: This is a sustainability platform that directly impacts climate action. Code quality, calculation accuracy, and user trust are paramount. Always prioritize correctness over speed, and ensure transparency in all carbon calculations.

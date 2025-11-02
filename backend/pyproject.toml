@@ -15,7 +15,6 @@ exclude = '''
   | build
   | dist
   | .taskmaster
-  | .roo
   | .claude
   | .cursor
 )/
@@ -25,7 +24,7 @@ exclude = '''
 profile = "black"
 line_length = 88
 skip_gitignore = true
-skip = [".git", "__pycache__", "venv", ".venv", ".taskmaster", ".roo", ".claude", ".cursor"]
+skip = [".git", "__pycache__", "venv", ".venv", ".taskmaster", ".claude", ".cursor"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -37,7 +36,6 @@ exclude = [
     "venv/",
     ".venv/",
     ".taskmaster/",
-    ".roo/",
     ".claude/",
     ".cursor/",
     "tests/"

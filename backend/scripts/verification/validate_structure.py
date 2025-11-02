@@ -36,19 +36,6 @@ def validate_directory_structure() -> Dict[str, any]:
             "description": "Only production entry point in backend root"
         },
 
-        # Legacy organization
-        "legacy_crypto_files": {
-            "path": project_root / "backend/scripts/legacy/crypto",
-            "min_files": 5,
-            "description": "Crypto trading files archived"
-        },
-
-        "legacy_agents_files": {
-            "path": project_root / "backend/scripts/legacy/agents",
-            "min_files": 5,
-            "description": "Agent system files archived"
-        },
-
         # Test organization
         "test_integration_files": {
             "path": project_root / "backend/tests/integration",
